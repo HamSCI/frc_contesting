@@ -9,11 +9,10 @@ db = client['wspr_db']
 collection = db['spots']
 def fetch_wspt_spots(numSpots=0, date=None, time=0):
     query = {}
-    if date:
+    if date != 'null':
         query['date'] = date
-    if time:
+    if time != 'null':
         query['time'] = {"$regex": f"^{time[:2]}"}
-    
     
     cursor = collection.find(query).sort("date", -1).limit(numSpots)
     results = []
