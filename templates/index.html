@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enter Callsign – WSPR Viewer</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: courier, monospace;
+      background-color: #f4f4f4;
+    }
+
+    .form-container {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 0.5em;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 250px;
+      margin-bottom: 1em;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    input[type="number"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 250px;
+      margin-bottom: 1em;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    input[type="date"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 125px;
+      margin-bottom: 1em;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    select {
+      padding: 10px;
+      font-size: 16px;
+      width: 82.5px;
+      margin-bottom: 1em;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h1>WSPR Spot Viewer</h1>
+    <h3>Enter Number of Spots and Time Frame</h3>
+    <form onsubmit="handleSubmit(event)">
+      <input
+      type="number"
+      id="numSpots"
+      placeholder="e.g., 100"
+      value="100"
+      />
+      <input
+      type="date"
+      id="date"
+      />
+      <label for="hour">Select Hour:</label>
+      <select name="hour" id="hour">
+        <option value="0000">00:00</option>
+        <option value="0100">01:00</option>
+        <option value="0200">02:00</option>
+        <option value="0300">03:00</option>
+        <option value="0400">04:00</option>
+        <option value="0500">05:00</option>
+        <option value="0600">06:00</option>
+        <option value="0700">07:00</option>
+        <option value="0800">08:00</option>
+        <option value="0900">09:00</option>
+        <option value="1000">10:00</option>
+        <option value="1100">11:00</option>
+        <option value="1200">12:00</option>
+        <option value="1300">13:00</option>
+        <option value="1400">14:00</option>
+        <option value="1500">15:00</option>
+        <option value="1600">16:00</option>
+        <option value="1700">17:00</option>
+        <option value="1800">18:00</option>
+        <option value="1900">19:00</option>
+        <option value="2000">20:00</option>
+        <option value="2100">21:00</option>
+        <option value="2200">22:00</option>
+        <option value="2300">23:00</option>
+      </select>
+      
+      <br/>
+      <button type="submit">View Map</button>
+    </form>
+  </div>
+
+  <script>
+    function handleSubmit(event) {
+      event.preventDefault();
+  
+      const numSpots = document.getElementById("numSpots").value.trim();
+      const dateVal = document.getElementById("date").value;
+      const timeVal = document.getElementById("hour").value;
+  
+      if (!numSpots) {
+        alert("Please enter a valid number of spots.");
+        return;
+      }
+      if(!dateVal){
+        alert("Please select a date");
+        return;
+     }
+     if(!timeVal){
+        alert("Please select a time");
+        return;
+     }
+  
+      let yymmdd = "";
+      if (dateVal) {
+        const dateObj = new Date(dateVal);
+        const yy = String(dateObj.getFullYear()).slice(2);
+        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(dateObj.getDate() +1).padStart(2, '0');
+        yymmdd = yy + mm + dd;
+      }
+  
+      // Redirect with query params
+      let query = `?numSpots=${numSpots}`;
+      if (yymmdd) {
+        query += `&date=${yymmdd}&time=${timeVal}`;
+      }
+  
+      window.location.href = "/display" + query;
+    }
+  </script>
+
+</body>
+</html>

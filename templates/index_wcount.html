@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WSPR RX Station Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="/onload"></script>
+  <style>
+    .info-box {
+      background: white;
+      padding: 8px;
+      border-radius: 5px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      font-size: 14px;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: courier;
+    }
+
+    #map {
+      height: calc(100% - 130px);
+    }
+  </style>
+  <style>
+  /* Hue-rotate color for each band */
+  img.hue-2200m { filter: hue-rotate(5deg)}
+  img.hue-630m { filter: hue-rotate(15deg)}
+  img.hue-160m { filter: hue-rotate(0deg); }
+  img.hue-80m  { filter: hue-rotate(40deg); }
+  img.hue-60m  { filter: hue-rotate(70deg); }
+  img.hue-40m  { filter: hue-rotate(100deg); }
+  img.hue-30m  { filter: hue-rotate(130deg); }
+  img.hue-20m  { filter: hue-rotate(160deg); }
+  img.hue-17m  { filter: hue-rotate(200deg); }
+  img.hue-15m  { filter: hue-rotate(230deg); }
+  img.hue-12m  { filter: hue-rotate(260deg); }
+  img.hue-10m  { filter: hue-rotate(290deg); }
+  img.hue-6m   { filter: hue-rotate(320deg); }
+  img.hue-2m   { filter: hue-rotate(350deg); }
+  img.hue-Unknown { filter: grayscale(100%) brightness(0.6); }  
+  </style>
+  <style>
+    .leaflet-bottom.leaflet-right .spot-counter {
+      background: white;
+      padding: 6px 12px;
+      font-size: 14px;
+      border-radius: 5px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      font-family: courier;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+  </style>
+
+</head>
+<body>
+  <h1 style="text-align: center;">WSPR Spots From PSWS Receiver (LOCAL data)</h1>
+  <h3 id="spot-info" style="text-align: center;">Loading spot data...</h3>
+
+  <!-- <button onclick="javascript:window.history.back();" style="margin: 10px;">⬅ Back</button> -->
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="/mapjs"></script>
+  
+</body>
+</html>
