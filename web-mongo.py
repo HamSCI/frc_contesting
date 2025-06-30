@@ -2,21 +2,28 @@ from flask import Flask, jsonify, render_template, request
 from pymongo import MongoClient
 import maidenhead
 
-app = Flask(__name__)
-client = MongoClient('mongodb://admin:***REDACTED***@localhost:5001')
+app = Flask(__name__,static_url_path='', static_folder='static', template_folder='templates')
 
+# setup db connection / collection
+# station w3usr client = MongoClient('mongodb://admin:***REDACTED***@localhost:5001')
+client = MongoClient("mongodb://admin:***REDACTED***@10.5.0.19:27017")
+#client = MongoClient('mongodb://admin:***REDACTED***@***REDACTED_HOST***:27017')
 db = client['wspr_db']
 collection = db['spots']
-def fetch_wspt_spots(numSpots=0, date=None, time=0):
+
+# fetch from db
+def fetch_wspt_spots(numSpots=50, date=None, time=None):
     query = {}
-    if date != 'null':
+
+    if date:
         query['date'] = date
-    if time != 'null':
+    if time and isinstance(time, str) and len(time) >= 2:
         query['time'] = {"$regex": f"^{time[:2]}"}
+    
     
     cursor = collection.find(query).sort("date", -1).limit(numSpots)
     results = []
-    rxlat, rxlon = maidenhead.to_location("FN21ej")
+    rxlat, rxlon = maidenhead.to_location("FN21ni")
 
     for doc in cursor:
 
@@ -38,22 +45,14 @@ def fetch_wspt_spots(numSpots=0, date=None, time=0):
         })
     return results
 
+# route paths
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('index_wcount.html')
 @app.route('/display')
 def display():
     return render_template('index_wcount.html')
-@app.route('/onload')
-def onload():
-    return render_template('onload.js')
-
 @app.route('/spots')
-# def spots():
-#     rx_callsign = request.args.get('rx_callsign')  # expects receiver callsign only
-#     numSpots = request.args.get('numSpots')
-#     spots = fetch_wspt_spots(numSpots=numSpots)
-#     return jsonify(spots)
 def spots():
     numSpots = request.args.get('numSpots', 50)
     try:
@@ -62,11 +61,10 @@ def spots():
         numSpots = 50
     date = request.args.get('date')
     time = request.args.get('time')
+    band = request.args.get('band')
+
     spots = fetch_wspt_spots(numSpots=numSpots, date=date, time=time)
     return jsonify(spots)
-@app.route('/mapjs')
-def mapjs():
-    return render_template('map.js')
 
 if __name__ == '__main__':
     app.run(debug=True)
