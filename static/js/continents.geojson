@@ -1,0 +1,68 @@
+
+{
+    "_comment": "excludes antartica and is very crude",
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": { "continent": "Africa" },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [-17.5, 37], [51.5, 37], [51.5, -35], [-17.5, -35], [-17.5, 37]
+          ]]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": { "continent": "Asia" },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [25, 81], [180, 81], [180, 0], [25, 0], [25, 81]
+          ]]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": { "continent": "Europe" },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [-25, 72], [60, 72], [60, 35], [-25, 35], [-25, 72]
+          ]]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": { "continent": "North America" },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [-170, 83], [-30, 83], [-30, 7], [-170, 7], [-170, 83]
+          ]]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": { "continent": "South America" },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [-92, 13], [-30, 13], [-30, -60], [-92, -60], [-92, 13]
+          ]]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": { "continent": "Australia" },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [110, -10], [180, -10], [180, -50], [110, -50], [110, -10]
+          ]]
+        }
+      }
+    ]
+  }
+  

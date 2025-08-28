@@ -1,10 +1,9 @@
-//lat-lon to country
+//lat-lon to country, continent, and cq zone
 let countryFeat = [];
+let continentFeat = [];
+let cqZoneFeat = [];
+
 async function loadCountryPolygons() {
-  // const res = await fetch("js/countries.geojson");
-  // const data = await res.json();
-  
-  // countryFeat = data.features;
   try {
     const res = await fetch("js/countries.geojson");
     const data = await res.json();
@@ -14,12 +13,60 @@ async function loadCountryPolygons() {
     console.error("Failed to load countries.geojson", err);
   }
 }
+async function loadContinentPolygons() {
+  try {
+    const res = await fetch("js/continents.geojson");
+    const data = await res.json();
+    continentFeat = data.features;
+    console.log("Loaded", continentFeat.length, "continent polygons")
+  } catch (e) {
+    console.error("Failed to load continent GeoJSON", e);
+  }
+}
+async function loadCqZones() {
+  try {
+    const res = await fetch("js/cq-zones.geojson");
+    const data = await res.json();
+    cqZoneFeat = data.features;
+    console.log("Loaded", cqZoneFeat.length, "CQ zones");
+  } catch (e) {
+    console.error("Failed to load CQ zones", e);
+  }
+}
+// generate cq-zones select
+const select1 = document.getElementById("cqZoneFilter");
+
+for (let i = 1; i <= 40; i++) {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = i;
+  select1.appendChild(opt);
+}
 
 function lookupCountry(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of countryFeat) {
     if (turf.booleanPointInPolygon(pt, feature)) {
       return feature.properties.name || "Unknown";
+    }
+  }
+  return "Unknown";
+}
+function lookupContinent(lat, lon) {
+  const pt = turf.point([lon, lat]);
+  for (const feature of continentFeat) {
+    if (turf.booleanPointInPolygon(pt, feature)) {
+      return feature.properties.continent || "Unknown";
+    }
+  }
+  return null;
+}
+
+function lookupCqZone(lat, lon) {
+  const pt = turf.point([lon, lat]);
+  for (const feature of cqZoneFeat) {
+    if (turf.booleanPointInPolygon(pt, feature)) {
+      return String(feature.properties.cq_zone_number);
     }
   }
   return "Unknown";
@@ -166,7 +213,8 @@ function reverseWsprDate(dateStr) {
   const day = dateStr.slice(4, 6);
   return `${year}-${month}-${day}`;
 }
-
+// band counts out for tables / charts
+//export let bandCountsOut = {};
 
 
 async function loadSpots() {
@@ -215,12 +263,15 @@ async function loadSpots() {
   const time = document.getElementById("hour").value || getQueryParam("time") || "";
   const selectedBand = getQueryParam("band") || document.getElementById("bandFilter").value;
   const selectedCountry = document.getElementById("countryFilter").value;
+  const selectedContinent = document.getElementById("continentFilter").value;
+  const selectedCqZone = document.getElementById("cqZoneFilter").value;
   const queryParams = new URLSearchParams();
   queryParams.set("numSpots", numSpots);
   if (date) queryParams.set("date", date);
   if (time) queryParams.set("time", time);
   if (selectedBand) queryParams.set("band", selectedBand);
   if (selectedCountry) queryParams.set("country", selectedCountry);
+  if (selectedContinent) queryParams.set("continent", selectedContinent)
   const res = await fetch(`/spots?${queryParams.toString()}`);
   //console.log(`/spots?${queryParams.toString()}`)
   const spots = await res.json();
@@ -235,7 +286,7 @@ async function loadSpots() {
   layers.forEach(layer => map.removeLayer(layer));
   layers = [];
 
-  const bandCounts = {};
+  let bandCounts = {};
   let firstRxLat = null;
   let firstRxLon = null;
   let centered = true;
@@ -260,9 +311,21 @@ async function loadSpots() {
     ) {
       return; // skip invalid coordinates
     }
+
+    //map by country
     const tx_country = lookupCountry(spot.tx_lat, spot.tx_lon);
     if (selectedCountry && tx_country !== selectedCountry) {
       return; // skip this spot
+    }
+    //map by cont.
+    const tx_continent = lookupContinent(spot.tx_lat, spot.tx_lon);
+    if(selectedContinent && tx_continent !== selectedContinent){
+      return; //skip spot
+    }
+    //map by cq zone
+    const tx_cqzone = lookupCqZone(spot.tx_lat, spot.tx_lon);
+    if(selectedCqZone && tx_cqzone !== selectedCqZone){
+      return; //skip spot
     }
 
     
@@ -340,7 +403,8 @@ async function loadSpots() {
   });
 
   spotCountControl.update(bandCounts);
-
+  bandCountsOut = bandCounts;
+  console.log(bandCountsOut)
 }
 
 //reload interval
@@ -361,6 +425,11 @@ function setReloadInterval(seconds) {
 
 window.addEventListener('DOMContentLoaded', async () => {
   await loadCountryPolygons();
+  await loadContinentPolygons();
+  await loadCqZones();
+  //console.log(lookupContinent(40.7128, -74.0060))
+  //console.log(lookupCqZone(40.7128, -74.0060))
+
 
   const update = document.getElementById("updateButton")
   const spotsInput = document.getElementById("spots");
@@ -368,7 +437,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   const hourSelect = document.getElementById("hour");
   const select = document.getElementById("reloadInterval");
   const countrySelect = document.getElementById("countryFilter");
+  const continentSelect = document.getElementById("continentFilter");
+  const cqZoneSelect = document.getElementById("cqZoneFilter")
   const savedCountry = getQueryParam("country");
+  const savedContinent = getQueryParam("continent")
+  const savedCQZone = getQueryParam("cqzone")
 
 
   // Restore previous selections from sessionStorage
@@ -377,6 +450,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   const dateSaved = sessionStorage.getItem("date") || getQueryParam("date")
   const hourSaved = sessionStorage.getItem("hour") || getQueryParam("time")
   const countrySaved = sessionStorage.getItem("country") || getQueryParam("country")
+  const continentSaved = sessionStorage.getItem("continent") || getQueryParam("continent")
+  const CQZoneSaved = sessionStorage.getItem("cqzone") || getQueryParam("cqzone")
   if (savedInterval) {
     select.value = savedInterval;
     setReloadInterval(parseInt(savedInterval, 10));
@@ -388,6 +463,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     dateInput.value = dateToYYMMDD(getQueryParam("date")) || "";
   }  if (hourSaved) hourSelect.value = hourSaved;
   if (countrySaved) countrySelect.value = countrySaved;
+  if (continentSaved) continentSelect.value = continentSaved;
+  if(CQZoneSaved) cqZoneSelect.value = CQZoneSaved
   loadSpots();
 
 
@@ -398,6 +475,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   if(savedCountry){
     countrySelect.value = savedCountry;
+  }
+  if(savedContinent){
+    continentSelect.value = savedContinent
   }
   spotsInput.value = getQueryParam("numSpots") || "100";
   dateInput.value = dateToYYMMDD(getQueryParam("date")) || "";
@@ -439,6 +519,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     sessionStorage.setItem("country", document.getElementById("countryFilter").value);
     if (country) params.set("country", country); else params.delete("country");
 
+    const continent = document.getElementById("continentFilter").value;
+    sessionStorage.setItem("continent", document.getElementById("continentFilter").value);
+    if(continent) params.set("continent", continent); else params.delete("continent");
+    
+    const cqZone = document.getElementById("cqZoneFilter").value;
+    sessionStorage.setItem("cqzone", document.getElementById("cqZoneFilter").value);
+    if(cqZone) params.set("cqzone", cqZone); else params.delete("cqzone");
+
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState(null, "", newUrl);
 
@@ -447,7 +535,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     //window.location.reload();
   });
 
-  //auto reload
+  //auto reload-on select
   // countrySelect.addEventListener("change", () =>{
   //   const newCountry = countrySelect.value;
   //   const url = new URL(window.location.href)
