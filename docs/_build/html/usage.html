@@ -10,8 +10,8 @@
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <script src="_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="_static/doctools.js?v=fd6eb6e6"></script>
-    <script src="_static/sphinx_highlight.js?v=5572e0a9"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="prev" title="Installation" href="installation.html" />
@@ -34,8 +34,104 @@
             
   <section id="usage">
 <h1>Usage<a class="headerlink" href="#usage" title="Link to this heading">¶</a></h1>
-<p>How to navigate the Dashboard</p>
+<p>How to Navigate the Dashboard</p>
 <p>Navigate to <a class="reference external" href="https://dash.kd3ald.com">KD3ALD’s Dashboard</a>, once loaded wait at least 30 seconds for data to appear.</p>
+<p><em>Note:</em> This website is running at my home QTH in gridsquare FN21ni, on a semi-slow internet connection, load times may be longer than 30 seconds if under heavy use.</p>
+<p>Once the Dashboard is loaded, something similar to the image below should be displayed
+<img alt="Image of Loaded Dashboard" src="_images/loaded.jpg" /></p>
+<p>On the dashboard you will see many filters, they are all listed below (Left to Right):</p>
+<ul class="simple">
+<li><p>Number of Spots Displayed</p>
+<ul>
+<li><p>I would recommend around 250-400 Spots at a time if using Chrome</p></li>
+</ul>
+</li>
+<li><p>Date of Data Being Displayed</p></li>
+<li><p>Time of Data Being Displayed</p></li>
+<li><p>Band Being Displayed</p></li>
+<li><p>Country Being Displayed</p></li>
+<li><p>Continent Being Displayed</p></li>
+<li><p>CQ Zone Being Displayed</p>
+<ul>
+<li><p><a class="reference external" href="https://www.mapability.com/ei8ic/maps/CQ_Zones_01.png">CQ Zone Map</a></p></li>
+</ul>
+</li>
+<li><p>Map Auto Reload Interval</p></li>
+</ul>
+<p><strong>Whenever a change is made to filters you must click update to show filtered spots</strong></p>
+<p>Each Spot displayed is mapped based off of grid square.  All spots and paths are clickable on the map. They display information for the spot that is being viewed. Information includes: Transmitting Callsign, SNR, Exact Frequency, Date and time, Band, and Number of spots decoded from that spot.</p>
+<p>Spots are color coded by band. On the bottom right of the map, is the band counts. Below is all colors and band mappings.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Band</p></th>
+<th class="head"><p>Color Name</p></th>
+<th class="head"><p>Preview</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>160m</p></td>
+<td><p>black</p></td>
+<td><p><span style="background-color:#211D1E;color:#fff;padding:2px 10px;">#211D1E</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>80m</p></td>
+<td><p>red</p></td>
+<td><p><span style="background-color:#991F24;color:#fff;padding:2px 10px;">#991F24</span></p></td>
+</tr>
+<tr class="row-even"><td><p>60m</p></td>
+<td><p>orange-dark</p></td>
+<td><p><span style="background-color:#D43019;color:#fff;padding:2px 10px;">#D43019</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>40m</p></td>
+<td><p>orange</p></td>
+<td><p><span style="background-color:#EE8918;color:#000;padding:2px 10px;">#EE8918</span></p></td>
+</tr>
+<tr class="row-even"><td><p>30m</p></td>
+<td><p>yellow</p></td>
+<td><p><span style="background-color:#F5B72D;color:#000;padding:2px 10px;">#F5B72D</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>20m</p></td>
+<td><p>green</p></td>
+<td><p><span style="background-color:#008B38;color:#fff;padding:2px 10px;">#008B38</span></p></td>
+</tr>
+<tr class="row-even"><td><p>17m</p></td>
+<td><p>green-light</p></td>
+<td><p><span style="background-color:#5AA429;color:#fff;padding:2px 10px;">#5AA429</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>15m</p></td>
+<td><p>cyan</p></td>
+<td><p><span style="background-color:#21A2DA;color:#fff;padding:2px 10px;">#21A2DA</span></p></td>
+</tr>
+<tr class="row-even"><td><p>12m</p></td>
+<td><p>blue-dark</p></td>
+<td><p><span style="background-color:#183C52;color:#fff;padding:2px 10px;">#183C52</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>10m</p></td>
+<td><p>blue-dark</p></td>
+<td><p><span style="background-color:#183C52;color:#fff;padding:2px 10px;">#183C52</span></p></td>
+</tr>
+<tr class="row-even"><td><p>6m</p></td>
+<td><p>purple</p></td>
+<td><p><span style="background-color:#4E2960;color:#fff;padding:2px 10px;">#4E2960</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>4m</p></td>
+<td><p>violet</p></td>
+<td><p><span style="background-color:#8B1E89;color:#fff;padding:2px 10px;">#8B1E89</span></p></td>
+</tr>
+<tr class="row-even"><td><p>2m</p></td>
+<td><p>pink</p></td>
+<td><p><span style="background-color:#BB4A99;color:#fff;padding:2px 10px;">#BB4A99</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>70cm</p></td>
+<td><p>white</p></td>
+<td><p><span style="background-color:#F5F4F5;color:#000;padding:2px 10px;">#F5F4F5</span></p></td>
+</tr>
+<tr class="row-even"><td><p>unknown</p></td>
+<td><p>green-dark</p></td>
+<td><p><span style="background-color:#004B22;color:#fff;padding:2px 10px;">#004B22</span></p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Please contact Owen Ruzanski at <a class="reference external" href="mailto:owen&#46;ruzanski&#37;&#52;&#48;scranton&#46;edu">owen<span>&#46;</span>ruzanski<span>&#64;</span>scranton<span>&#46;</span>edu</a> with any issues or suggestions!</strong></p>
 </section>
 
 
@@ -64,7 +160,6 @@
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Table of Contents</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a></li>
@@ -94,7 +189,7 @@
       &#169;2025, Owen Ruzanski.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.3.0</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
       &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
       |
