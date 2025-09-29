@@ -55,56 +55,56 @@ function reverseWsprDate(dateStr) {
 //export let bandCountsOut = {};
 
 
-async function loadSpots() {
-  const numSpots = document.getElementById("spots")?.value || getQueryParam("numSpots") || 100;
-  const date = dateToYYMMDD(document.getElementById("date")?.value) || getQueryParam("date") || "";
-  const selectedCountry = document.getElementById("countryFilter")?.value;
+// async function loadSpots() {
+//   const numSpots = document.getElementById("spots")?.value || getQueryParam("numSpots") || 100;
+//   const date = dateToYYMMDD(document.getElementById("date")?.value) || getQueryParam("date") || "";
+//   const selectedCountry = document.getElementById("countryFilter")?.value;
 
-  const queryParams = new URLSearchParams();
-  queryParams.set("numSpots", numSpots);
-  if (date) queryParams.set("date", date);
-  if (selectedCountry) queryParams.set("country", selectedCountry);
+//   const queryParams = new URLSearchParams();
+//   queryParams.set("numSpots", numSpots);
+//   if (date) queryParams.set("date", date);
+//   if (selectedCountry) queryParams.set("country", selectedCountry);
 
-  const res = await fetch(`/tbspots?${queryParams.toString()}`);
-  console.log(`/tbspots?${queryParams.toString()}`)
-  const spots = await res.json();
+//   const res = await fetch(`/tbspots?${queryParams.toString()}`);
+//   console.log(`/tbspots?${queryParams.toString()}`)
+//   const spots = await res.json();
 
-  // --- Build aggregation ---
-  const counts = {}; // { country: { band: count } }
-  const allBands = new Set();
+//   // --- Build aggregation ---
+//   const counts = {}; // { country: { band: count } }
+//   const allBands = new Set();
 
-  spots.forEach(s => {
-    const country = s.txcountry || "Unknown";
-    const band = s.band || "Unknown";
-    allBands.add(band);
-    if (!counts[country]) counts[country] = {};
-    if (!counts[country][band]) counts[country][band] = 0;
-    counts[country][band]++;
-  });
+//   spots.forEach(s => {
+//     const country = s.txcountry || "Unknown";
+//     const band = s.band || "Unknown";
+//     allBands.add(band);
+//     if (!counts[country]) counts[country] = {};
+//     if (!counts[country][band]) counts[country][band] = 0;
+//     counts[country][band]++;
+//   });
 
-  const bandList = Array.from(allBands).sort();
+//   const bandList = Array.from(allBands).sort();
 
-  // --- Build HTML table ---
-  let html = "<table border='1' cellspacing='0' cellpadding='5' style='margin:auto; border-collapse:collapse; font-family:courier;'>";
-  html += "<tr><th>Country</th>";
-  bandList.forEach(b => { html += `<th>${b}</th>`; });
-  html += "</tr>";
+//   // --- Build HTML table ---
+//   let html = "<table border='1' cellspacing='0' cellpadding='5' style='margin:auto; border-collapse:collapse; font-family:courier;'>";
+//   html += "<tr><th>Country</th>";
+//   bandList.forEach(b => { html += `<th>${b}</th>`; });
+//   html += "</tr>";
 
-  Object.keys(counts).sort().forEach(country => {
-    html += `<tr><td>${country}</td>`;
-    bandList.forEach(b => {
-      html += `<td>${counts[country][b] || 0}</td>`;
-    });
-    html += "</tr>";
-  });
+//   Object.keys(counts).sort().forEach(country => {
+//     html += `<tr><td>${country}</td>`;
+//     bandList.forEach(b => {
+//       html += `<td>${counts[country][b] || 0}</td>`;
+//     });
+//     html += "</tr>";
+//   });
 
-  html += "</table>";
+//   html += "</table>";
 
-  document.getElementById("spotsTableContainer").innerHTML = html;
-  console.log("successfully loaded")
-}
+//   document.getElementById("spotsTableContainer").innerHTML = html;
+//   console.log("successfully loaded")
+// }
 
-//reload interval
+// //reload interval
 let reloadTimer = null;
 
 function setReloadInterval(seconds) {
@@ -120,7 +120,106 @@ function setReloadInterval(seconds) {
 
 
 
+
+
+
+const regionCountries = {
+  "Europe": ["Spain", "United Kingdom", "Germany", "France", "Italy", "Poland", "Netherlands"],
+  "Caribbean": ["Cuba", "Puerto Rico", "Dominican Republic", "Jamaica", "Bahamas"],
+  "South America": ["Brazil", "Argentina", "Chile", "Uruguay", "Peru"],
+  "Japan": ["Japan"],
+  "Africa": ["South Africa", "Nigeria", "Kenya", "Morocco", "Egypt"],
+  "VK": ["Australia"],
+  "YB": ["Indonesia"],
+  "China": ["China"],
+  "UA9": ["Russia"],
+  "Indian": ["India", "Sri Lanka"],
+  "Middle East": ["Saudi Arabia", "United Arab Emirates", "Israel", "Jordan"],
+  "Thailand": ["Thailand"],
+  "North America": ["United States", "Canada", "Mexico"],
+  "Unknown": ["unknown", "Unknown"]
+};
+
+function getRegionCount(region, band, counts) {
+  let total = 0;
+  (regionCountries[region] || []).forEach(c => {
+    if (counts[c]?.[band]) total += counts[c][band];
+  });
+  return total;
+}
+
+
+async function loadSpots() {
+  const numSpots = document.getElementById("spots").value || getQueryParam("numSpots") || 100;
+  const res = await fetch(`/tbspots?numSpots=${numSpots}`);
+  const spots = await res.json();
+
+  // get threshold from input (default 1)
+  const threshold = parseInt(document.getElementById("threshold")?.value || "1", 10);
+
+  const counts = {}; // { country: { band: count } }
+  const bandOrder = ["80m", "40m", "30m", "20m", "15m", "12m", "10m"];
+
+  spots.forEach(s => {
+    const country = s.txcountry || "Unknown";
+    const band = s.band || "Unknown";
+    if (!counts[country]) counts[country] = {};
+    if (!counts[country][band]) counts[country][band] = 0;
+    counts[country][band]++;
+  });
+
+  // build table
+  let html = "<table border='1' cellspacing='0' cellpadding='5' style='margin:auto; border-collapse:collapse; font-family:courier;'>";
+
+  // top blue band row
+  html += "<tr>";
+  bandOrder.slice(0,5).forEach(b => { html += `<th class='band-header'>${b.replace("m","")}</th>`; });
+  bandOrder.slice(0,5).forEach(b => { html += `<th class='band-header'>${b.replace("m","")}</th>`; });
+  html += "</tr>";
+
+  function addRegionRow(r1, r2) {
+    html += `<tr><th class='region-header' colspan='5'>${r1}</th><th class='region-header' colspan='5'>${r2}</th></tr>`;
+    html += "<tr>";
+    bandOrder.slice(0,5).forEach(b => {
+      const val = getRegionCount(r1, b, counts);
+      html += `<td class='${val >= threshold ? "value" : ""}'>${val || ""}</td>`;
+    });
+    bandOrder.slice(0,5).forEach(b => {
+      const val = getRegionCount(r2, b, counts);
+      html += `<td class='${val >= threshold ? "value" : ""}'>${val || ""}</td>`;
+    });
+    html += "</tr>";
+  }
+
+  addRegionRow("Europe","Caribbean");
+  addRegionRow("South America","Japan");
+  addRegionRow("Africa","VK");
+  addRegionRow("YB","China");
+  addRegionRow("UA9","Indian");
+  addRegionRow("Middle East","Thailand");
+  addRegionRow("North America","Unknown");
+
+  html += "</table>";
+
+  document.getElementById("spotsTableContainer").innerHTML = html;
+}
+
+
+
 window.addEventListener('DOMContentLoaded', async () => {
+
+
+  const savedInterval = sessionStorage.getItem("reloadInterval");
+  const spotsSaved = sessionStorage.getItem("spots") || getQueryParam("numSpots")
+  const savedGreenThres = sessionStorage.getItem("greenThres");
+
+  if (savedInterval) {
+    select.value = savedInterval;
+    setReloadInterval(parseInt(savedInterval, 10));
+  }
+  if (spotsSaved) document.getElementById("spots").value = spotsSaved;
+  if(savedGreenThres) document.getElementById("threshold").value = savedGreenThres;
+
 
   //console.log(lookupContinent(40.7128, -74.0060))
   //console.log(lookupCqZone(40.7128, -74.0060))
@@ -139,6 +238,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log("fetched")
     //window.location.reload();
   });
+
+  const select = document.getElementById("reloadInterval");
+  select.addEventListener("change", () => {
+    const interval = parseInt(select.value, 10);
+    sessionStorage.setItem("reloadInterval", interval);
+    setReloadInterval(interval);
+  });
+  const update = document.getElementById("updateButton")
+  update.addEventListener("click", function() {
+    const params = new URLSearchParams(window.location.search);
+
+    const spots = document.getElementById("spots").value;
+    sessionStorage.setItem("spots", document.getElementById("spots").value);
+    if (spots) params.set("numSpots", spots); else params.delete("numSpots");
+
+    const colorThres = document.getElementById("threshold").value;
+    sessionStorage.setItem("greenThres", colorThres)
+
+    loadSpots();
+  })
 
   //auto reload-on select
   // countrySelect.addEventListener("change", () =>{

@@ -22,7 +22,7 @@ def grid_to_country(grid):
     # Convert Maidenhead grid square to lat/lon
     lat, lon = maidenhead.to_location(grid)  # returns (lat, lon)
     point = Point(lon, lat)
-    print(countries.columns)
+    #print(countries.columns)
     # Find which polygon contains this point
     for _, row in countries.iterrows():
         if row['geometry'].contains(point):
