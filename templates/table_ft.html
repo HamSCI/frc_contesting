@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WSPR Spots Table</title>
+
+  <style>
+    html, body { margin: 0; padding: 0; font-family: courier; }
+
+    #controls { text-align: center; margin: 10px; }
+
+    table {
+      border-collapse: collapse;
+      margin: 0 auto;
+      font-size: 14px;
+      table-layout: fixed;
+      width: 1000px;
+    }
+
+    th, td {
+      border: 1px solid #000;
+      text-align: center;
+      padding: 6px 8px;
+      width: 60px;
+      height: 28px;
+    }
+
+    .band-header { background-color: #1f497d; color: white; font-weight: bold; }
+    .region-header { background-color: #f2a900; font-weight: bold; }
+    .value { background-color: #4caf50; color: white; font-weight: bold; }
+  </style>
+</head>
+
+<body>
+  <h1 style="text-align:center;" id="title">WSPR Spots Table</h1>
+
+  <div id="controls">
+    <label>Last Number of Minutes:</label>
+    <input id="lastInterval" type="number" value="15" min="1" style="width:60px;">
+  
+    <label>Green Threshold:</label>
+    <input id="threshold" type="number" value="1" min="0" style="width:60px;">
+  
+    <label for="reloadInterval">Auto Reload:</label>
+    <select id="reloadInterval">
+      <option value="0">Off</option>
+      <option value="120">Every 2 min</option>
+      <option value="300">Every 5 min</option>
+      <option value="600">Every 10 min</option>
+      <option value="900">Every 15 min</option>
+      <option value="1800">Every 30 min</option>
+    </select></br>
+    <label><input type="checkbox" id="modeWSPR" checked> WSPR</label>
+  <label><input type="checkbox" id="modeFT8" checked> FT8</label>
+  <label><input type="checkbox" id="modeFT4" checked> FT4</label>
+</br>
+    <button id="updateButton">Update</button>
+  </div>
+  
+  <div id="totalDisplay" style="text-align:center; margin-top:10px; font-size:18px; font-weight:bold;"></div>
+
+
+  <div id="spotsTableContainer" style="margin-top:20px;"></div>
+
+  <script src="js/table_ft.js"></script>
+</body>
+</html>
