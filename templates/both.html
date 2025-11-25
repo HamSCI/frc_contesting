@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WSPR Map + Table</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: courier;
+      background: #ffffff;
+      overflow-y: scroll;
+      scroll-behavior: smooth;
+    }
+
+    /* ---------- SLIM NEON BLUE SCROLLBAR (WebKit) ---------- */
+    ::-webkit-scrollbar {
+      width: 15px;        /* slim */
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0b0b0b;      /* dark background */
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #00aaff;      /* NEON BLUE */
+      border-radius: 10px;
+      box-shadow: 0 0 8px #00aaff;  /* neon glow */
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #33ccff;      /* brighter on hover */
+      box-shadow: 0 0 12px #33ccff;
+    }
+
+    /* ---------- Firefox scrollbars ---------- */
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: #00aaff #0b0b0b;
+    }
+
+    /* Full-screen iframes */
+    .fullFrame {
+      width: 100%;
+      height: 100vh;    /* Full screen height */
+      border: none;
+      display: block;
+    }
+
+    /* Divider */
+    #divider {
+      width: 100%;
+      height: 15px;
+      background: black;
+    }
+
+    h1 {
+      margin: 0;
+      padding: 12px 0;
+      text-align: center;
+      font-size: 26px;
+      background: #ffffff;
+      color: #000;
+    }
+  </style>
+</head>
+
+<body>
+
+  <iframe class="fullFrame" src="/map"></iframe>
+
+  <div id="divider"></div>
+
+     <iframe class="fullFrame" src="/table"></iframe>
+
+</body>
+</html>
