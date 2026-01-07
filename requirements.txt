@@ -1,0 +1,19 @@
+# HamSCI Contesting Dashboard - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Web Framework
+flask>=2.0.0
+
+# Database
+pymongo>=4.0.0
+
+# Amateur Radio
+maidenhead>=1.1.0
+
+# Geospatial
+geopandas>=0.10.0
+shapely>=1.8.0
+geopy>=2.2.0
+
+# Environment Variables
+python-dotenv>=0.19.0

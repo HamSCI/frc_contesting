@@ -8,9 +8,10 @@ from shapely.geometry import Point
 
 
 # setup db connection / collection
-# station w3usr client = MongoClient('mongodb://admin:***REDACTED***@localhost:5001')
-client = MongoClient("mongodb://admin:***REDACTED***@***REDACTED_HOST***:27017")
-#client = MongoClient('mongodb://admin:***REDACTED***@***REDACTED_HOST***:27017')
+# DEPRECATED: This file is archived legacy code
+# Credentials have been redacted for security
+# See current web-ft.py for proper environment variable usage
+client = MongoClient("mongodb://admin:REDACTED@REDACTED:27017")
 db = client['wspr_db']
 collection = db['spots']
 

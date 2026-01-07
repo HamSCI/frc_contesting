@@ -64,10 +64,11 @@ Before contributing, ensure you have:
    ```
 
 4. **Configure local database:**
-   - Edit `web-ft.py` to point to your MongoDB instance
+   - Copy `.env.example` to `.env` and configure your MongoDB credentials
    - Or use SSH tunnel to access remote database:
      ```bash
-     ssh -L 27017:***REDACTED_HOST***:27017 user@server
+     ssh -L 27017:remote_host:27017 user@server
+     # Then set MONGODB_HOST=localhost in .env
      ```
 
 5. **Run development server:**

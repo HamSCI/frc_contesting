@@ -349,7 +349,7 @@ The Personal Space Weather Station at KD3ALD **continuously monitors all HF band
 
 **Data flow:**
 1. Receiver decodes spots
-2. Uploaded to MongoDB database (***REDACTED_HOST***)
+2. Uploaded to MongoDB database server
 3. Dashboard queries database
 4. You see spots on map/table!
 
@@ -502,4 +502,4 @@ HamSCI Personal Space Weather Station Project
 
 **73 de KD3ALD - Good DX!**
 
-*For technical documentation, see [README_DOCUMENTATION.md](README_DOCUMENTATION.md)*
+*For technical documentation, see [README.md](README.md)*

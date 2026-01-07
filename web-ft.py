@@ -26,15 +26,28 @@ app = Flask(__name__,static_url_path='', static_folder='static', template_folder
 import geopandas as gpd
 from shapely.geometry import shape, Point
 import json
+import os
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 
 # Database Configuration
 # Connect to MongoDB instance running WSPRDaemon database
 # Database stores decoded WSPR, FT8, and FT4 spots from the PSWS receiver
-#client = MongoClient('mongodb://admin:***REDACTED***@localhost:5007')  # Local development
-client = MongoClient("mongodb://admin:***REDACTED***@***REDACTED_HOST***:27017")     # Production PSWS server
-#client = MongoClient('mongodb://admin:***REDACTED***@***REDACTED_HOST***:27017')  # Alternate server
-db = client['wspr_db']
+MONGODB_HOST = os.getenv('MONGODB_HOST', 'localhost')
+MONGODB_PORT = os.getenv('MONGODB_PORT', '27017')
+MONGODB_USERNAME = os.getenv('MONGODB_USERNAME', 'admin')
+MONGODB_PASSWORD = os.getenv('MONGODB_PASSWORD')
+MONGODB_DATABASE = os.getenv('MONGODB_DATABASE', 'wspr_db')
+
+if not MONGODB_PASSWORD:
+    raise ValueError("MONGODB_PASSWORD environment variable is not set. Please create a .env file (see .env.example)")
+
+# Construct MongoDB connection URI
+MONGODB_URI = f"mongodb://{MONGODB_USERNAME}:{MONGODB_PASSWORD}@{MONGODB_HOST}:{MONGODB_PORT}"
+client = MongoClient(MONGODB_URI)
+db = client[MONGODB_DATABASE]
 collection = db['spots']
 #world = gpd.read_file("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
 
