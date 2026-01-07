@@ -136,13 +136,13 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 
 ## Security Notice
 
-**⚠️ IMPORTANT: If you cloned this repository before January 2026, MongoDB credentials may have been exposed in the git history.**
+**✅ Security Update (January 2026):** This repository's git history has been cleaned to remove all previously exposed credentials. All passwords and IP addresses have been redacted from historical commits.
 
-Recommended actions:
-1. **Change all MongoDB passwords** that were previously committed
-2. **Review git history** for exposed credentials: `git log -p --all | grep -i password`
-3. **Consider using** [BFG Repo Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) to remove secrets from history
-4. **Always use** environment variables (`.env` file) for credentials - never hardcode them
+**Important security practices:**
+1. **Environment variables required:** This application uses `.env` files for credential management (never commit `.env` to git)
+2. **Change default passwords:** If you're deploying this, always use unique, strong passwords
+3. **Review `.env.example`:** Copy it to `.env` and configure with your credentials
+4. **Git history is clean:** All sensitive data has been replaced with `***REDACTED***` in past commits
 
 ---
 
@@ -694,7 +694,7 @@ server {
 
 ### External Documentation
 
-- [WSPRDaemon Documentation](http://***REDACTED***.org/) - PSWS software
+- [WSPRDaemon Documentation](http://wsprdaemon.org/) - PSWS software
 - [Leaflet Documentation](https://leafletjs.com/reference.html) - Map library API
 - [Turf.js Documentation](https://turfjs.org/) - Geospatial analysis library
 
