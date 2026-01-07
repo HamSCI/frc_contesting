@@ -1,14 +1,47 @@
-//lat-lon to country, continent, and cq zone
-let countryFeat = [];
-let continentFeat = [];
-let cqZoneFeat = [];
-let ITUZoneFeat = [];
+/**
+ * HamSCI Contesting Dashboard - Map Visualization (map_ft.js)
+ *
+ * Interactive Leaflet map for visualizing HF propagation using WSPR, FT8, and FT4 digital mode spots.
+ * This script handles:
+ * - Loading and displaying propagation spots on a world map
+ * - Client-side filtering by band, country, continent, CQ zone, ITU zone, and mode
+ * - Real-time updates with configurable auto-reload intervals
+ * - Band-specific colored markers (star icons) for visual identification
+ * - Geographic lookups using Turf.js point-in-polygon operations
+ * - Session storage for filter persistence across page reloads
+ *
+ * Author: Owen Ruzanski (KD3ALD)
+ * Organization: University of Scranton (W3USR), Frankford Radio Club
+ * Project: HamSCI PSWS Dashboard Development
+ *
+ * Dependencies:
+ * - Leaflet.js (map library)
+ * - Leaflet.ExtraMarkers (colored star markers)
+ * - Turf.js (geospatial analysis - point in polygon)
+ * - GeoJSON data files (countries, continents, CQ zones, ITU zones)
+ */
 
+// Global arrays to store GeoJSON feature collections for geographic lookups
+// These are loaded asynchronously on page load
+let countryFeat = [];      // Country boundary polygons (~250 countries)
+let continentFeat = [];    // Continent boundary polygons (7 continents)
+let cqZoneFeat = [];       // CQ zone polygons (40 zones for amateur radio contests)
+let ITUZoneFeat = [];      // ITU zone polygons (90 zones for telecommunications)
 
-//testing contest bands only
+// Contest bands filter - limits display to the 6 traditional HF contest bands
+// Excludes WARC bands (30m, 17m, 12m) where contesting is prohibited
 const CONTEST_BANDS = ["160m", "80m", "40m", "20m", "15m", "10m"];
 
 
+/**
+ * Load country boundary polygons from GeoJSON file.
+ *
+ * Fetches the countries.geojson file (14MB) containing boundary polygons
+ * for all world countries. Used for country-based filtering.
+ *
+ * @async
+ * @returns {Promise<void>}
+ */
 async function loadCountryPolygons() {
   try {
     const res = await fetch("js/countries.geojson");
@@ -19,6 +52,16 @@ async function loadCountryPolygons() {
     console.error("Failed to load countries.geojson", err);
   }
 }
+
+/**
+ * Load continent boundary polygons from GeoJSON file.
+ *
+ * Fetches the continents.geojson file (4KB) containing polygons for
+ * the 7 continents. Used for continent-based filtering.
+ *
+ * @async
+ * @returns {Promise<void>}
+ */
 async function loadContinentPolygons() {
   try {
     const res = await fetch("js/continents.geojson");
@@ -135,6 +178,19 @@ for (let i = 1; i <= 90; i++) {
   opt.textContent = i;
   select2.appendChild(opt);
 }
+/**
+ * Lookup country name from geographic coordinates.
+ *
+ * Uses Turf.js point-in-polygon test against country boundary polygons
+ * to determine which country contains the given coordinates.
+ *
+ * @param {number} lat - Latitude in decimal degrees
+ * @param {number} lon - Longitude in decimal degrees
+ * @returns {string} Country name or "Unknown" if not found
+ *
+ * @example
+ * lookupCountry(40.7128, -74.0060) // "United States of America"
+ */
 function lookupCountry(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of countryFeat) {
@@ -144,6 +200,17 @@ function lookupCountry(lat, lon) {
   }
   return "Unknown";
 }
+
+/**
+ * Lookup continent name from geographic coordinates.
+ *
+ * @param {number} lat - Latitude in decimal degrees
+ * @param {number} lon - Longitude in decimal degrees
+ * @returns {string|null} Continent name or null if not found
+ *
+ * @example
+ * lookupContinent(40.7128, -74.0060) // "North America"
+ */
 function lookupContinent(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of continentFeat) {
@@ -154,6 +221,19 @@ function lookupContinent(lat, lon) {
   return null;
 }
 
+/**
+ * Lookup CQ zone number from geographic coordinates.
+ *
+ * CQ zones are numbered 1-40 and are used for amateur radio
+ * contests and awards (e.g., Worked All Zones - WAZ).
+ *
+ * @param {number} lat - Latitude in decimal degrees
+ * @param {number} lon - Longitude in decimal degrees
+ * @returns {string} CQ zone number (1-40) or "Unknown"
+ *
+ * @example
+ * lookupCqZone(40.7128, -74.0060) // "5" (New York is in CQ zone 5)
+ */
 function lookupCqZone(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of cqZoneFeat) {
@@ -164,6 +244,19 @@ function lookupCqZone(lat, lon) {
   return "Unknown";
 }
 
+/**
+ * Lookup ITU zone number from geographic coordinates.
+ *
+ * ITU zones are numbered 1-90 and are defined by the International
+ * Telecommunication Union for amateur radio purposes.
+ *
+ * @param {number} lat - Latitude in decimal degrees
+ * @param {number} lon - Longitude in decimal degrees
+ * @returns {string} ITU zone number (1-90) or "Unknown"
+ *
+ * @example
+ * lookupITUZone(40.7128, -74.0060) // "8" (New York is in ITU zone 8)
+ */
 function lookupITUZone(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of ITUZoneFeat) {
