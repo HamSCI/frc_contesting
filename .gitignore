@@ -45,6 +45,9 @@ instance/
 .DS_Store
 Thumbs.db
 
+# Claude Code
+.claude/
+
 # Logs
 *.log
 logs/
