@@ -295,6 +295,10 @@ def fetch_wspr_spots(lastInterval=15):
             # Invalid grid square, use default coordinates (ocean/null island)
             txlat, txlon = 0, 0
 
+        # Pre-compute CQ zone to reduce frontend processing
+        # This eliminates expensive point-in-polygon lookups in the browser
+        zone = get_cq_zone(txlat, txlon)
+
         results.append({
             "drift": doc.get("drift"),
             "frequency": doc.get("frequency"),
@@ -308,6 +312,7 @@ def fetch_wspr_spots(lastInterval=15):
             "tx_lat": txlat,
             "tx_lon": txlon,
             "tx_sign": doc.get('callsign'),
+            "cq_zone": zone,  # Pre-computed CQ zone for performance
         })
     return results
 

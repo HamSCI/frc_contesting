@@ -531,7 +531,9 @@ async function loadSpots() {
       return; //skip spot
     }
     //map by cq zone
-    const tx_cqzone = lookupCqZone(spot.tx_lat, spot.tx_lon);
+    // Use pre-computed CQ zone from backend instead of expensive client-side lookup
+    // This eliminates point-in-polygon calculation for 40 CQ zone polygons per spot
+    const tx_cqzone = spot.cq_zone ? String(spot.cq_zone) : "Unknown";
 
     // If user selected "All zones" (blank), skip filtering
     if (selectedCqZone === "" || selectedCqZone === null) {
