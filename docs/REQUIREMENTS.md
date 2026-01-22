@@ -41,10 +41,9 @@ This requirements document covers the web-based dashboard component for displayi
 
 ```
 ┌─────────────────────────────────────────────┐
-│         PSWS Receiver (KD3ALD)              │
+│            PSWS Receiver Node               │
 │  RX-888 SDR + KA9Q-radio + WSPRDaemon      │
 │  Decodes WSPR/FT8/FT4 on all HF bands      │
-│  Location: FN21ni (Northern New Jersey)    │
 └─────────────────┬───────────────────────────┘
                   │
                   ↓
@@ -94,7 +93,7 @@ MongoDB `wspr_db.spots` collection stores each decoded spot:
 {
   _id: ObjectId("..."),
   callsign: "W1ABC",           // Transmitter callsign
-  rx_callsign: "KD3ALD",       // Receiver callsign
+  rx_callsign: "W2XYZ",        // Receiver callsign
   grid: "FN42hx",              // 6-character Maidenhead grid
   frequency: 14.097062,        // Frequency in MHz
   band: "20m",                 // Band designation
