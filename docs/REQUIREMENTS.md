@@ -152,8 +152,8 @@ The dashboard SHALL answer the following key questions that amateur radio operat
 | FR-MAP-05 | The system SHALL support zoom and pan operations on the map | Must |
 | FR-MAP-06 | The system SHALL display clickable markers with spot details (callsign, SNR, frequency, time, mode) | Must |
 | FR-MAP-07 | The system SHALL display a real-time spot counter by band | Must |
-| FR-MAP-08 | The system SHOULD display CQ zone boundaries with zone numbers as an optional overlay | Should |
-| FR-MAP-09 | The system MAY display ITU zone boundaries as an optional overlay | May |
+| FR-MAP-08 | The system SHALL display CQ zone boundaries with zone numbers as an optional overlay | Must |
+| FR-MAP-09 | The system SHALL display ITU zone boundaries as an optional overlay | Must |
 
 ### 3.3 Data Visualization - Table View
 
@@ -218,9 +218,13 @@ The dashboard SHALL answer the following key questions that amateur radio operat
 | FR-UI-01 | The system SHALL provide three view modes: map-only, table-only, and combined | Must |
 | FR-UI-02 | The system SHALL use consistent band color coding across all views | Must |
 | FR-UI-03 | The system SHALL display connection status indicators | Must |
-| FR-UI-04 | The system SHOULD provide clear visual feedback for filter changes | Should |
-| FR-UI-05 | The system SHOULD be usable on tablets and desktop browsers | Should |
-| FR-UI-06 | The system MAY support light and dark themes | May |
+| FR-UI-04 | The system SHALL provide a modern, clean, and uncluttered interface design | Must |
+| FR-UI-05 | The system SHALL use consistent styling, fonts, and spacing throughout the application | Must |
+| FR-UI-06 | The system SHALL organize controls and filters in a logical, intuitive manner | Must |
+| FR-UI-07 | The system SHALL maintain professional appearance suitable for contest station environments | Must |
+| FR-UI-08 | The system SHOULD provide clear visual feedback for filter changes | Should |
+| FR-UI-09 | The system SHOULD be usable on tablets and desktop browsers | Should |
+| FR-UI-10 | The system MAY support light and dark themes | May |
 
 ### 3.9 Offline and Local Network Operation
 
@@ -255,9 +259,9 @@ The dashboard SHALL answer the following key questions that amateur radio operat
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| NFR-SCALE-01 | The system SHOULD support multiple concurrent users | Should |
-| NFR-SCALE-02 | The system SHOULD handle database queries with date/time indexes for efficiency | Should |
-| NFR-SCALE-03 | The system MAY support database retention policies (30-90 days) | May |
+| NFR-SCALE-01 | The system SHALL support multiple concurrent users | Must |
+| NFR-SCALE-02 | The system SHALL handle database queries with date/time indexes for efficiency | Must |
+| NFR-SCALE-03 | The system SHALL support database retention policies (30-90 days) | Must |
 
 ### 4.3 Compatibility
 
