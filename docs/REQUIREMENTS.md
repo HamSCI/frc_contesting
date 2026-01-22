@@ -445,20 +445,88 @@ The following features are explicitly out of scope for the initial implementatio
 
 The dashboard will be considered complete when:
 
+### 8.1 Core Functionality
+- [ ] System answers all six core operator questions (bands open, locations, timing, MUF, activity, directions)
 - [ ] Real-time map view displays WSPR/FT8/FT4 spots with colored band markers
+- [ ] Map draws lines connecting transmitter and receiver locations
+- [ ] Map displays receiver location with distinctive marker
+- [ ] Map supports zoom and pan operations
+- [ ] Map markers are clickable showing spot details (callsign, SNR, frequency, time, mode)
+- [ ] Map displays real-time spot counter by band
+- [ ] Map displays CQ zone boundaries with zone numbers as toggleable overlay
+- [ ] Map displays ITU zone boundaries as toggleable overlay
 - [ ] Table view shows spot counts by region and contest band
+- [ ] Table view highlights cells with active propagation (threshold-based)
+- [ ] Table view displays total spot counter
+- [ ] System provides three view modes: map-only, table-only, and combined
+
+### 8.2 Filtering and Search
 - [ ] All filtering options work correctly (time, band, country, continent, CQ zone, ITU zone, mode)
+- [ ] Country filter includes "Non-US" option
+- [ ] Band filter includes "Contest Bands" mode (160m, 80m, 40m, 20m, 15m, 10m)
 - [ ] Filter settings persist across page reloads using session storage
+
+### 8.3 Data Processing
 - [ ] Geographic lookups correctly identify country, continent, CQ zone, and ITU zone
+- [ ] System converts Maidenhead grid squares to coordinates
+- [ ] System handles invalid grid squares gracefully
+
+### 8.4 Real-Time Updates
 - [ ] Auto-reload functionality works at configurable intervals (2-30 minutes)
-- [ ] JSON API endpoints provide programmatic access to spot data
-- [ ] System handles at least 1000 spots without performance issues
+- [ ] System displays last update timestamp
+- [ ] System displays connection status indicators
+
+### 8.5 Data Access
+- [ ] JSON API endpoints provide programmatic access to spot data (/spots and /tbspots)
+- [ ] API supports lastInterval query parameter
+
+### 8.6 User Interface
+- [ ] Interface is modern, clean, and uncluttered
+- [ ] Consistent styling, fonts, and spacing throughout application
+- [ ] Controls and filters organized in logical, intuitive manner
+- [ ] Professional appearance suitable for contest station environments
+- [ ] Consistent band color coding across all views
+
+### 8.7 Offline and Local Network Operation
 - [ ] **System operates completely offline with only LAN connectivity (no internet required)**
-- [ ] **All JavaScript libraries, CSS, GeoJSON files, and assets are vendored locally**
+- [ ] **All JavaScript libraries vendored locally (Leaflet.js, Turf.js, etc.)**
+- [ ] **All CSS stylesheets vendored locally**
+- [ ] **All GeoJSON boundary files included in repository**
+- [ ] **All marker icons and image assets vendored locally**
 - [ ] **Browser network inspection confirms zero external HTTP/HTTPS requests**
-- [ ] Documentation includes installation guide, operator guide, and API reference
-- [ ] System runs successfully on Linux Mini PC with PSWS
-- [ ] Credentials are managed via environment variables (never committed to git)
+- [ ] **System functions with only MongoDB and Flask server accessible**
+
+### 8.8 Performance
+- [ ] System handles at least 1000 spots without performance degradation
+- [ ] Map updates render within 2 seconds of data receipt
+- [ ] System supports multiple concurrent users
+
+### 8.9 Scalability
+- [ ] Database uses date/time indexes for efficient queries
+- [ ] System supports configurable data retention policies (30-90 days)
+
+### 8.10 Compatibility
+- [ ] System works on Chrome, Firefox, Safari, and Edge (modern versions)
+- [ ] System runs successfully on Linux x86 Mini PC with PSWS
+- [ ] Python 3.8 or higher supported
+- [ ] MongoDB 4.x or higher supported
+
+### 8.11 Security
+- [ ] Credentials managed via environment variables (never committed to git)
+- [ ] .env.example file provided for configuration
+
+### 8.12 Maintainability
+- [ ] Code includes inline comments explaining complex logic
+- [ ] Consistent coding style followed throughout
+- [ ] Standard, widely-adopted technologies used
+
+### 8.13 Deployment and Documentation
+- [ ] System deployable via simple command-line invocation
+- [ ] Installation documentation complete and clear
+- [ ] Operator guide available (OPERATOR_GUIDE.md)
+- [ ] API documentation available
+
+### 8.14 Validation
 - [ ] Dashboard tested during at least one major contest (ARRL DX, CQWW, etc.)
 
 ---
@@ -541,14 +609,13 @@ This requirements document was prepared with assistance from Claude (Anthropic) 
 
 **Project Support:**
 - Frankford Radio Club (FRC) - Funding and mentorship
-- NSF Grants AGS-2432822, AGS-2432824, and AGS-2432823
-- Amateur Radio Digital Communications (ARDC)
+- NSF Grants AGS-2432821, AGS-2432822, AGS-2432824, and AGS-2432823
 - HamSCI Community
 - WSPRDaemon and TAPR Communities
 
 **Key Contributors:**
-- Owen Ruzanski (KD3ALD) - Lead developer
-- Liam Miller (KD3BVX) - Co-developer
+- Owen Ruzanski (KD3ALD) - Student developer
+- Liam Miller (KD3BVX) - Student developer
 - Dr. Nathaniel Frissell (W2NAF) - Faculty advisor
 - Ray Sokola (K9RS) - FRC mentor
 - Bud Trench (AA3B) - FRC mentor
