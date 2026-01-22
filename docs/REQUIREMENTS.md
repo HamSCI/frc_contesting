@@ -607,6 +607,8 @@ The following items require team discussion and decisions:
 
 This requirements document was prepared with assistance from Claude (Anthropic) using Claude Sonnet 4.5 (model: claude-sonnet-4-5-20250929), which helped synthesize information from the existing codebase, HamSCI Workshop 2025 poster, FRC proposal, and operator documentation into a structured requirements format.
 
+For a complete history of AI contributions to this project, see [CLAUDE.md](CLAUDE.md).
+
 **Project Support:**
 - Frankford Radio Club (FRC) - Funding and mentorship
 - NSF Grants AGS-2432821, AGS-2432822, AGS-2432824, and AGS-2432823

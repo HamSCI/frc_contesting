@@ -410,9 +410,15 @@ If you'd like to help set up testing infrastructure, please reach out!
 2. References to sources (if using published algorithms)
 
 **New features must include:**
-1. Update to README_DOCUMENTATION.md
+1. Update to README.md (technical documentation)
 2. Update to OPERATOR_GUIDE.md (if user-facing)
 3. Screenshots (if UI changes)
+
+**When using AI assistance (Claude, etc.):**
+1. Review [docs/CLAUDE.md](docs/CLAUDE.md) for project context and guidelines
+2. Update docs/CLAUDE.md session history if making significant contributions
+3. Follow the offline-first constraints (no CDN dependencies)
+4. Reference requirement IDs when implementing features
 
 ### Writing Style
 
@@ -626,6 +632,13 @@ For technical questions, feel free to open a discussion or contact the maintaine
 ---
 
 ## Resources for Contributors
+
+### Project Documentation
+
+- [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) - Formal requirements specification
+- [docs/CLAUDE.md](docs/CLAUDE.md) - AI assistance history and guidelines
+- [README.md](README.md) - Complete technical documentation
+- [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) - User guide for operators
 
 ### Amateur Radio Resources
 
