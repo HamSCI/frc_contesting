@@ -689,8 +689,8 @@ server {
 - [Operator Guide](OPERATOR_GUIDE.md) - User guide for radio operators
 - [Contributing Guide](CONTRIBUTING.md) - Developer contribution guidelines
 - [Archive Documentation](_archive/README.md) - Legacy code reference
-- HamSCI Workshop 2025 Poster - Project overview and goals
-- FRC Proposal - Detailed project proposal
+- [HamSCI Workshop 2025 Poster](docs/references/Ruzankski,%20Owen%20-%20FRC_W3USR_POSTER%20-%20HamSCI%20Workshop%202025.pdf) - Project overview and goals
+- [FRC Proposal](docs/references/20250123%20FRC%20Proposal.pdf) - Detailed project proposal
 
 ### External Documentation
 
