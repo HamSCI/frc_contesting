@@ -686,6 +686,7 @@ server {
 
 ### Related Documentation
 
+- [Requirements Document](docs/REQUIREMENTS.md) - Formal requirements specification
 - [Operator Guide](OPERATOR_GUIDE.md) - User guide for radio operators
 - [Contributing Guide](CONTRIBUTING.md) - Developer contribution guidelines
 - [Archive Documentation](_archive/README.md) - Legacy code reference
