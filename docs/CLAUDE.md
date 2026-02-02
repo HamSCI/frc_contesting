@@ -27,11 +27,12 @@ This documentation serves to:
 | January 7, 2026 | Claude (unknown) | unknown | Security fixes, environment variable configuration, documentation | Nathaniel Frissell |
 | January 12, 2026 | Claude (unknown) | unknown | API performance optimization attempts | Nathaniel Frissell |
 | January 22, 2026 | Claude Sonnet 4.5 | claude-sonnet-4-5-20250929 | Requirements document creation and refinement | Nathaniel Frissell |
+| February 2, 2026 | Claude Opus 4.5 | claude-opus-4-5-20251101 | Project planning, gap analysis, issue board setup | Nathaniel Frissell |
 
 ### Current Model
 
-**Model**: Claude Sonnet 4.5
-**Model ID**: claude-sonnet-4-5-20250929
+**Model**: Claude Opus 4.5
+**Model ID**: claude-opus-4-5-20251101
 **Release Date**: September 29, 2025
 **Context Window**: Large (suitable for entire codebase analysis)
 
@@ -97,7 +98,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - Attempted optimizations for spot data queries
 - Work in progress (results unclear from commit history)
 
-### Session 3: Requirements Document Creation
+### Session 3: Requirements Document Creation (Continued Below)
 **Date**: January 22, 2026
 **Model**: Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
 **Contributor**: Nathaniel Frissell
@@ -378,6 +379,41 @@ MongoDB collection: `wspr_db.spots`
 
 For questions about this project or the use of AI assistance, please refer to the project documentation or contact the project lead.
 
+### Session 4: Project Planning and Issue Board Setup
+**Date**: February 2, 2026
+**Model**: Claude Opus 4.5 (claude-opus-4-5-20251101)
+**Contributor**: Nathaniel Frissell (W2NAF)
+**Scope**: Semester project planning, gap analysis, GitHub project board setup
+**Status**: In Progress (to be continued next session)
+
+**Activities**:
+- Performed comprehensive gap analysis of existing codebase against REQUIREMENTS.md (~85% complete)
+- Identified critical blocker: Leaflet.js loaded from CDN, violating offline-first requirements (FR-OFF-01/03/04)
+- Identified other gaps: ITU zone overlay not rendered, no connection status indicators, no last-update timestamp, hardcoded receiver config, inline CSS, no tests
+- Found code quality issues: bandColorMap defined twice in map_ft.js, time parsing duplicated between map_ft.js and table_ft.js, broken onload.js script reference in templates
+- Closed all 6 existing open issues (#7, #8, #17, #18, #23, #24) to start fresh
+- Created Issue #30: Set-Up and Install W3USR WSPRDaemon System (due Feb 9, on project board "Ready")
+- Created Issue #31: Install, Test, and Debug Current DXDashboard (due Feb 16, assigned KD3ALD, blocked by #30, on project board "Ready")
+- Set up GitHub project board access (HamSCI project #9) and verified issue placement
+- Drafted full semester project plan with 3 milestones:
+  - **Milestone 1 (Feb 28)**: Minimal working system for ARRL DX Contest SSB
+  - **Milestone 2 (Mar 14)**: HamSCI Workshop demo-ready system
+  - **Milestone 3 (May 14)**: Dayton Hamvention / Contest University production system
+- Plan saved to `docs/PROJECT_PLAN.md` (git-tracked) and `.claude/plans/floating-twirling-avalanche.md` (local)
+
+**Team Structure Documented**:
+- W2NAF: Project manager/PI
+- KD3ALD: Lead student developer (architecture, modularity)
+- KD3BVX: Student developer (propagation models, science)
+- Contributors: Additional CS students for discrete, well-scoped tasks
+
+**Next Session Goals**:
+- **IMPORTANT: Carefully review `docs/PROJECT_PLAN.md` before executing.** The plan was drafted quickly and needs team review before issues are created. Verify milestone dates, issue scoping, assignee workloads, and dependencies are realistic.
+- Finalize issue details and create all GitHub issues (~32 remaining across 3 milestones + backlog)
+- Add all issues to project board with correct status columns
+- Create GitHub labels (architecture, offline-first, UI/UX, science, contributor-ready, milestone tags)
+- Decide on: great circle path rendering, MUF estimation approach, issue creation scope (all at once vs. incremental)
+
 ---
 
 ## Version History
@@ -385,6 +421,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | Version | Date | Changes | Model Used |
 |---------|------|---------|------------|
 | 1.0 | January 22, 2026 | Initial creation of CLAUDE.md | Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) |
+| 1.1 | February 2, 2026 | Added Session 4: project planning and issue board setup | Claude Opus 4.5 (claude-opus-4-5-20251101) |
 
 ---
 
