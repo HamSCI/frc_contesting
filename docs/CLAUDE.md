@@ -28,12 +28,12 @@ This documentation serves to:
 | January 12, 2026 | Claude (unknown) | unknown | API performance optimization attempts | Nathaniel Frissell |
 | January 22, 2026 | Claude Sonnet 4.5 | claude-sonnet-4-5-20250929 | Requirements document creation and refinement | Nathaniel Frissell |
 | February 2, 2026 | Claude Opus 4.5 | claude-opus-4-5-20251101 | Project planning, gap analysis, issue board setup | Nathaniel Frissell |
+| February 9, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Milestone 1 issue creation, workload balancing, project board setup | Nathaniel Frissell |
 
 ### Current Model
 
-**Model**: Claude Opus 4.5
-**Model ID**: claude-opus-4-5-20251101
-**Release Date**: September 29, 2025
+**Model**: Claude Opus 4.6
+**Model ID**: claude-opus-4-6
 **Context Window**: Large (suitable for entire codebase analysis)
 
 ---
@@ -384,7 +384,7 @@ For questions about this project or the use of AI assistance, please refer to th
 **Model**: Claude Opus 4.5 (claude-opus-4-5-20251101)
 **Contributor**: Nathaniel Frissell (W2NAF)
 **Scope**: Semester project planning, gap analysis, GitHub project board setup
-**Status**: In Progress (to be continued next session)
+**Status**: Complete
 
 **Activities**:
 - Performed comprehensive gap analysis of existing codebase against REQUIREMENTS.md (~85% complete)
@@ -395,11 +395,8 @@ For questions about this project or the use of AI assistance, please refer to th
 - Created Issue #30: Set-Up and Install W3USR WSPRDaemon System (due Feb 9, on project board "Ready")
 - Created Issue #31: Install, Test, and Debug Current DXDashboard (due Feb 16, assigned KD3ALD, blocked by #30, on project board "Ready")
 - Set up GitHub project board access (HamSCI project #9) and verified issue placement
-- Drafted full semester project plan with 3 milestones:
-  - **Milestone 1 (Feb 28)**: Minimal working system for ARRL DX Contest SSB
-  - **Milestone 2 (Mar 14)**: HamSCI Workshop demo-ready system
-  - **Milestone 3 (May 14)**: Dayton Hamvention / Contest University production system
-- Plan saved to `docs/PROJECT_PLAN.md` (git-tracked) and `.claude/plans/floating-twirling-avalanche.md` (local)
+- Drafted full semester project plan with 3 milestones (later expanded to 4 in Session 5)
+- Plan saved to `docs/PROJECT_PLAN.md` (git-tracked)
 
 **Team Structure Documented**:
 - W2NAF: Project manager/PI
@@ -407,12 +404,34 @@ For questions about this project or the use of AI assistance, please refer to th
 - KD3BVX: Student developer (propagation models, science)
 - Contributors: Additional CS students for discrete, well-scoped tasks
 
+### Session 5: Milestone 1 Issue Creation and Workload Balancing
+**Date**: February 9, 2026
+**Model**: Claude Opus 4.6 (claude-opus-4-6)
+**Contributor**: Nathaniel Frissell (W2NAF)
+**Scope**: Finalize Milestone 1 issues, balance workload, update project board
+**Status**: Complete
+
+**Activities**:
+- Reviewed draft PROJECT_PLAN.md and identified workload imbalance (KD3ALD had 5 Milestone 1 issues, KD3BVX had 1)
+- Redistributed Milestone 1 work evenly: 5 issues each for KD3ALD and KD3BVX
+- Created GitHub labels: `architecture`, `offline-first`, `UI/UX`, `science`, `blocker`, `milestone-1`
+- Created 10 new GitHub issues (#32-#41) for Milestone 1, all assigned and on project board
+- Added `milestone-1` label to existing issues #30 and #31
+- Set target dates on all 12 Milestone 1 issues on the project board
+- Added new Milestone 3: Frankford Radio Club Demo (Apr 14) — sponsor feedback session before Hamvention
+- Renumbered old Milestone 3 to Milestone 4 (Hamvention, May 14)
+- Updated PROJECT_PLAN.md to reflect 4-milestone structure and actual issue assignments
+- Decision: create issues incrementally by milestone (Milestone 1 only for now to keep board focused)
+
+**Milestone 1 Issue Assignments (all on project board, status "Ready")**:
+- **KD3ALD**: #31 Install/Test, #32 Remove onload.js, #33 Backend split, #34 config.js, #35 utils.js, #36 Connection status
+- **KD3BVX**: #37 Vendor Leaflet, #38 Receiver config, #39 Central CSS, #40 ITU overlay, #41 Timestamp
+- Key dependency: KD3BVX #38 (receiver config, due Feb 20) must finish before KD3ALD #34 (config.js, due Feb 21)
+
 **Next Session Goals**:
-- **IMPORTANT: Carefully review `docs/PROJECT_PLAN.md` before executing.** The plan was drafted quickly and needs team review before issues are created. Verify milestone dates, issue scoping, assignee workloads, and dependencies are realistic.
-- Finalize issue details and create all GitHub issues (~32 remaining across 3 milestones + backlog)
-- Add all issues to project board with correct status columns
-- Create GitHub labels (architecture, offline-first, UI/UX, science, contributor-ready, milestone tags)
-- Decide on: great circle path rendering, MUF estimation approach, issue creation scope (all at once vs. incremental)
+- Check progress on #30 (WSPRDaemon setup) and #31 (Install/Test/Debug)
+- Once Milestone 1 is underway, create Milestone 2 issues (7 issues for HamSCI Workshop)
+- Resolve open decisions: great circle path rendering, MUF estimation approach
 
 ---
 
@@ -422,6 +441,7 @@ For questions about this project or the use of AI assistance, please refer to th
 |---------|------|---------|------------|
 | 1.0 | January 22, 2026 | Initial creation of CLAUDE.md | Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) |
 | 1.1 | February 2, 2026 | Added Session 4: project planning and issue board setup | Claude Opus 4.5 (claude-opus-4-5-20251101) |
+| 1.2 | February 9, 2026 | Added Session 5: Milestone 1 issues created, workload balanced, FRC milestone added | Claude Opus 4.6 (claude-opus-4-6) |
 
 ---
 
