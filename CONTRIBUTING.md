@@ -85,11 +85,35 @@ Before contributing, ensure you have:
 
 ### Branch Strategy
 
-- `master` - Stable production code
-- `develop` - Integration branch for features
-- `feature/*` - New features (e.g., `feature/add-rbm-integration`)
-- `bugfix/*` - Bug fixes (e.g., `bugfix/fix-grid-parsing`)
-- `hotfix/*` - Urgent production fixes
+We follow the **Git Flow** branching model ([Vincent Driessen, 2010](https://nvie.com/posts/a-successful-git-branching-model/)), adapted to use `main` instead of `master`.
+
+#### Main Branches
+
+These two branches exist permanently and should always be in a stable state:
+
+| Branch    | Purpose                                                                       |
+|-----------|-------------------------------------------------------------------------------|
+| `main`    | Production-ready code. Every merge into `main` represents a new release.      |
+| `develop` | Integration branch containing the latest delivered changes for the next release. |
+
+#### Supporting Branches
+
+Supporting branches have a limited lifetime and are removed after merging.
+
+| Branch      | Branches from | Merges back to       | Naming      | Purpose                                                  |
+|-------------|---------------|----------------------|-------------|----------------------------------------------------------|
+| **Feature** | `develop`     | `develop`            | `feature/*` | New features (e.g., `feature/add-rbm-integration`)       |
+| **Bugfix**  | `develop`     | `develop`            | `bugfix/*`  | Non-urgent bug fixes (e.g., `bugfix/fix-grid-parsing`)   |
+| **Release** | `develop`     | `main` and `develop` | `release/*` | Prepare a release: version bumps, last-minute fixes      |
+| **Hotfix**  | `main`        | `main` and `develop` | `hotfix/*`  | Urgent production fixes that can't wait for next release |
+
+#### Merge Rules
+
+- Use `--no-ff` (no fast-forward) when merging branches so that the branch history is preserved as a distinct group of commits:
+  ```bash
+  git merge --no-ff feature/my-new-feature
+  ```
+- Delete the supporting branch after it has been merged.
 
 ### Workflow Steps
 
@@ -127,8 +151,9 @@ Before contributing, ensure you have:
    - PR will update automatically
 
 7. **Merge:**
-   - Once approved, maintainer will merge to `develop`
-   - `develop` is periodically merged to `master` for releases
+   - Once approved, maintainer will merge to `develop` using `--no-ff`
+   - When ready for a release, create a `release/*` branch from `develop` for final prep, then merge to `main` and back to `develop`
+   - Hotfixes branch directly from `main` and merge back to both `main` and `develop`
 
 ---
 
