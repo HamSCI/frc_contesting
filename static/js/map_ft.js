@@ -276,7 +276,7 @@ function getQueryParam(name) {
   return urlParams.get(name);
 }
 
-var map = L.map('map').setView([20, 0], 2);
+var map = L.map('map', { maxBounds: [[-90, -180], [90, 180]] }).setView([20, 0], 2);
 
 
 //cq zone overlay
@@ -360,11 +360,34 @@ spotCountControl.addTo(map);
 
 
 
-//add images to map
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  noWrap: true,
-  bounds: [[-90, -180], [90, 180]]
-}).addTo(map);
+// Load offline basemap layers (replaces OpenStreetMap tile layer)
+async function loadOfflineBasemap() {
+  // Ocean background
+  map.getContainer().style.backgroundColor = '#a8d5f2';
+
+  // Land masses
+  const landRes = await fetch('vendor/basemap/ne_50m_land.json');
+  const landData = await landRes.json();
+  L.geoJSON(landData, {
+    style: { fillColor: '#f0ede4', fillOpacity: 1, color: '#ccc', weight: 0.5 }
+  }).addTo(map);
+
+  // Country borders
+  const countriesRes = await fetch('vendor/basemap/ne_50m_admin_0_countries.json');
+  const countriesData = await countriesRes.json();
+  L.geoJSON(countriesData, {
+    style: { fillOpacity: 0, color: '#666', weight: 1 }
+  }).addTo(map);
+
+  // State/province borders
+  const statesRes = await fetch('vendor/basemap/states-50m.json');
+  const statesData = await statesRes.json();
+  L.geoJSON(statesData, {
+    style: { fillOpacity: 0, color: '#999', weight: 0.5 }
+  }).addTo(map);
+}
+
+loadOfflineBasemap();
 var layers = [];
 
 
