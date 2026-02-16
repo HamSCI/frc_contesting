@@ -298,7 +298,7 @@ def fetch_wspr_spots(lastInterval=15):
         results.append({
             "drift": doc.get("drift"),
             "frequency": doc.get("frequency"),
-            "band": doc.get("band"),
+            "band": frequency_to_band(doc.get("frequency")),
             "mode": doc.get("mode"),
             "rx_lat": rxlat,
             "rx_lon": rxlon,
