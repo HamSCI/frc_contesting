@@ -6,14 +6,21 @@
     const label = document.getElementById('conn-status-label');
     if (!dot || !label) return;
     dot.className     = 'status-dot status-' + state;
-    const text = { connected: 'Connected', disconnected: 'Disconnected', checking: 'Checking...' };
+    const text = {
+      connected:    'Connected',
+      dberror:      'DB Unavailable',
+      disconnected: 'Disconnected',
+      checking:     'Checking...'
+    };
     label.textContent = text[state] || state;
   }
 
   async function checkHealth() {
     try {
       const res = await fetch('/health', { cache: 'no-store' });
-      updateDot(res.ok ? 'connected' : 'disconnected');
+      if (res.status === 200)      updateDot('connected');
+      else if (res.status === 503) updateDot('dberror');
+      else                         updateDot('disconnected');
     } catch {
       updateDot('disconnected');
     }

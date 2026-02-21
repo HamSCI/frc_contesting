@@ -31,6 +31,7 @@ This documentation serves to:
 | February 9, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Milestone 1 issue creation, workload balancing, project board setup | Nathaniel Frissell |
 | February 21, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Receiver config extraction to .env (Issue #38) | Liam Miller |
 | February 21, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Connection status indicator in header (Issue #36, FR-UI-03) | Liam Miller |
+| February 21, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | DB health check + smarter last-updated timestamp (Issue #41) | Liam Miller |
 
 ### Current Model
 
@@ -480,6 +481,32 @@ For questions about this project or the use of AI assistance, please refer to th
 - `README.md` — documentation updates
 - `docs/CLAUDE.md` — session record
 
+### Session 8: DB Health Check + Smarter Last-Updated Timestamp (Issue #41)
+**Date**: February 21, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Make `/health` verify MongoDB; add 3-state indicator; smarter "Last updated" / "Last spot" timestamp
+**Status**: Complete
+
+**Activities**:
+- Updated `/health` in `web-ft.py` to ping MongoDB via `client.admin.command('ping')` — returns 503 + `{"status": "db_error"}` when DB is down
+- Added `GET /latest-spot-time` endpoint: queries for most recent spot in MongoDB, returns `{"found": true, "time": "HH:MM:00 UTC"}` or `{"found": false}`
+- Updated `static/js/connection_status.js`: added `dberror` state (orange dot, "DB Unavailable" label); maps HTTP 200 → connected, 503 → dberror, network error → disconnected
+- Added `.status-dberror { background: #f97316 }` CSS to `templates/index_ft.html` and `templates/table_ft.html`
+- Updated `static/js/map_ft.js`: conditional timestamp — "Last updated: HH:MM:SS UTC" when spots were found; falls back to `GET /latest-spot-time` → "Last spot: HH:MM:00 UTC" when none
+- Updated `static/js/table_ft.js`: `buildTable()` now returns `total`; conditional timestamp logic moved to `loadSpots()` with same fallback pattern
+- Updated `README.md` and `docs/CLAUDE.md`
+
+**Files Modified**:
+- `web-ft.py` — `/health` updated, `/latest-spot-time` added
+- `static/js/connection_status.js` — 3-state indicator
+- `templates/index_ft.html` — `.status-dberror` CSS
+- `templates/table_ft.html` — `.status-dberror` CSS
+- `static/js/map_ft.js` — conditional timestamp
+- `static/js/table_ft.js` — `buildTable()` returns total, conditional timestamp in `loadSpots()`
+- `README.md` — documentation updates
+- `docs/CLAUDE.md` — session record
+
 ---
 
 ## Version History
@@ -491,6 +518,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 1.2 | February 9, 2026 | Added Session 5: Milestone 1 issues created, workload balanced, FRC milestone added | Claude Opus 4.6 (claude-opus-4-6) |
 | 1.3 | February 21, 2026 | Added Session 6: receiver config extracted to .env (Issue #38) | Claude Opus 4.6 (claude-opus-4-6) |
 | 1.4 | February 21, 2026 | Added Session 7: connection status indicator (Issue #36, FR-UI-03) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 1.5 | February 21, 2026 | Added Session 8: DB health check, 3-state indicator, smarter timestamp | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 

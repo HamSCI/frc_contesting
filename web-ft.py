@@ -21,7 +21,7 @@ from flask import Flask, jsonify, render_template, request
 from pymongo import MongoClient
 import maidenhead
 from geopy.geocoders import Nominatim
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 app = Flask(__name__,static_url_path='', static_folder='static', template_folder='templates')
 import geopandas as gpd
 from shapely.geometry import shape, Point
@@ -193,7 +193,7 @@ def fetch_wspr_spots_tb(lastInterval=15):
     if lastInterval:
         try:
             minutes = int(lastInterval)
-            threshold = datetime.utcnow() - timedelta(minutes=minutes)
+            threshold = datetime.now(timezone.utc) - timedelta(minutes=minutes)
             # Convert threshold to database format: YYMMDD and HHMM strings
             threshold_date = f"{threshold.year % 100:02d}{threshold.month:02d}{threshold.day:02d}"
             threshold_time = f"{threshold.hour:02d}{threshold.minute:02d}"
@@ -272,7 +272,7 @@ def fetch_wspr_spots(lastInterval=15):
     if lastInterval:
         try:
             minutes = int(lastInterval)
-            threshold = datetime.utcnow() - timedelta(minutes=minutes)
+            threshold = datetime.now(timezone.utc) - timedelta(minutes=minutes)
             threshold_date = f"{threshold.year % 100:02d}{threshold.month:02d}{threshold.day:02d}"
             threshold_time = f"{threshold.hour:02d}{threshold.minute:02d}"
             query = {"$or": [
@@ -425,8 +425,26 @@ def config():
 
 @app.route('/health')
 def health():
-    """Lightweight health check endpoint for frontend connection status monitoring."""
-    return jsonify({"status": "ok"})
+    """Health check: verifies Flask is up and MongoDB is reachable."""
+    try:
+        client.admin.command('ping')
+        return jsonify({"status": "ok"})
+    except Exception:
+        return jsonify({"status": "db_error"}), 503
+
+@app.route('/latest-spot-time')
+def latest_spot_time():
+    """Return UTC timestamp of the most recently stored spot, for the UI fallback timestamp."""
+    try:
+        latest = collection.find_one(sort=[("date", -1), ("time", -1)])
+        if latest:
+            time_str = latest.get('time', '0000')
+            hh = time_str[:2].zfill(2)
+            mm = time_str[2:4].zfill(2) if len(time_str) >= 4 else '00'
+            return jsonify({"found": True, "time": f"{hh}:{mm}:00 UTC"})
+        return jsonify({"found": False})
+    except Exception:
+        return jsonify({"found": False})
 
 @app.route('/table')
 def table():

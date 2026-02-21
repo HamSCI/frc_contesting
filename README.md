@@ -38,7 +38,8 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - **Auto-reload capability** with configurable intervals
 - **Contest bands mode** focusing on the 6 primary contest bands
 - **Session persistence** for filter settings across page reloads
-- **Connection status indicator** showing live backend connectivity in the page header
+- **Connection status indicator** showing live backend connectivity (green/orange/red) in the page header
+- **Last-updated timestamp** showing when data was last fetched, or the most recent DB spot time when the interval has no results
 
 ### Project Goals
 
@@ -102,7 +103,8 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 │    /table     → table_ft.html (table)       │
 │    /spots     → JSON API (map data)         │
 │    /tbspots   → JSON API (table data)       │
-│    /health    → JSON API (connection check) │
+│    /health          → JSON API (connection check) │
+│    /latest-spot-time → JSON API (DB fallback time) │
 └─────────────────┬───────────────────────────┘
                   │
                   ↓
@@ -318,11 +320,40 @@ Lightweight health check endpoint used by the frontend connection status indicat
 }
 ```
 
-Returns HTTP 200 when the Flask server is reachable. The frontend polls this endpoint every 30 seconds and updates the header dot indicator accordingly (green = connected, red = disconnected).
+Pings MongoDB on every request. Returns HTTP 200 when both Flask and MongoDB are reachable; returns HTTP 503 with `{"status": "db_error"}` when Flask is up but MongoDB is unavailable. The frontend polls this endpoint every 30 seconds and updates the header dot indicator:
+- **Green** — Flask + MongoDB both reachable
+- **Orange** — Flask reachable, MongoDB unavailable (503)
+- **Red** — Flask unreachable (network error)
 
 **Example Request:**
 ```bash
 curl "http://localhost:5000/health"
+```
+
+#### GET /latest-spot-time
+
+Returns the UTC timestamp of the most recently stored spot in MongoDB. Used by the frontend as a fallback when the selected time interval returns no spots.
+
+**Response Format (spot found):**
+```json
+{
+  "found": true,
+  "time": "14:30:00 UTC"
+}
+```
+
+**Response Format (no spots in DB):**
+```json
+{
+  "found": false
+}
+```
+
+Returns `{"found": false}` also on any MongoDB error.
+
+**Example Request:**
+```bash
+curl "http://localhost:5000/latest-spot-time"
 ```
 
 #### GET /config
@@ -354,10 +385,19 @@ Shared script loaded by all page views. Polls `GET /health` once on page load an
 
 **States:**
 - Yellow — initial / checking
-- Green — HTTP 200 received from `/health`
-- Red — network error or non-200 response
+- Green — HTTP 200 from `/health` (Flask + MongoDB both reachable)
+- Orange — HTTP 503 from `/health` (Flask up, MongoDB unavailable)
+- Red — network error (Flask unreachable)
 
 The indicator is rendered as `Connection Status: ●` between the `<h1>` title and the main controls in both the map and table views. It satisfies requirement **FR-UI-03**.
+
+### Last-Updated Timestamp
+
+Displayed on the same header line as the connection status: `| Last updated: HH:MM:SS UTC`.
+
+- **"Last updated: HH:MM:SS UTC"** — shown after any `loadSpots()` call that returns one or more spots. The time is the client's local UTC clock at the moment the fetch completed.
+- **"Last spot: HH:MM:00 UTC"** — shown when the selected time interval returns zero spots. The frontend calls `GET /latest-spot-time` and displays the timestamp of the most recent document in MongoDB, so operators know how stale the database is.
+- **"Last updated: —"** — shown on initial page load before the first fetch completes.
 
 ### Map View (index_ft.html + map_ft.js)
 

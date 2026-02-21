@@ -675,6 +675,23 @@ async function loadSpots() {
   spotCountControl.update(bandCounts);
   bandCountsOut = bandCounts;
   console.log(bandCountsOut)
+
+  if (mapped > 0) {
+    const _now = new Date();
+    document.getElementById('last-updated').textContent =
+      'Last updated: ' +
+      _now.getUTCHours().toString().padStart(2, '0') + ':' +
+      _now.getUTCMinutes().toString().padStart(2, '0') + ':' +
+      _now.getUTCSeconds().toString().padStart(2, '0') + ' UTC';
+  } else {
+    try {
+      const ltRes = await fetch('/latest-spot-time', { cache: 'no-store' });
+      const lt = await ltRes.json();
+      if (lt.found) {
+        document.getElementById('last-updated').textContent = 'Last spot: ' + lt.time;
+      }
+    } catch { /* ignore */ }
+  }
 }
 
 //reload interval

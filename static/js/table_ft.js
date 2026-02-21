@@ -175,7 +175,24 @@ const regionZones = {
       counts[region][band]++;
     });
   
-    buildTable(counts, bands, threshold);
+    const total = buildTable(counts, bands, threshold);
+
+    if (total > 0) {
+      const _now = new Date();
+      document.getElementById('last-updated').textContent =
+        'Last updated: ' +
+        _now.getUTCHours().toString().padStart(2, '0') + ':' +
+        _now.getUTCMinutes().toString().padStart(2, '0') + ':' +
+        _now.getUTCSeconds().toString().padStart(2, '0') + ' UTC';
+    } else {
+      try {
+        const ltRes = await fetch('/latest-spot-time', { cache: 'no-store' });
+        const lt = await ltRes.json();
+        if (lt.found) {
+          document.getElementById('last-updated').textContent = 'Last spot: ' + lt.time;
+        }
+      } catch { /* ignore */ }
+    }
   }
   
   function buildTable(counts, bands, threshold) {
@@ -225,6 +242,7 @@ const regionZones = {
     html += "</table>";
     document.getElementById("title").textContent = `WSPR Table for ${call} PSWS Reciever`
     document.getElementById("spotsTableContainer").innerHTML = html;
+    return total;
   }
   
   document.getElementById("updateButton").addEventListener("click", loadSpots);
