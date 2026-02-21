@@ -263,7 +263,7 @@ def fetch_wspr_spots(lastInterval=15):
 
     Notes:
         - Invalid grid squares default to 0,0 coordinates (equator/prime meridian)
-        - Receiver location hardcoded to FN21ni (KD3ALD station)
+        - Receiver location configured via RECEIVER_GRIDSQUARE env var
         - Client-side filtering handles band/country/zone filtering
     """
     query = {}
