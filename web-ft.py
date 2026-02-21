@@ -423,6 +423,11 @@ def config():
         "receiver_gridsquare": RECEIVER_GRIDSQUARE,
     })
 
+@app.route('/health')
+def health():
+    """Lightweight health check endpoint for frontend connection status monitoring."""
+    return jsonify({"status": "ok"})
+
 @app.route('/table')
 def table():
     """

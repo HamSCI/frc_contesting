@@ -28,11 +28,26 @@
     .band-header { background-color: #1f497d; color: white; font-weight: bold; }
     .region-header { background-color: #f2a900; font-weight: bold; }
     .value { background-color: #4caf50; color: white; font-weight: bold; }
+
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+    .status-checking     { background: #f0a500; }
+    .status-connected    { background: #22c55e; }
+    .status-disconnected { background: #ef4444; }
   </style>
 </head>
 
 <body>
   <h1 style="text-align:center;" id="title">WSPR Spots Table</h1>
+  <div style="text-align: center; font-size: 13px; margin: 2px 0 6px 0; font-family: courier;">
+    Connection Status:&nbsp;<span id="conn-status-dot" class="status-dot status-checking"></span><span id="conn-status-label">Checking...</span>
+  </div>
 
   <div id="controls">
     <label>Last Number of Minutes:</label>
@@ -63,5 +78,6 @@
   <div id="spotsTableContainer" style="margin-top:20px;"></div>
 
   <script src="js/table_ft.js"></script>
+  <script src="js/connection_status.js"></script>
 </body>
 </html>

@@ -30,11 +30,12 @@ This documentation serves to:
 | February 2, 2026 | Claude Opus 4.5 | claude-opus-4-5-20251101 | Project planning, gap analysis, issue board setup | Nathaniel Frissell |
 | February 9, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Milestone 1 issue creation, workload balancing, project board setup | Nathaniel Frissell |
 | February 21, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Receiver config extraction to .env (Issue #38) | Liam Miller |
+| February 21, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Connection status indicator in header (Issue #36, FR-UI-03) | Liam Miller |
 
 ### Current Model
 
-**Model**: Claude Opus 4.6
-**Model ID**: claude-opus-4-6
+**Model**: Claude Sonnet 4.6
+**Model ID**: claude-sonnet-4-6
 **Context Window**: Large (suitable for entire codebase analysis)
 
 ---
@@ -455,6 +456,30 @@ For questions about this project or the use of AI assistance, please refer to th
 - `static/js/table_ft.js` — dynamic callsign loading from `/config`
 - `README.md` — updated configuration and API documentation
 
+### Session 7: Connection Status Indicator (Issue #36, FR-UI-03)
+**Date**: February 21, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Add visible connection status indicator to all dashboard views
+**Status**: Complete
+
+**Activities**:
+- Added `GET /health` endpoint to `web-ft.py` returning `{"status": "ok"}` (HTTP 200)
+- Created `static/js/connection_status.js`: polls `/health` every 30 seconds, updates colored dot in header (yellow = checking, green = connected, red = disconnected)
+- Updated `templates/index_ft.html`: added `.status-dot` CSS, indicator `<div>` between `<h1>` and `<h3>`, and `<script>` tag for `connection_status.js`
+- Updated `templates/table_ft.html`: same CSS, indicator `<div>` below `<h1>`, and `<script>` tag
+- `both.html` required no changes — its iframes load `/map` and `/table` which already include the indicator
+- Updated `README.md`: added feature to Key Features, `/health` to architecture diagram and API docs, `connection_status.js` to project structure, new Connection Status Indicator section in Frontend Components
+- Updated `docs/CLAUDE.md`: model history table and this session entry
+
+**Files Modified**:
+- `web-ft.py` — `/health` endpoint added
+- `static/js/connection_status.js` — new file (polling logic)
+- `templates/index_ft.html` — CSS + indicator HTML + script tag
+- `templates/table_ft.html` — CSS + indicator HTML + script tag
+- `README.md` — documentation updates
+- `docs/CLAUDE.md` — session record
+
 ---
 
 ## Version History
@@ -465,6 +490,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 1.1 | February 2, 2026 | Added Session 4: project planning and issue board setup | Claude Opus 4.5 (claude-opus-4-5-20251101) |
 | 1.2 | February 9, 2026 | Added Session 5: Milestone 1 issues created, workload balanced, FRC milestone added | Claude Opus 4.6 (claude-opus-4-6) |
 | 1.3 | February 21, 2026 | Added Session 6: receiver config extracted to .env (Issue #38) | Claude Opus 4.6 (claude-opus-4-6) |
+| 1.4 | February 21, 2026 | Added Session 7: connection status indicator (Issue #36, FR-UI-03) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 

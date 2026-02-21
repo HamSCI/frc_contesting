@@ -3,7 +3,7 @@
 **Authors:** Owen Ruzanski (KD3ALD), Liam Miller (KD3BVX), Nathaniel Frissell (W2NAF)
 **Organization:** University of Scranton (W3USR), Frankford Radio Club
 **Project:** HamSCI Personal Space Weather Station Dashboard Development
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 
 ---
 
@@ -38,6 +38,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - **Auto-reload capability** with configurable intervals
 - **Contest bands mode** focusing on the 6 primary contest bands
 - **Session persistence** for filter settings across page reloads
+- **Connection status indicator** showing live backend connectivity in the page header
 
 ### Project Goals
 
@@ -101,6 +102,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 │    /table     → table_ft.html (table)       │
 │    /spots     → JSON API (map data)         │
 │    /tbspots   → JSON API (table data)       │
+│    /health    → JSON API (connection check) │
 └─────────────────┬───────────────────────────┘
                   │
                   ↓
@@ -305,6 +307,24 @@ Fetch spots for table display with regional aggregation data.
 ]
 ```
 
+#### GET /health
+
+Lightweight health check endpoint used by the frontend connection status indicator.
+
+**Response Format:**
+```json
+{
+  "status": "ok"
+}
+```
+
+Returns HTTP 200 when the Flask server is reachable. The frontend polls this endpoint every 30 seconds and updates the header dot indicator accordingly (green = connected, red = disconnected).
+
+**Example Request:**
+```bash
+curl "http://localhost:5000/health"
+```
+
 #### GET /config
 
 Serve receiver station configuration to the frontend.
@@ -326,6 +346,19 @@ curl "http://localhost:5000/config"
 
 ## Frontend Components
 
+### Connection Status Indicator (connection_status.js)
+
+**File:** [static/js/connection_status.js](static/js/connection_status.js)
+
+Shared script loaded by all page views. Polls `GET /health` once on page load and then every 30 seconds, updating a colored dot in the page header.
+
+**States:**
+- Yellow — initial / checking
+- Green — HTTP 200 received from `/health`
+- Red — network error or non-200 response
+
+The indicator is rendered as `Connection Status: ●` between the `<h1>` title and the main controls in both the map and table views. It satisfies requirement **FR-UI-03**.
+
 ### Map View (index_ft.html + map_ft.js)
 
 **Files:** [templates/index_ft.html](templates/index_ft.html), [static/js/map_ft.js](static/js/map_ft.js)
@@ -337,6 +370,7 @@ curl "http://localhost:5000/config"
 - Clickable markers with spot details
 - Real-time spot counter by band (bottom-right)
 - CQ zone outline overlay with zone labels
+- Connection status indicator in header (via connection_status.js)
 
 **Filtering Controls:**
 - Time interval (last N minutes)
@@ -440,9 +474,10 @@ frc_contesting/
 │   │   └── style.css          # Custom styles
 │   ├── img/                   # Marker images
 │   └── js/
-│       ├── map_ft.js          # Map visualization (730 lines)
-│       ├── table_ft.js        # Table view (183 lines)
-│       ├── chart.js           # Spot counting (98 lines)
+│       ├── map_ft.js              # Map visualization (730 lines)
+│       ├── table_ft.js            # Table view (183 lines)
+│       ├── connection_status.js   # Connection status indicator polling
+│       ├── chart.js               # Spot counting (98 lines)
 │       ├── countries.geojson  # Country boundaries (14MB)
 │       ├── continents.geojson # Continent boundaries (4KB)
 │       ├── cqzones.geojson    # CQ zones (2.7MB)
@@ -477,6 +512,7 @@ python web-ft.py
 - http://localhost:5000/map - Map view only
 - http://localhost:5000/table - Table view only
 - http://localhost:5000/spots?lastInterval=15 - Raw JSON data
+- http://localhost:5000/health - Backend health check (JSON)
 
 ### Making Code Changes
 

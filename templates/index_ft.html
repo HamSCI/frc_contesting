@@ -39,6 +39,18 @@
     pointer-events: none;   /* labels won't block clicks */
     }
 
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+    .status-checking     { background: #f0a500; }
+    .status-connected    { background: #22c55e; }
+    .status-disconnected { background: #ef4444; }
+
   </style>
   <link rel="stylesheet" href="css/leaflet.extra-markers.min.css">
 
@@ -60,6 +72,9 @@
 </head>
 <body>
   <h1 style="text-align: center;" id="title">WSPR Spots From PSWS Receiver</h1>
+  <div style="text-align: center; font-size: 13px; margin: 2px 0 6px 0; font-family: courier;">
+    Connection Status:&nbsp;<span id="conn-status-dot" class="status-dot status-checking"></span><span id="conn-status-label">Checking...</span>
+  </div>
   <h3 id="spot-info" style="text-align: center;">Loading spot data...</h3>
 
   <!-- <button onclick="javascript:window.history.back();" style="margin: 10px;">⬅ Back</button> -->
@@ -149,6 +164,7 @@
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="js/map_ft.js"></script>
   <script src="js/leaflet.extra-markers.min.js"></script>
-  
+  <script src="js/connection_status.js"></script>
+
 </body>
 </html>
