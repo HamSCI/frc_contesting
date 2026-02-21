@@ -144,8 +144,7 @@ const regionZones = {
     // region → band → count
     const counts = {};
     const bands = ["160m","80m","40m","20m","15m","10m"];
-    const total = 0;
-  
+
     recent.forEach(s => {
       // MODE FILTER
       const allowWSPR = document.getElementById("modeWSPR").checked;
