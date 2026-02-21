@@ -221,22 +221,14 @@ The application uses environment variables for secure credential management.
 
 ### Receiver Station Configuration
 
-Update the receiver callsign and grid square in:
+Set the receiver callsign and Maidenhead grid square in your `.env` file:
 
-**Backend** ([web-ft.py](web-ft.py#L198)):
-```python
-rxlat, rxlon = maidenhead.to_location("FN21ni")  # Change to your grid
+```bash
+RECEIVER_CALLSIGN=KD3ALD
+RECEIVER_GRIDSQUARE=FN21ni
 ```
 
-**Frontend Table View** ([static/js/table_ft.js](static/js/table_ft.js#L39)):
-```javascript
-const call = "KD3ALD"  // Change to your callsign
-```
-
-**Frontend Map View** ([static/js/map_ft.js](static/js/map_ft.js#L491)):
-```javascript
-title.textContent = `WSPR Spots From ${spot.rx_sign} PSWS Receiver`
-```
+The backend reads these values at startup and serves them to the frontend via the `/config` API endpoint. The grid square can be 4-character (e.g., `FN21`) or 6-character (e.g., `FN21ni`).
 
 ### Band Color Configuration
 
@@ -311,6 +303,23 @@ Fetch spots for table display with regional aggregation data.
     "mode": "wspr"
   }
 ]
+```
+
+#### GET /config
+
+Serve receiver station configuration to the frontend.
+
+**Response Format:**
+```json
+{
+  "receiver_callsign": "KD3ALD",
+  "receiver_gridsquare": "FN21ni"
+}
+```
+
+**Example Request:**
+```bash
+curl "http://localhost:5000/config"
 ```
 
 ---

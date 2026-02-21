@@ -41,6 +41,11 @@ MONGODB_USERNAME = os.getenv('MONGODB_USERNAME', 'admin')
 MONGODB_PASSWORD = os.getenv('MONGODB_PASSWORD')
 MONGODB_DATABASE = os.getenv('MONGODB_DATABASE', 'wspr_db')
 
+# Receiver Station Configuration
+# Callsign and Maidenhead grid square of the PSWS receiver station
+RECEIVER_CALLSIGN = os.getenv('RECEIVER_CALLSIGN', 'KD3ALD')
+RECEIVER_GRIDSQUARE = os.getenv('RECEIVER_GRIDSQUARE', 'FN21ni')
+
 if not MONGODB_PASSWORD:
     raise ValueError("MONGODB_PASSWORD environment variable is not set. Please create a .env file (see .env.example)")
 
@@ -207,8 +212,8 @@ def fetch_wspr_spots_tb(lastInterval=15):
     docs.reverse()
     results = []
 
-    # Receiver location: FN21ni is KD3ALD station in New Jersey
-    rxlat, rxlon = maidenhead.to_location("FN21ni")
+    # Receiver location from environment configuration
+    rxlat, rxlon = maidenhead.to_location(RECEIVER_GRIDSQUARE)
 
     for doc in docs:
         # Convert transmitter grid square to coordinates
@@ -284,8 +289,8 @@ def fetch_wspr_spots(lastInterval=15):
     docs.reverse()
     results = []
 
-    # Receiver location: FN21ni grid square (northern New Jersey)
-    rxlat, rxlon = maidenhead.to_location("FN21ni")
+    # Receiver location from environment configuration
+    rxlat, rxlon = maidenhead.to_location(RECEIVER_GRIDSQUARE)
 
     for doc in docs:
         # Attempt to convert transmitter grid to coordinates
@@ -397,6 +402,26 @@ def tbspots():
     band = request.args.get('band')  # Currently unused
     spots = fetch_wspr_spots_tb(lastInterval=lastInterval)
     return jsonify(spots)
+
+@app.route('/config')
+def config():
+    """
+    REST API endpoint: Serve receiver station configuration to frontend.
+
+    Returns non-sensitive configuration values that the frontend needs
+    for display purposes (callsign, grid square).
+
+    Returns:
+        JSON: Object with receiver_callsign and receiver_gridsquare
+
+    Example:
+        GET /config
+        Returns {"receiver_callsign": "KD3ALD", "receiver_gridsquare": "FN21ni"}
+    """
+    return jsonify({
+        "receiver_callsign": RECEIVER_CALLSIGN,
+        "receiver_gridsquare": RECEIVER_GRIDSQUARE,
+    })
 
 @app.route('/table')
 def table():

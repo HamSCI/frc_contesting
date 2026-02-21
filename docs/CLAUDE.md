@@ -29,6 +29,7 @@ This documentation serves to:
 | January 22, 2026 | Claude Sonnet 4.5 | claude-sonnet-4-5-20250929 | Requirements document creation and refinement | Nathaniel Frissell |
 | February 2, 2026 | Claude Opus 4.5 | claude-opus-4-5-20251101 | Project planning, gap analysis, issue board setup | Nathaniel Frissell |
 | February 9, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Milestone 1 issue creation, workload balancing, project board setup | Nathaniel Frissell |
+| February 21, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Receiver config extraction to .env (Issue #38) | Liam Miller |
 
 ### Current Model
 
@@ -433,6 +434,27 @@ For questions about this project or the use of AI assistance, please refer to th
 - Once Milestone 1 is underway, create Milestone 2 issues (7 issues for HamSCI Workshop)
 - Resolve open decisions: great circle path rendering, MUF estimation approach
 
+### Session 6: Extract Receiver Callsign and Grid Square into .env (Issue #38)
+**Date**: February 21, 2026
+**Model**: Claude Opus 4.6 (claude-opus-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Remove hardcoded receiver callsign and grid square; make configurable via .env
+**Status**: Complete
+
+**Activities**:
+- Added `RECEIVER_CALLSIGN` and `RECEIVER_GRIDSQUARE` to `.env.example` with placeholder values
+- Loaded new env vars in `web-ft.py` via `os.getenv()` with backward-compatible defaults
+- Replaced hardcoded `"FN21ni"` in `fetch_wspr_spots()` and `fetch_wspr_spots_tb()` with `RECEIVER_GRIDSQUARE`
+- Added `GET /config` REST API endpoint to serve receiver callsign and grid square to frontend
+- Updated `table_ft.js`: replaced hardcoded `const call = "KD3ALD"` with `let call = ""` populated via `fetch('/config')`
+- Updated `README.md`: revised "Receiver Station Configuration" section and added `/config` endpoint to API documentation
+
+**Files Modified**:
+- `.env.example` — receiver station config section added, real credentials removed
+- `web-ft.py` — env var loading, `RECEIVER_GRIDSQUARE` substitution, `/config` endpoint
+- `static/js/table_ft.js` — dynamic callsign loading from `/config`
+- `README.md` — updated configuration and API documentation
+
 ---
 
 ## Version History
@@ -442,6 +464,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 1.0 | January 22, 2026 | Initial creation of CLAUDE.md | Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) |
 | 1.1 | February 2, 2026 | Added Session 4: project planning and issue board setup | Claude Opus 4.5 (claude-opus-4-5-20251101) |
 | 1.2 | February 9, 2026 | Added Session 5: Milestone 1 issues created, workload balanced, FRC milestone added | Claude Opus 4.6 (claude-opus-4-6) |
+| 1.3 | February 21, 2026 | Added Session 6: receiver config extracted to .env (Issue #38) | Claude Opus 4.6 (claude-opus-4-6) |
 
 ---
 
