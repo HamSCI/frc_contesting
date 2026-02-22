@@ -157,6 +157,35 @@ async function loadITUZones() {
     const data = await res.json();
     ITUZoneFeat = data.features;
     console.log("Loaded", ITUZoneFeat.length, "ITU Zones");
+
+    if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
+
+    ituZoneBordersLayer = L.geoJSON(ITUZoneFeat, {
+      style: {
+        color: "black",
+        weight: 0.5,
+        fillOpacity: 0
+      }
+    });
+
+    ituZoneLabelsLayer = L.layerGroup();
+    ITUZoneFeat.forEach(feature => {
+      const zoneNum = feature.properties.itu_zone_number;
+      const center  = turf.center(feature).geometry.coordinates;
+      const label   = L.divIcon({
+        className: "itu-zone-label",
+        html: `<b>${zoneNum}</b>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+      ituZoneLabelsLayer.addLayer(L.marker([center[1], center[0]], { icon: label }));
+    });
+
+    const cb = document.getElementById("ituOutline");
+    if (cb && cb.checked) {
+      ituZoneBordersLayer.addTo(map);
+      ituZoneLabelsLayer.addTo(map);
+    }
   } catch (e) {
     console.error("Failed to load ITU Zones", e);
   }
@@ -284,6 +313,10 @@ L.Icon.Default.prototype.options.shadowSize = [0, 0];
 
 //cq zone overlay
 let cqZoneBordersLayer = null;
+
+//itu zone overlay
+let ituZoneBordersLayer = null;
+let ituZoneLabelsLayer  = null;
 
 
 
@@ -734,6 +767,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (continentSaved) continentSelect.value = continentSaved;
   if(CQZoneSaved) cqZoneSelect.value = CQZoneSaved
   if(ITUZoneSaved) ITUZoneSelect.value = ITUZoneSaved
+
+  const ITUZoneOutlineSaved = sessionStorage.getItem("ITUZoneOutline");
+  if (ITUZoneOutlineSaved === "true") {
+    const cb = document.getElementById("ituOutline");
+    if (cb) cb.checked = true;
+  }
+
   loadSpots();
 
 
@@ -801,6 +841,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (cqZoneBordersLayer) map.removeLayer(cqZoneBordersLayer);
       if (cqZoneLabelsLayer)  map.removeLayer(cqZoneLabelsLayer);
     }
+
+    //ITU Zone outline
+    const ituOutlineCheckbox = document.getElementById("ituOutline");
+    if (ituOutlineCheckbox.checked) {
+      if (ituZoneBordersLayer) map.addLayer(ituZoneBordersLayer);
+      if (ituZoneLabelsLayer)  map.addLayer(ituZoneLabelsLayer);
+    } else {
+      if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
+      if (ituZoneLabelsLayer)  map.removeLayer(ituZoneLabelsLayer);
+    }
+    sessionStorage.setItem("ITUZoneOutline", ituOutlineCheckbox.checked);
 
 
     const continent = document.getElementById("continentFilter").value;

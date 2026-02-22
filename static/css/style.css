@@ -1,0 +1,224 @@
+/* =============================================================
+   FRC Contesting Dashboard — Central Stylesheet
+   static/css/style.css
+   ============================================================= */
+
+
+/* -------------------------------------------------------------
+   1. BASE RESET (all templates)
+   ------------------------------------------------------------- */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: courier;
+}
+
+
+/* -------------------------------------------------------------
+   2. SCROLLBAR — neon blue (both.html only)
+   ------------------------------------------------------------- */
+
+/* both.html adds width/height/background/overflow/scroll to html,body */
+.scroll-page {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  overflow-y: scroll;
+  scroll-behavior: smooth;
+}
+
+/* Slim neon blue scrollbar (WebKit) */
+::-webkit-scrollbar {
+  width: 15px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b0b0b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00aaff;
+  border-radius: 10px;
+  box-shadow: 0 0 8px #00aaff;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #33ccff;
+  box-shadow: 0 0 12px #33ccff;
+}
+
+/* Firefox scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #00aaff #0b0b0b;
+}
+
+
+/* -------------------------------------------------------------
+   3. LAYOUT UTILITIES (both.html)
+   ------------------------------------------------------------- */
+
+.fullFrame {
+  width: 100%;
+  height: 100vh;
+  border: none;
+  display: block;
+}
+
+#divider {
+  width: 100%;
+  height: 15px;
+  background: black;
+}
+
+
+/* -------------------------------------------------------------
+   4. MAP LAYOUT (index_ft.html, index_wcount.html)
+   ------------------------------------------------------------- */
+
+.map-page {
+  height: 100%;
+  width: 100%;
+}
+
+#map {
+  height: calc(100% - 130px);
+}
+
+#spots {
+  width: 45px;
+}
+
+#lastInterval {
+  width: 45px;
+}
+
+
+/* -------------------------------------------------------------
+   5. LEAFLET WIDGETS (index_ft.html, index_wcount.html)
+   ------------------------------------------------------------- */
+
+.info-box {
+  background: white;
+  padding: 8px;
+  border-radius: 5px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.5);
+  font-size: 14px;
+}
+
+.leaflet-bottom.leaflet-right .spot-counter {
+  background: white;
+  padding: 6px 12px;
+  font-size: 14px;
+  border-radius: 5px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.5);
+  font-family: courier;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
+.cq-zone-label {
+  color: rgb(66, 53, 53);
+  font-size: 20px;
+  text-shadow: 1px 1px 2px white;
+  pointer-events: none;
+}
+
+.itu-zone-label {
+  color: rgb(53, 53, 100);
+  font-size: 20px;
+  text-shadow: 1px 1px 2px white;
+  pointer-events: none;
+}
+
+
+/* -------------------------------------------------------------
+   6. CONNECTION STATUS (index_ft.html, table_ft.html)
+   ------------------------------------------------------------- */
+
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.status-checking     { background: #f0a500; }
+.status-connected    { background: #22c55e; }
+.status-dberror      { background: #f97316; }
+.status-disconnected { background: #ef4444; }
+
+
+/* -------------------------------------------------------------
+   7. PAGE HEADER UTILITIES (index_ft.html, table_ft.html)
+   ------------------------------------------------------------- */
+
+.page-title {
+  text-align: center;
+}
+
+.status-bar {
+  text-align: center;
+  font-size: 13px;
+  margin: 2px 0 6px 0;
+  font-family: courier;
+}
+
+.controls-center {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+
+/* -------------------------------------------------------------
+   8. TABLE STYLES (table_ft.html)
+   ------------------------------------------------------------- */
+
+#controls {
+  text-align: center;
+  margin: 10px;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 0 auto;
+  font-size: 14px;
+  table-layout: fixed;
+  width: 1000px;
+}
+
+th, td {
+  border: 1px solid #000;
+  text-align: center;
+  padding: 6px 8px;
+  width: 60px;
+  height: 28px;
+}
+
+.band-header   { background-color: #1f497d; color: white; font-weight: bold; }
+.region-header { background-color: #f2a900; font-weight: bold; }
+.value         { background-color: #4caf50; color: white; font-weight: bold; }
+
+
+/* -------------------------------------------------------------
+   9. TABLE UTILITY CLASSES (table_ft.html)
+   ------------------------------------------------------------- */
+
+.narrow-input {
+  width: 60px;
+}
+
+.total-display {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.spots-table-container {
+  margin-top: 20px;
+}
