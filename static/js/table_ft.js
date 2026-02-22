@@ -35,8 +35,8 @@ function setReloadInterval(seconds) {
   }
 }
 
-// Station callsign for display purposes
-const call = "KD3ALD"
+// Station callsign - loaded from /config endpoint
+let call = "";
 
 /**
  * CQ Zone to Region mapping.
@@ -228,7 +228,17 @@ const regionZones = {
   }
   
   document.getElementById("updateButton").addEventListener("click", loadSpots);
-  window.addEventListener("DOMContentLoaded", function(){
+  window.addEventListener("DOMContentLoaded", async function(){
+    // Fetch receiver config before loading spots
+    try {
+      const configRes = await fetch('/config');
+      const config = await configRes.json();
+      call = config.receiver_callsign || "Unknown";
+    } catch (e) {
+      console.error("Failed to load config", e);
+      call = "Unknown";
+    }
+
     loadSpots()
     const reloadSelect = document.getElementById("reloadInterval");
 
