@@ -61,57 +61,6 @@ const call = CONFIG.station.callsign;
  * - North America: USA, Canada, Alaska, Mexico
  * - Oceania: Pacific islands
  */
-const regionZones = CONFIG.regionZones;
-  
-  /**
-   * Map CQ zone number to geographic region name.
-   *
-   * @param {number|string} cqZone - CQ zone number (1-40)
-   * @returns {string} Region name or "Unknown" if invalid zone
-   *
-   * @example
-   * getRegionFromCQ(5)  // "North America" (CQ zone 5 is eastern USA)
-   * getRegionFromCQ(14) // "Europe" (CQ zone 14 is Western Europe)
-   */
-  function getRegionFromCQ(cqZone) {
-    // Convert to number safely
-    const num = Number(cqZone);
-
-    // Validate zone number (1-40)
-    if (!num || num < 1 || num > 40) {
-      return "Unknown";
-    }
-
-    // Search for zone in region mapping
-    for (const [region, zones] of Object.entries(regionZones)) {
-      if (zones.includes(num)) return region;
-    }
-
-    // Zone not in any defined region
-    return "Unknown";
-  }
-
-
-  /**
-   * Parse spot timestamp from database format to JavaScript Date.
-   *
-   * Database stores dates as "YYMMDD HHMM" strings in UTC.
-   * Example: "260107 1430" = January 7, 2026 at 14:30 UTC
-   *
-   * @param {string} t - Timestamp string in "YYMMDD HHMM" format
-   * @returns {Date} JavaScript Date object in UTC
-   *
-   * @example
-   * parseTableTime("260107 1430") // Date object: 2026-01-07 14:30:00 UTC
-   */
-  function parseTableTime(t) {
-    const yy = Number(t.slice(0, 2)) + 2000;  // YY → YYYY
-    const mm = Number(t.slice(2, 4)) - 1;     // Month (0-11 for JS Date)
-    const dd = Number(t.slice(4, 6));         // Day
-    const HH = Number(t.slice(7, 9));         // Hour
-    const MM = Number(t.slice(9, 11));        // Minute
-    return new Date(Date.UTC(yy, mm, dd, HH, MM));
-  }
   
   async function loadSpots() {
     const mins = Number(document.getElementById("lastInterval").value) || CONFIG.defaults.lastInterval;
