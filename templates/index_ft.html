@@ -1,70 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="map-page">
 <head>
   <meta charset="UTF-8">
   <title>WSPR RX Station Map</title>
+  <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="css/leaflet.extra-markers.min.css">
   <script src="js/onload.js"></script>
   <script src="js/turf.min.js"></script>
-  <style>
-    .info-box {
-      background: white;
-      padding: 8px;
-      border-radius: 5px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
-      font-size: 14px;
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-      font-family: courier;
-    }
-
-    #map {
-      height: calc(100% - 130px);
-    }
-    #spots{
-      width: 45px;
-    }
-    #lastInterval{
-      width: 45px;
-    }
-    .cq-zone-label {
-    color: rgb(66, 53, 53);
-    font-size: 20px;
-    text-shadow: 1px 1px 2px white;
-    pointer-events: none;   /* labels won't block clicks */
-    }
-
-  </style>
-  <link rel="stylesheet" href="css/leaflet.extra-markers.min.css">
-
-  <style>
-    .leaflet-bottom.leaflet-right .spot-counter {
-      background: white;
-      padding: 6px 12px;
-      font-size: 14px;
-      border-radius: 5px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
-      font-family: courier;
-      max-height: 200px;
-      overflow-y: auto;
-      line-height: 1.4;
-    }
-    
-  </style>
-
 </head>
-<body>
-  <h1 style="text-align: center;" id="title">WSPR Spots From PSWS Receiver</h1>
-  <h3 id="spot-info" style="text-align: center;">Loading spot data...</h3>
+<body class="map-page">
+  <h1 class="page-title" id="title">WSPR Spots From PSWS Receiver</h1>
+  <div class="status-bar">
+    Connection Status:&nbsp;<span id="conn-status-dot" class="status-dot status-checking"></span><span id="conn-status-label">Checking...</span>
+    &nbsp;&nbsp;|&nbsp;&nbsp;<span id="last-updated">Last updated: —</span>
+  </div>
+  <h3 id="spot-info" class="page-title">Loading spot data...</h3>
 
   <!-- <button onclick="javascript:window.history.back();" style="margin: 10px;">⬅ Back</button> -->
 
-  <div style="text-align: center; margin-bottom: 10px;">
+  <div class="controls-center">
     <label for="lastInterval">Last Number of Minutes to Display</label>
     <input id="lastInterval" type="number" value="15" min="1">
     <label for="bandFilter">Filter Band:</label>
@@ -127,6 +82,8 @@
     <select id="ITUZoneFilter">
       <option value="">All ITU Zones</option>
     </select>
+    <label for="ituOutline">ITU Zone Outline:</label>
+    <input type="checkbox" id="ituOutline">
     <label for="reloadInterval">Auto Reload:</label>
     <select id="reloadInterval">
       <option value="0">Off</option>
