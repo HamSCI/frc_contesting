@@ -28,6 +28,9 @@ let continentFeat = [];    // Continent boundary polygons (7 continents)
 let cqZoneFeat = [];       // CQ zone polygons (40 zones for amateur radio contests)
 let ITUZoneFeat = [];      // ITU zone polygons (90 zones for telecommunications)
 
+// Contest bands filter - limits display to the 6 traditional HF contest bands
+// Excludes WARC bands (30m, 17m, 12m) where contesting is prohibited
+const CONTEST_BANDS = ["160m", "80m", "40m", "20m", "15m", "10m"];
 
 
 /**
@@ -273,7 +276,7 @@ function getQueryParam(name) {
   return urlParams.get(name);
 }
 
-var map = L.map('map').setView(CONFIG.map.initialView, CONFIG.map.initialZoom);
+var map = L.map('map').setView([20, 0], 2);
 
 
 //cq zone overlay
@@ -291,13 +294,54 @@ spotCountControl.onAdd = function () {
   return this._div;
 };
 
+const bandOrder = [
+  '160m', '80m', '60m', '40m', '30m',
+  '20m', '17m', '15m', '12m', '10m',
+  '6m', '4m', '2m', '70cm', 'unknown'
+];
+
+const bandColorMap = {
+  '160m': 'black',
+  '80m': 'red',
+  '60m': 'orange-dark',
+  '40m': 'orange',
+  '30m': 'yellow',
+  '20m': 'green',
+  '17m': 'green-light',
+  '15m': 'cyan',
+  '12m': 'blue-dark',
+  '10m': 'blue-dark',
+  '6m': 'purple',
+  '4m': 'violet',
+  '2m': 'pink',
+  '70cm': 'white',
+  'unknown': 'green-dark'
+};
+
+const colorHexMap = {
+  "red": "991F24",
+  "orange-dark": "D43019",
+  "orange": "EE8918",
+  "yellow": "F5B72D",
+  "blue-dark": "183C52",
+  "blue": "106AB6",
+  "cyan": "21A2DA",
+  "purple": "4E2960",
+  "violet": "8B1E89",
+  "pink": "BB4A99",
+  "green-dark": "004B22",
+  "green": "008B38",
+  "green-light": "5AA429",
+  "black": "211D1E",
+  "white": "F5F4F5"
+};
 
 spotCountControl.update = function (bandCounts) {
   const lines = Object.entries(bandCounts)
-    .sort(([a], [b]) => CONFIG.bandOrder.indexOf(a) - CONFIG.bandOrder.indexOf(b))
+    .sort(([a], [b]) => bandOrder.indexOf(a) - bandOrder.indexOf(b))
     .map(([band, count]) => {
-      const markerColor = CONFIG.bandColorMap[band] || 'black';
-      const hex = CONFIG.colorHexMap[markerColor] || '000000';
+      const markerColor = bandColorMap[band] || 'black';
+      const hex = colorHexMap[markerColor] || '000000';
       return `<span style="
         display: inline-block;
         width: 12px;
@@ -317,14 +361,31 @@ spotCountControl.addTo(map);
 
 
 //add images to map
-L.tileLayer(CONFIG.map.tileUrl, CONFIG.map.tileOptions).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  noWrap: true,
+  bounds: [[-90, -180], [90, 180]]
+}).addTo(map);
 var layers = [];
 
 
 
 // helper funcs
 function frequencyToBand(freq) {
-  return CONFIG.freqToBand(freq);
+  if (freq >= .136 && freq < .137) return "2200m";
+  if (freq >=.472 && freq < .479) return "630m";
+  if (freq >= 1.8 && freq < 2) return "160m";
+  if (freq >= 3.5 && freq < 4) return "80m";
+  if (freq >= 5.2 && freq < 5.5) return "60m";
+  if (freq >= 7.0 && freq < 7.3) return "40m";
+  if (freq >= 10.1 && freq < 10.15) return "30m";
+  if (freq >= 14.0 && freq < 14.35) return "20m";
+  if (freq >= 18.068 && freq < 18.168) return "17m";
+  if (freq >= 21.0 && freq < 21.45) return "15m";
+  if (freq >= 24.89 && freq < 24.99) return "12m";
+  if (freq >= 28.0 && freq < 29.7) return "10m";
+  if (freq >= 50.0 && freq < 54.0) return "6m";
+  if (freq >= 144.0 && freq < 148.0) return "2m";
+  return "Unknown";
 }
 function parseWsprTime(wsprTimeStr) {
   const [datePart, timePart] = wsprTimeStr.split(' ');
@@ -350,8 +411,31 @@ let bandCountsOut = {};
 
 async function loadSpots() {
 
-  //all possible color options (derived from config)
-  const markerColors = Object.keys(CONFIG.colorHexMap);
+  //all possible color options
+  const markerColors = [
+    'red', 'orange-dark', 'orange', 'yellow', 'blue-dark',
+    'cyan', 'purple', 'violet', 'pink',
+    'green-dark', 'green', 'green-light',
+    'black', 'white'
+  ];
+  //band color map
+  const bandColorMap = {
+    '160m': 'black',
+    '80m': 'red',
+    '60m': 'orange-dark',
+    '40m': 'orange',
+    '30m': 'yellow',
+    '20m': 'green',
+    '17m': 'green-light',
+    '15m': 'cyan',
+    '12m': 'blue-dark',
+    '10m': 'blue-dark',
+    '6m': 'purple',
+    '4m': 'violet',
+    '2m': 'pink',
+    '70cm': 'white',
+    'unknown': 'green-dark'
+  };
   
   
   const markers = {};
@@ -366,7 +450,7 @@ async function loadSpots() {
   
 
 // load all params, build url , load json
-  const lastInterval = document.getElementById("lastInterval").value || getQueryParam("lastInterval") || CONFIG.defaults.lastInterval;
+  const lastInterval = document.getElementById("lastInterval").value || getQueryParam("lastInterval") || 15;
   const selectedBand = getQueryParam("band") || document.getElementById("bandFilter").value;
   const selectedCountry = document.getElementById("countryFilter").value;
   const selectedContinent = document.getElementById("continentFilter").value;
@@ -480,7 +564,7 @@ async function loadSpots() {
 
     // "Contest Bands Only" mode
     if (selectedBand === "CBs") {
-      if (!CONFIG.contestBands.includes(bandName)) {
+      if (!CONTEST_BANDS.includes(bandName)) {
         return; // skip non-contest bands
       }
     }
@@ -497,7 +581,7 @@ async function loadSpots() {
     const spotInfo = document.getElementById("spot-info");
     spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${bandName1}`;
     const title = document.getElementById("title");
-    title.textContent = `WSPR Spots From ${CONFIG.station.callsign} PSWS Receiver`
+    title.textContent = `WSPR Spots From ${spot.rx_sign} PSWS Receiver`
 
     //num decoded per spot
     const spotKey = `${spot.tx_sign}_${spot.rx_sign}_${spot.frequency}`;
@@ -505,7 +589,7 @@ async function loadSpots() {
     
 
     //colored markers
-    const markerColor = CONFIG.bandColorMap[bandName] || 'black';
+    const markerColor = bandColorMap[bandName] || 'black';
     const icon = markers[markerColor] || markers['black'];
 
 
@@ -646,7 +730,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if(savedContinent){
     continentSelect.value = savedContinent
   }
-  intervalInput.value = getQueryParam("lastInterval") || String(CONFIG.defaults.lastInterval);
+  intervalInput.value = getQueryParam("lastInterval") || "15";
 
   //band filter
   const band = document.getElementById("bandFilter").value;

@@ -36,7 +36,7 @@ function setReloadInterval(seconds) {
 }
 
 // Station callsign for display purposes
-const call = CONFIG.station.callsign;
+const call = "KD3ALD"
 
 /**
  * CQ Zone to Region mapping.
@@ -61,7 +61,22 @@ const call = CONFIG.station.callsign;
  * - North America: USA, Canada, Alaska, Mexico
  * - Oceania: Pacific islands
  */
-const regionZones = CONFIG.regionZones;
+const regionZones = {
+    "Europe":       [14, 15, 16, 20],
+    "Caribbean":    [8],
+    "South America":[9, 10, 11, 12, 13],
+    "Japan":        [25],
+    "Africa":       [33, 34, 35, 36, 37, 38, 39],
+    "VK":           [29, 30],
+    "YB":           [27, 28],
+    "China":        [23, 24],
+    "UA9":          [17, 18, 19],
+    "Indian":       [22],
+    "Middle East":  [21],
+    "Thailand":     [26],
+    "North America":[1, 2, 3, 4, 5, 6, 7, 40],
+    "Oceania":      [31, 32]
+  };
   
   /**
    * Map CQ zone number to geographic region name.
@@ -114,8 +129,8 @@ const regionZones = CONFIG.regionZones;
   }
   
   async function loadSpots() {
-    const mins = Number(document.getElementById("lastInterval").value) || CONFIG.defaults.lastInterval;
-    const threshold = Number(document.getElementById("threshold").value) || CONFIG.defaults.threshold;
+    const mins = Number(document.getElementById("lastInterval").value) || 15;
+    const threshold = Number(document.getElementById("threshold").value) || 1;
   
     const res = await fetch(`/tbspots?lastInterval=${mins}`);
     const spots = await res.json();
@@ -128,7 +143,7 @@ const regionZones = CONFIG.regionZones;
   
     // region → band → count
     const counts = {};
-    const bands = CONFIG.contestBands;
+    const bands = ["160m","80m","40m","20m","15m","10m"];
     const total = 0;
   
     recent.forEach(s => {
@@ -181,7 +196,16 @@ const regionZones = CONFIG.regionZones;
     bands.forEach(b => html += `<th class='band-header'>${b.replace("m","")}</th>`);
     html += "</tr>";
   
-    const regionPairs = CONFIG.regionPairs;
+    const regionPairs = [
+      ["Europe","Caribbean"],
+      ["South America","Japan"],
+      ["Africa","VK"],
+      ["YB","China"],
+      ["UA9","Indian"],
+      ["Middle East","Thailand"],
+      ["North America","Oceania"],
+      ["Unknown","Not in Use"]
+    ];
   
     for (const [r1, r2] of regionPairs) {
       html += `<tr><th class='region-header' colspan='${bands.length}'>${r1}</th><th class='region-header' colspan='${bands.length}'>${r2}</th></tr>`;
