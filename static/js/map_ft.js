@@ -119,9 +119,16 @@ for (let i = 1; i <= 90; i++) {
 }
 var map = L.map('map').setView(CONFIG.map.initialView, CONFIG.map.initialZoom);
 
+// Disable marker shadows globally for performance
+L.Icon.Default.prototype.options.shadowUrl = null;
+L.Icon.Default.prototype.options.shadowSize = [0, 0];
 
 //cq zone overlay
 let cqZoneBordersLayer = null;
+
+//itu zone overlay
+let ituZoneBordersLayer = null;
+let ituZoneLabelsLayer  = null;
 
 
 
@@ -183,6 +190,7 @@ async function loadSpots() {
       markerColor: color,
       shape: 'star',
       prefix: 'fa',
+      shadowSize: [0, 0],
     });
   });
   
@@ -449,6 +457,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (continentSaved) continentSelect.value = continentSaved;
   if(CQZoneSaved) cqZoneSelect.value = CQZoneSaved
   if(ITUZoneSaved) ITUZoneSelect.value = ITUZoneSaved
+
+  const ITUZoneOutlineSaved = sessionStorage.getItem("ITUZoneOutline");
+  if (ITUZoneOutlineSaved === "true") {
+    const cb = document.getElementById("ituOutline");
+    if (cb) cb.checked = true;
+  }
+
   loadSpots();
 
 
@@ -516,6 +531,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (cqZoneBordersLayer) map.removeLayer(cqZoneBordersLayer);
       if (cqZoneLabelsLayer)  map.removeLayer(cqZoneLabelsLayer);
     }
+
+    //ITU Zone outline
+    const ituOutlineCheckbox = document.getElementById("ituOutline");
+    if (ituOutlineCheckbox.checked) {
+      if (ituZoneBordersLayer) map.addLayer(ituZoneBordersLayer);
+      if (ituZoneLabelsLayer)  map.addLayer(ituZoneLabelsLayer);
+    } else {
+      if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
+      if (ituZoneLabelsLayer)  map.removeLayer(ituZoneLabelsLayer);
+    }
+    sessionStorage.setItem("ITUZoneOutline", ituOutlineCheckbox.checked);
 
 
     const continent = document.getElementById("continentFilter").value;

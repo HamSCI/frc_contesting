@@ -29,6 +29,12 @@ This documentation serves to:
 | January 22, 2026 | Claude Sonnet 4.5 | claude-sonnet-4-5-20250929 | Requirements document creation and refinement | Nathaniel Frissell |
 | February 2, 2026 | Claude Opus 4.5 | claude-opus-4-5-20251101 | Project planning, gap analysis, issue board setup | Nathaniel Frissell |
 | February 9, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Milestone 1 issue creation, workload balancing, project board setup | Nathaniel Frissell |
+| February 13, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Vendor Leaflet.js + offline basemap (Issue #37, FR-OFF-01/03/04/06) | Liam Miller |
+| February 21, 2026 | Claude Opus 4.6 | claude-opus-4-6 | Receiver config extraction to .env (Issue #38) | Liam Miller |
+| February 21, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Connection status indicator in header (Issue #36, FR-UI-03) | Liam Miller |
+| February 21, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | DB health check + smarter last-updated timestamp (Issue #41) | Liam Miller |
+| February 22, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | ITU zone boundary overlay (FR-MAP-09) | Liam Miller |
+| February 22, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Extract inline CSS to central stylesheet (static/css/style.css) | Liam Miller |
 
 ### Current Model
 
@@ -433,6 +439,106 @@ For questions about this project or the use of AI assistance, please refer to th
 - Once Milestone 1 is underway, create Milestone 2 issues (7 issues for HamSCI Workshop)
 - Resolve open decisions: great circle path rendering, MUF estimation approach
 
+### Session 6: Vendor Leaflet.js + Offline Basemap (Issue #37, FR-OFF-01/03/04/06)
+**Date**: February 13, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Remove all external CDN dependencies from the map view; serve Leaflet and basemap tiles entirely from local files
+**Status**: Complete
+
+**Activities**:
+- Downloaded Leaflet 1.9.4 (JS, CSS, 5 marker icon PNGs) to `static/vendor/leaflet/` — replaces `unpkg.com` CDN references in both active templates
+- Replaced OpenStreetMap tile layer (`tile.openstreetmap.org`) in `map_ft.js` with `loadOfflineBasemap()`: loads three Natural Earth GeoJSON files from `static/vendor/basemap/` and renders them as Leaflet vector layers
+- Basemap uses blue ocean background (CSS), light land fill (`ne_50m_land.json`), dark country borders (`ne_50m_admin_0_countries.json`), and lighter state/province borders (`states-50m.json`)
+- Initial implementation used world-atlas TopoJSON (designed for D3.js), which caused antimeridian wrapping artifacts (horizontal lines across Russia/Antarctica); replaced with Natural Earth GeoJSON which is pre-split at the antimeridian and renders correctly in Leaflet
+- Added `maxBounds` to map initialization to prevent scrolling past ±180°
+- Updated `templates/index_ft.html` and `templates/index_wcount.html`: replaced `https://unpkg.com/leaflet/...` with `vendor/leaflet/...`
+- Updated `README.md` and `docs/CLAUDE.md`
+
+**Note**: `static/vendor/` is not git-tracked. Re-run the download commands in README.md → "Offline Basemap Files" and "Leaflet Vendor Files" sections after any `git clean` or fresh clone.
+
+**Files Modified**:
+- `static/vendor/leaflet/` — new directory (leaflet.js, leaflet.css, images/)
+- `static/vendor/basemap/` — new directory (ne_50m_land.json, ne_50m_admin_0_countries.json, states-50m.json)
+- `static/js/map_ft.js` — removed OSM tile layer, added `loadOfflineBasemap()`, added `maxBounds`
+- `templates/index_ft.html` — local Leaflet CSS/JS references
+- `templates/index_wcount.html` — local Leaflet CSS/JS references
+- `README.md` — vendor file download instructions, project structure, map view notes
+- `docs/CLAUDE.md` — session record
+
+---
+
+### Session 7: Extract Receiver Callsign and Grid Square into .env (Issue #38)
+**Date**: February 21, 2026
+**Model**: Claude Opus 4.6 (claude-opus-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Remove hardcoded receiver callsign and grid square; make configurable via .env
+**Status**: Complete
+
+**Activities**:
+- Added `RECEIVER_CALLSIGN` and `RECEIVER_GRIDSQUARE` to `.env.example` with placeholder values
+- Loaded new env vars in `web-ft.py` via `os.getenv()` with backward-compatible defaults
+- Replaced hardcoded `"FN21ni"` in `fetch_wspr_spots()` and `fetch_wspr_spots_tb()` with `RECEIVER_GRIDSQUARE`
+- Added `GET /config` REST API endpoint to serve receiver callsign and grid square to frontend
+- Updated `table_ft.js`: replaced hardcoded `const call = "KD3ALD"` with `let call = ""` populated via `fetch('/config')`
+- Updated `README.md`: revised "Receiver Station Configuration" section and added `/config` endpoint to API documentation
+
+**Files Modified**:
+- `.env.example` — receiver station config section added, real credentials removed
+- `web-ft.py` — env var loading, `RECEIVER_GRIDSQUARE` substitution, `/config` endpoint
+- `static/js/table_ft.js` — dynamic callsign loading from `/config`
+- `README.md` — updated configuration and API documentation
+
+### Session 8: Connection Status Indicator (Issue #36, FR-UI-03)
+**Date**: February 21, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Add visible connection status indicator to all dashboard views
+**Status**: Complete
+
+**Activities**:
+- Added `GET /health` endpoint to `web-ft.py` returning `{"status": "ok"}` (HTTP 200)
+- Created `static/js/connection_status.js`: polls `/health` every 30 seconds, updates colored dot in header (yellow = checking, green = connected, red = disconnected)
+- Updated `templates/index_ft.html`: added `.status-dot` CSS, indicator `<div>` between `<h1>` and `<h3>`, and `<script>` tag for `connection_status.js`
+- Updated `templates/table_ft.html`: same CSS, indicator `<div>` below `<h1>`, and `<script>` tag
+- `both.html` required no changes — its iframes load `/map` and `/table` which already include the indicator
+- Updated `README.md`: added feature to Key Features, `/health` to architecture diagram and API docs, `connection_status.js` to project structure, new Connection Status Indicator section in Frontend Components
+- Updated `docs/CLAUDE.md`: model history table and this session entry
+
+**Files Modified**:
+- `web-ft.py` — `/health` endpoint added
+- `static/js/connection_status.js` — new file (polling logic)
+- `templates/index_ft.html` — CSS + indicator HTML + script tag
+- `templates/table_ft.html` — CSS + indicator HTML + script tag
+- `README.md` — documentation updates
+- `docs/CLAUDE.md` — session record
+
+### Session 9: DB Health Check + Smarter Last-Updated Timestamp (Issue #41)
+**Date**: February 21, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Make `/health` verify MongoDB; add 3-state indicator; smarter "Last updated" / "Last spot" timestamp
+**Status**: Complete
+
+**Activities**:
+- Updated `/health` in `web-ft.py` to ping MongoDB via `client.admin.command('ping')` — returns 503 + `{"status": "db_error"}` when DB is down
+- Added `GET /latest-spot-time` endpoint: queries for most recent spot in MongoDB, returns `{"found": true, "time": "HH:MM:00 UTC"}` or `{"found": false}`
+- Updated `static/js/connection_status.js`: added `dberror` state (orange dot, "DB Unavailable" label); maps HTTP 200 → connected, 503 → dberror, network error → disconnected
+- Added `.status-dberror { background: #f97316 }` CSS to `templates/index_ft.html` and `templates/table_ft.html`
+- Updated `static/js/map_ft.js`: conditional timestamp — "Last updated: HH:MM:SS UTC" when spots were found; falls back to `GET /latest-spot-time` → "Last spot: HH:MM:00 UTC" when none
+- Updated `static/js/table_ft.js`: `buildTable()` now returns `total`; conditional timestamp logic moved to `loadSpots()` with same fallback pattern
+- Updated `README.md` and `docs/CLAUDE.md`
+
+**Files Modified**:
+- `web-ft.py` — `/health` updated, `/latest-spot-time` added
+- `static/js/connection_status.js` — 3-state indicator
+- `templates/index_ft.html` — `.status-dberror` CSS
+- `templates/table_ft.html` — `.status-dberror` CSS
+- `static/js/map_ft.js` — conditional timestamp
+- `static/js/table_ft.js` — `buildTable()` returns total, conditional timestamp in `loadSpots()`
+- `README.md` — documentation updates
+- `docs/CLAUDE.md` — session record
+
 ---
 
 ## Version History
@@ -442,6 +548,10 @@ For questions about this project or the use of AI assistance, please refer to th
 | 1.0 | January 22, 2026 | Initial creation of CLAUDE.md | Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) |
 | 1.1 | February 2, 2026 | Added Session 4: project planning and issue board setup | Claude Opus 4.5 (claude-opus-4-5-20251101) |
 | 1.2 | February 9, 2026 | Added Session 5: Milestone 1 issues created, workload balanced, FRC milestone added | Claude Opus 4.6 (claude-opus-4-6) |
+| 1.3 | February 13, 2026 | Added Session 6: Leaflet vendored + offline basemap (Issue #37) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 1.4 | February 21, 2026 | Added Session 7: receiver config extracted to .env (Issue #38) | Claude Opus 4.6 (claude-opus-4-6) |
+| 1.5 | February 21, 2026 | Added Session 8: connection status indicator (Issue #36, FR-UI-03) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 1.6 | February 21, 2026 | Added Session 9: DB health check, 3-state indicator, smarter timestamp | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 

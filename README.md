@@ -67,9 +67,9 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 **Frontend:**
 - HTML5/CSS3
 - JavaScript (ES6+)
-- Leaflet.js (interactive maps)
+- Leaflet.js 1.9.4 (interactive maps, vendored locally in `static/vendor/leaflet/`)
 - [Leaflet.ExtraMarkers](https://github.com/coryasilva/Leaflet.ExtraMarkers) (custom marker icons)
-- Turf.js (geospatial analysis)
+- Turf.js (geospatial analysis, vendored locally)
 
 **Data Sources:**
 - MongoDB database running WSPRDaemon
@@ -186,7 +186,7 @@ See [requirements.txt](requirements.txt) for the complete list:
 
 ### GeoJSON Data Files
 
-The following GeoJSON files must be present in `static/js/`:
+The following GeoJSON files must be present in `static/js/` (used for point-in-polygon filtering):
 
 - `countries.geojson` (14MB) - Country boundaries
 - `continents.geojson` (4KB) - Continent boundaries
@@ -194,6 +194,36 @@ The following GeoJSON files must be present in `static/js/`:
 - `ituzones.geojson` (1.5MB) - ITU zone polygons (90 zones)
 
 These files are included in the repository.
+
+### Offline Basemap Files
+
+The following files provide the offline map background and **must be downloaded separately** — they are not tracked by git due to their size. Run the setup commands below to download them to `static/vendor/basemap/`:
+
+```bash
+mkdir -p static/vendor/basemap
+curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/physical/ne_50m_land.json -o static/vendor/basemap/ne_50m_land.json
+curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/cultural/ne_50m_admin_0_countries.json -o static/vendor/basemap/ne_50m_admin_0_countries.json
+curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/cultural/ne_50m_admin_1_states_provinces.json -o static/vendor/basemap/states-50m.json
+```
+
+- `ne_50m_land.json` (2.7MB) - Land mass polygons (ocean/land fill)
+- `ne_50m_admin_0_countries.json` (4.5MB) - Country border outlines
+- `states-50m.json` (1.6MB) - State/province border outlines
+
+### Leaflet Vendor Files
+
+Leaflet 1.9.4 is vendored locally and must also be downloaded separately:
+
+```bash
+mkdir -p static/vendor/leaflet/images
+curl -sL https://unpkg.com/leaflet@1.9.4/dist/leaflet.js -o static/vendor/leaflet/leaflet.js
+curl -sL https://unpkg.com/leaflet@1.9.4/dist/leaflet.css -o static/vendor/leaflet/leaflet.css
+curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png -o static/vendor/leaflet/images/marker-icon.png
+curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png -o static/vendor/leaflet/images/marker-icon-2x.png
+curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png -o static/vendor/leaflet/images/marker-shadow.png
+curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers.png -o static/vendor/leaflet/images/layers.png
+curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png -o static/vendor/leaflet/images/layers-2x.png
+```
 
 ---
 
@@ -221,22 +251,14 @@ The application uses environment variables for secure credential management.
 
 ### Receiver Station Configuration
 
-Update the receiver callsign and grid square in:
+Set the receiver callsign and Maidenhead grid square in your `.env` file:
 
-**Backend** ([web-ft.py](web-ft.py#L198)):
-```python
-rxlat, rxlon = maidenhead.to_location("FN21ni")  # Change to your grid
+```bash
+RECEIVER_CALLSIGN=KD3ALD
+RECEIVER_GRIDSQUARE=FN21ni
 ```
 
-**Frontend Table View** ([static/js/table_ft.js](static/js/table_ft.js#L39)):
-```javascript
-const call = "KD3ALD"  // Change to your callsign
-```
-
-**Frontend Map View** ([static/js/map_ft.js](static/js/map_ft.js#L491)):
-```javascript
-title.textContent = `WSPR Spots From ${spot.rx_sign} PSWS Receiver`
-```
+The backend reads these values at startup and serves them to the frontend via the `/config` API endpoint. The grid square can be 4-character (e.g., `FN21`) or 6-character (e.g., `FN21ni`).
 
 ### Band Color Configuration
 
@@ -313,6 +335,23 @@ Fetch spots for table display with regional aggregation data.
 ]
 ```
 
+#### GET /config
+
+Serve receiver station configuration to the frontend.
+
+**Response Format:**
+```json
+{
+  "receiver_callsign": "KD3ALD",
+  "receiver_gridsquare": "FN21ni"
+}
+```
+
+**Example Request:**
+```bash
+curl "http://localhost:5000/config"
+```
+
 ---
 
 ## Frontend Components
@@ -323,11 +362,14 @@ Fetch spots for table display with regional aggregation data.
 
 **Features:**
 - Interactive Leaflet map centered at lat 20°, lon 0°
+- **Fully offline basemap**: land fill, country borders, and state/province borders rendered from local Natural Earth GeoJSON (no tile server required)
 - Band-specific colored star markers
 - Polylines connecting TX and RX stations
 - Clickable markers with spot details
 - Real-time spot counter by band (bottom-right)
 - CQ zone outline overlay with zone labels
+- ITU zone outline overlay with zone labels
+- Connection status indicator in header (via connection_status.js)
 
 **Filtering Controls:**
 - Time interval (last N minutes)
@@ -338,6 +380,7 @@ Fetch spots for table display with regional aggregation data.
 - ITU zone filter (1-90)
 - Mode checkboxes (WSPR/FT8/FT4)
 - CQ zone outline toggle
+- ITU zone outline toggle
 - Auto-reload interval (2-30 minutes)
 
 **Key Functions:**
@@ -428,17 +471,27 @@ frc_contesting/
 │   └── legacy_templates/      # Old HTML templates
 ├── static/                    # Frontend assets
 │   ├── css/
-│   │   └── style.css          # Custom styles
+│   │   └── style.css          # Central dashboard stylesheet
 │   ├── img/                   # Marker images
-│   └── js/
-│       ├── map_ft.js          # Map visualization (730 lines)
-│       ├── table_ft.js        # Table view (183 lines)
-│       ├── chart.js           # Spot counting (98 lines)
-│       ├── countries.geojson  # Country boundaries (14MB)
-│       ├── continents.geojson # Continent boundaries (4KB)
-│       ├── cqzones.geojson    # CQ zones (2.7MB)
-│       ├── ituzones.geojson   # ITU zones (1.5MB)
-│       └── turf.min.js        # Geospatial library (591KB)
+│   ├── js/
+│   │   ├── map_ft.js              # Map visualization
+│   │   ├── table_ft.js            # Table view
+│   │   ├── connection_status.js   # Connection status indicator polling
+│   │   ├── chart.js               # Spot counting
+│   │   ├── countries.geojson  # Country boundaries (14MB, for filtering)
+│   │   ├── continents.geojson # Continent boundaries (4KB)
+│   │   ├── cqzones.geojson    # CQ zones (2.7MB)
+│   │   ├── ituzones.geojson   # ITU zones (1.5MB)
+│   │   └── turf.min.js        # Geospatial library (591KB)
+│   └── vendor/                # Third-party libraries (not git-tracked, download separately)
+│       ├── leaflet/           # Leaflet 1.9.4
+│       │   ├── leaflet.js
+│       │   ├── leaflet.css
+│       │   └── images/        # Marker icons
+│       └── basemap/           # Natural Earth offline basemap
+│           ├── ne_50m_land.json           # Land mass fill (2.7MB)
+│           ├── ne_50m_admin_0_countries.json  # Country borders (4.5MB)
+│           └── states-50m.json            # State/province borders (1.6MB)
 ├── templates/                 # Flask HTML templates
 │   ├── both.html              # Combined map + table view
 │   ├── index_ft.html          # Map view
