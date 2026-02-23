@@ -35,8 +35,8 @@ function setReloadInterval(seconds) {
   }
 }
 
-// Station callsign - loaded from /config endpoint
-let call = "";
+// Station callsign for display purposes
+const call = CONFIG.station.callsign;
 
 /**
  * CQ Zone to Region mapping.
@@ -61,76 +61,10 @@ let call = "";
  * - North America: USA, Canada, Alaska, Mexico
  * - Oceania: Pacific islands
  */
-const regionZones = {
-    "Europe":       [14, 15, 16, 20],
-    "Caribbean":    [8],
-    "South America":[9, 10, 11, 12, 13],
-    "Japan":        [25],
-    "Africa":       [33, 34, 35, 36, 37, 38, 39],
-    "VK":           [29, 30],
-    "YB":           [27, 28],
-    "China":        [23, 24],
-    "UA9":          [17, 18, 19],
-    "Indian":       [22],
-    "Middle East":  [21],
-    "Thailand":     [26],
-    "North America":[1, 2, 3, 4, 5, 6, 7, 40],
-    "Oceania":      [31, 32]
-  };
-  
-  /**
-   * Map CQ zone number to geographic region name.
-   *
-   * @param {number|string} cqZone - CQ zone number (1-40)
-   * @returns {string} Region name or "Unknown" if invalid zone
-   *
-   * @example
-   * getRegionFromCQ(5)  // "North America" (CQ zone 5 is eastern USA)
-   * getRegionFromCQ(14) // "Europe" (CQ zone 14 is Western Europe)
-   */
-  function getRegionFromCQ(cqZone) {
-    // Convert to number safely
-    const num = Number(cqZone);
-
-    // Validate zone number (1-40)
-    if (!num || num < 1 || num > 40) {
-      return "Unknown";
-    }
-
-    // Search for zone in region mapping
-    for (const [region, zones] of Object.entries(regionZones)) {
-      if (zones.includes(num)) return region;
-    }
-
-    // Zone not in any defined region
-    return "Unknown";
-  }
-
-
-  /**
-   * Parse spot timestamp from database format to JavaScript Date.
-   *
-   * Database stores dates as "YYMMDD HHMM" strings in UTC.
-   * Example: "260107 1430" = January 7, 2026 at 14:30 UTC
-   *
-   * @param {string} t - Timestamp string in "YYMMDD HHMM" format
-   * @returns {Date} JavaScript Date object in UTC
-   *
-   * @example
-   * parseTableTime("260107 1430") // Date object: 2026-01-07 14:30:00 UTC
-   */
-  function parseTableTime(t) {
-    const yy = Number(t.slice(0, 2)) + 2000;  // YY → YYYY
-    const mm = Number(t.slice(2, 4)) - 1;     // Month (0-11 for JS Date)
-    const dd = Number(t.slice(4, 6));         // Day
-    const HH = Number(t.slice(7, 9));         // Hour
-    const MM = Number(t.slice(9, 11));        // Minute
-    return new Date(Date.UTC(yy, mm, dd, HH, MM));
-  }
   
   async function loadSpots() {
-    const mins = Number(document.getElementById("lastInterval").value) || 15;
-    const threshold = Number(document.getElementById("threshold").value) || 1;
+    const mins = Number(document.getElementById("lastInterval").value) || CONFIG.defaults.lastInterval;
+    const threshold = Number(document.getElementById("threshold").value) || CONFIG.defaults.threshold;
   
     const res = await fetch(`/tbspots?lastInterval=${mins}`);
     const spots = await res.json();
@@ -143,7 +77,7 @@ const regionZones = {
   
     // region → band → count
     const counts = {};
-    const bands = ["160m","80m","40m","20m","15m","10m"];
+    const bands = CONFIG.contestBands;
     const total = 0;
   
     recent.forEach(s => {
@@ -196,16 +130,7 @@ const regionZones = {
     bands.forEach(b => html += `<th class='band-header'>${b.replace("m","")}</th>`);
     html += "</tr>";
   
-    const regionPairs = [
-      ["Europe","Caribbean"],
-      ["South America","Japan"],
-      ["Africa","VK"],
-      ["YB","China"],
-      ["UA9","Indian"],
-      ["Middle East","Thailand"],
-      ["North America","Oceania"],
-      ["Unknown","Not in Use"]
-    ];
+    const regionPairs = CONFIG.regionPairs;
   
     for (const [r1, r2] of regionPairs) {
       html += `<tr><th class='region-header' colspan='${bands.length}'>${r1}</th><th class='region-header' colspan='${bands.length}'>${r2}</th></tr>`;

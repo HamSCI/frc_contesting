@@ -21,57 +21,6 @@
  * - GeoJSON data files (countries, continents, CQ zones, ITU zones)
  */
 
-// Global arrays to store GeoJSON feature collections for geographic lookups
-// These are loaded asynchronously on page load
-let countryFeat = [];      // Country boundary polygons (~250 countries)
-let continentFeat = [];    // Continent boundary polygons (7 continents)
-let cqZoneFeat = [];       // CQ zone polygons (40 zones for amateur radio contests)
-let ITUZoneFeat = [];      // ITU zone polygons (90 zones for telecommunications)
-
-// Contest bands filter - limits display to the 6 traditional HF contest bands
-// Excludes WARC bands (30m, 17m, 12m) where contesting is prohibited
-const CONTEST_BANDS = ["160m", "80m", "40m", "20m", "15m", "10m"];
-
-
-/**
- * Load country boundary polygons from GeoJSON file.
- *
- * Fetches the countries.geojson file (14MB) containing boundary polygons
- * for all world countries. Used for country-based filtering.
- *
- * @async
- * @returns {Promise<void>}
- */
-async function loadCountryPolygons() {
-  try {
-    const res = await fetch("js/countries.geojson");
-    const data = await res.json();
-    countryFeat = data.features;
-    console.log("Loaded", countryFeat.length, "country polygons");
-  } catch (err) {
-    console.error("Failed to load countries.geojson", err);
-  }
-}
-
-/**
- * Load continent boundary polygons from GeoJSON file.
- *
- * Fetches the continents.geojson file (4KB) containing polygons for
- * the 7 continents. Used for continent-based filtering.
- *
- * @async
- * @returns {Promise<void>}
- */
-async function loadContinentPolygons() {
-  try {
-    const res = await fetch("js/continents.geojson");
-    const data = await res.json();
-    continentFeat = data.features;
-    console.log("Loaded", continentFeat.length, "continent polygons")
-  } catch (e) {
-    console.error("Failed to load continent GeoJSON", e);
-  }
-}
 // async function loadCqZones() {
 //   try {
 //     const res = await fetch("js/cqzones.geojson");
@@ -151,45 +100,6 @@ async function loadContinentPolygons() {
   }
 
 
-async function loadITUZones() {
-  try {
-    const res = await fetch("js/ituzones.geojson");
-    const data = await res.json();
-    ITUZoneFeat = data.features;
-    console.log("Loaded", ITUZoneFeat.length, "ITU Zones");
-
-    if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
-
-    ituZoneBordersLayer = L.geoJSON(ITUZoneFeat, {
-      style: {
-        color: "black",
-        weight: 0.5,
-        fillOpacity: 0
-      }
-    });
-
-    ituZoneLabelsLayer = L.layerGroup();
-    ITUZoneFeat.forEach(feature => {
-      const zoneNum = feature.properties.itu_zone_number;
-      const center  = turf.center(feature).geometry.coordinates;
-      const label   = L.divIcon({
-        className: "itu-zone-label",
-        html: `<b>${zoneNum}</b>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
-      });
-      ituZoneLabelsLayer.addLayer(L.marker([center[1], center[0]], { icon: label }));
-    });
-
-    const cb = document.getElementById("ituOutline");
-    if (cb && cb.checked) {
-      ituZoneBordersLayer.addTo(map);
-      ituZoneLabelsLayer.addTo(map);
-    }
-  } catch (e) {
-    console.error("Failed to load ITU Zones", e);
-  }
-}
 // generate cq-zones select
 const select1 = document.getElementById("cqZoneFilter");
 
@@ -207,105 +117,7 @@ for (let i = 1; i <= 90; i++) {
   opt.textContent = i;
   select2.appendChild(opt);
 }
-/**
- * Lookup country name from geographic coordinates.
- *
- * Uses Turf.js point-in-polygon test against country boundary polygons
- * to determine which country contains the given coordinates.
- *
- * @param {number} lat - Latitude in decimal degrees
- * @param {number} lon - Longitude in decimal degrees
- * @returns {string} Country name or "Unknown" if not found
- *
- * @example
- * lookupCountry(40.7128, -74.0060) // "United States of America"
- */
-function lookupCountry(lat, lon) {
-  const pt = turf.point([lon, lat]);
-  for (const feature of countryFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
-      return feature.properties.name || "Unknown";
-    }
-  }
-  return "Unknown";
-}
-
-/**
- * Lookup continent name from geographic coordinates.
- *
- * @param {number} lat - Latitude in decimal degrees
- * @param {number} lon - Longitude in decimal degrees
- * @returns {string|null} Continent name or null if not found
- *
- * @example
- * lookupContinent(40.7128, -74.0060) // "North America"
- */
-function lookupContinent(lat, lon) {
-  const pt = turf.point([lon, lat]);
-  for (const feature of continentFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
-      return feature.properties.continent || "Unknown";
-    }
-  }
-  return null;
-}
-
-/**
- * Lookup CQ zone number from geographic coordinates.
- *
- * CQ zones are numbered 1-40 and are used for amateur radio
- * contests and awards (e.g., Worked All Zones - WAZ).
- *
- * @param {number} lat - Latitude in decimal degrees
- * @param {number} lon - Longitude in decimal degrees
- * @returns {string} CQ zone number (1-40) or "Unknown"
- *
- * @example
- * lookupCqZone(40.7128, -74.0060) // "5" (New York is in CQ zone 5)
- */
-function lookupCqZone(lat, lon) {
-  const pt = turf.point([lon, lat]);
-  for (const feature of cqZoneFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
-      return String(feature.properties.cq_zone_number);
-    }
-  }
-  return "Unknown";
-}
-
-/**
- * Lookup ITU zone number from geographic coordinates.
- *
- * ITU zones are numbered 1-90 and are defined by the International
- * Telecommunication Union for amateur radio purposes.
- *
- * @param {number} lat - Latitude in decimal degrees
- * @param {number} lon - Longitude in decimal degrees
- * @returns {string} ITU zone number (1-90) or "Unknown"
- *
- * @example
- * lookupITUZone(40.7128, -74.0060) // "8" (New York is in ITU zone 8)
- */
-function lookupITUZone(lat, lon) {
-  const pt = turf.point([lon, lat]);
-  for (const feature of ITUZoneFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
-      return String(feature.properties.itu_zone_number);
-    }
-  }
-  return "Unknown";
-}
-
-//format date
-// removed date input conversion helper (UI no longer supports date filtering)
-
-
-function getQueryParam(name) {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get(name);
-}
-
-var map = L.map('map', { maxBounds: [[-90, -180], [90, 180]] }).setView([20, 0], 2);
+var map = L.map('map').setView(CONFIG.map.initialView, CONFIG.map.initialZoom);
 
 // Disable marker shadows globally for performance
 L.Icon.Default.prototype.options.shadowUrl = null;
@@ -330,54 +142,13 @@ spotCountControl.onAdd = function () {
   return this._div;
 };
 
-const bandOrder = [
-  '160m', '80m', '60m', '40m', '30m',
-  '20m', '17m', '15m', '12m', '10m',
-  '6m', '4m', '2m', '70cm', 'unknown'
-];
-
-const bandColorMap = {
-  '160m': 'black',
-  '80m': 'red',
-  '60m': 'orange-dark',
-  '40m': 'orange',
-  '30m': 'yellow',
-  '20m': 'green',
-  '17m': 'green-light',
-  '15m': 'cyan',
-  '12m': 'blue-dark',
-  '10m': 'blue-dark',
-  '6m': 'purple',
-  '4m': 'violet',
-  '2m': 'pink',
-  '70cm': 'white',
-  'unknown': 'green-dark'
-};
-
-const colorHexMap = {
-  "red": "991F24",
-  "orange-dark": "D43019",
-  "orange": "EE8918",
-  "yellow": "F5B72D",
-  "blue-dark": "183C52",
-  "blue": "106AB6",
-  "cyan": "21A2DA",
-  "purple": "4E2960",
-  "violet": "8B1E89",
-  "pink": "BB4A99",
-  "green-dark": "004B22",
-  "green": "008B38",
-  "green-light": "5AA429",
-  "black": "211D1E",
-  "white": "F5F4F5"
-};
 
 spotCountControl.update = function (bandCounts) {
   const lines = Object.entries(bandCounts)
-    .sort(([a], [b]) => bandOrder.indexOf(a) - bandOrder.indexOf(b))
+    .sort(([a], [b]) => CONFIG.bandOrder.indexOf(a) - CONFIG.bandOrder.indexOf(b))
     .map(([band, count]) => {
-      const markerColor = bandColorMap[band] || 'black';
-      const hex = colorHexMap[markerColor] || '000000';
+      const markerColor = CONFIG.bandColorMap[band] || 'black';
+      const hex = CONFIG.colorHexMap[markerColor] || '000000';
       return `<span style="
         display: inline-block;
         width: 12px;
@@ -396,101 +167,20 @@ spotCountControl.addTo(map);
 
 
 
-// Load offline basemap layers (replaces OpenStreetMap tile layer)
-async function loadOfflineBasemap() {
-  map.getContainer().style.backgroundColor = '#a8d5f2';
-
-  const landRes = await fetch('vendor/basemap/ne_50m_land.json');
-  const landData = await landRes.json();
-  L.geoJSON(landData, {
-    style: { fillColor: '#f0ede4', fillOpacity: 1, color: '#ccc', weight: 0.5 }
-  }).addTo(map);
-
-  const countriesRes = await fetch('vendor/basemap/ne_50m_admin_0_countries.json');
-  const countriesData = await countriesRes.json();
-  L.geoJSON(countriesData, {
-    style: { fillOpacity: 0, color: '#666', weight: 1 }
-  }).addTo(map);
-
-  const statesRes = await fetch('vendor/basemap/states-50m.json');
-  const statesData = await statesRes.json();
-  L.geoJSON(statesData, {
-    style: { fillOpacity: 0, color: '#999', weight: 0.5 }
-  }).addTo(map);
-}
-
-loadOfflineBasemap();
+//add images to map
+L.tileLayer(CONFIG.map.tileUrl, CONFIG.map.tileOptions).addTo(map);
 var layers = [];
 
 
 
-// helper funcs
-function frequencyToBand(freq) {
-  if (freq >= .136 && freq < .137) return "2200m";
-  if (freq >=.472 && freq < .479) return "630m";
-  if (freq >= 1.8 && freq < 2) return "160m";
-  if (freq >= 3.5 && freq < 4) return "80m";
-  if (freq >= 5.2 && freq < 5.5) return "60m";
-  if (freq >= 7.0 && freq < 7.3) return "40m";
-  if (freq >= 10.1 && freq < 10.15) return "30m";
-  if (freq >= 14.0 && freq < 14.35) return "20m";
-  if (freq >= 18.068 && freq < 18.168) return "17m";
-  if (freq >= 21.0 && freq < 21.45) return "15m";
-  if (freq >= 24.89 && freq < 24.99) return "12m";
-  if (freq >= 28.0 && freq < 29.7) return "10m";
-  if (freq >= 50.0 && freq < 54.0) return "6m";
-  if (freq >= 144.0 && freq < 148.0) return "2m";
-  return "Unknown";
-}
-function parseWsprTime(wsprTimeStr) {
-  const [datePart, timePart] = wsprTimeStr.split(' ');
-  const year = 2000 + parseInt(datePart.slice(0, 2), 10);
-  const month = parseInt(datePart.slice(2, 4), 10) - 1; // JS months: 0–11
-  const day = parseInt(datePart.slice(4, 6), 10);
-  const hour = parseInt(timePart.slice(0, 2), 10);
-  const minute = parseInt(timePart.slice(2, 4), 10);
-
-  const dt = new Date(Date.UTC(year, month, day, hour, minute));
-  return dt.toISOString().replace('T', ' ').slice(0, 19); // "YYYY-MM-DD HH:MM:SS"
-}
-function reverseWsprDate(dateStr) {
-  if (!dateStr || dateStr.length !== 6) return "Unknown date";
-  const year = 2000 + parseInt(dateStr.slice(0, 2), 10);
-  const month = dateStr.slice(2, 4);
-  const day = dateStr.slice(4, 6);
-  return `${year}-${month}-${day}`;
-}
 // band counts out for tables / charts
 let bandCountsOut = {};
 
 
 async function loadSpots() {
 
-  //all possible color options
-  const markerColors = [
-    'red', 'orange-dark', 'orange', 'yellow', 'blue-dark',
-    'cyan', 'purple', 'violet', 'pink',
-    'green-dark', 'green', 'green-light',
-    'black', 'white'
-  ];
-  //band color map
-  const bandColorMap = {
-    '160m': 'black',
-    '80m': 'red',
-    '60m': 'orange-dark',
-    '40m': 'orange',
-    '30m': 'yellow',
-    '20m': 'green',
-    '17m': 'green-light',
-    '15m': 'cyan',
-    '12m': 'blue-dark',
-    '10m': 'blue-dark',
-    '6m': 'purple',
-    '4m': 'violet',
-    '2m': 'pink',
-    '70cm': 'white',
-    'unknown': 'green-dark'
-  };
+  //all possible color options (derived from config)
+  const markerColors = Object.keys(CONFIG.colorHexMap);
   
   
   const markers = {};
@@ -506,7 +196,7 @@ async function loadSpots() {
   
 
 // load all params, build url , load json
-  const lastInterval = document.getElementById("lastInterval").value || getQueryParam("lastInterval") || 15;
+  const lastInterval = document.getElementById("lastInterval").value || getQueryParam("lastInterval") || CONFIG.defaults.lastInterval;
   const selectedBand = getQueryParam("band") || document.getElementById("bandFilter").value;
   const selectedCountry = document.getElementById("countryFilter").value;
   const selectedContinent = document.getElementById("continentFilter").value;
@@ -620,7 +310,7 @@ async function loadSpots() {
 
     // "Contest Bands Only" mode
     if (selectedBand === "CBs") {
-      if (!CONTEST_BANDS.includes(bandName)) {
+      if (!CONFIG.contestBands.includes(bandName)) {
         return; // skip non-contest bands
       }
     }
@@ -637,7 +327,7 @@ async function loadSpots() {
     const spotInfo = document.getElementById("spot-info");
     spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${bandName1}`;
     const title = document.getElementById("title");
-    title.textContent = `WSPR Spots From ${spot.rx_sign} PSWS Receiver`
+    title.textContent = `WSPR Spots From ${CONFIG.station.callsign} PSWS Receiver`
 
     //num decoded per spot
     const spotKey = `${spot.tx_sign}_${spot.rx_sign}_${spot.frequency}`;
@@ -645,7 +335,7 @@ async function loadSpots() {
     
 
     //colored markers
-    const markerColor = bandColorMap[bandName] || 'black';
+    const markerColor = CONFIG.bandColorMap[bandName] || 'black';
     const icon = markers[markerColor] || markers['black'];
 
 
@@ -793,7 +483,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if(savedContinent){
     continentSelect.value = savedContinent
   }
-  intervalInput.value = getQueryParam("lastInterval") || "15";
+  intervalInput.value = getQueryParam("lastInterval") || String(CONFIG.defaults.lastInterval);
 
   //band filter
   const band = document.getElementById("bandFilter").value;
