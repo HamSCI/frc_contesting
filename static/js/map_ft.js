@@ -21,54 +21,6 @@
  * - GeoJSON data files (countries, continents, CQ zones, ITU zones)
  */
 
-// Global arrays to store GeoJSON feature collections for geographic lookups
-// These are loaded asynchronously on page load
-let countryFeat = [];      // Country boundary polygons (~250 countries)
-let continentFeat = [];    // Continent boundary polygons (7 continents)
-let cqZoneFeat = [];       // CQ zone polygons (40 zones for amateur radio contests)
-let ITUZoneFeat = [];      // ITU zone polygons (90 zones for telecommunications)
-
-
-
-/**
- * Load country boundary polygons from GeoJSON file.
- *
- * Fetches the countries.geojson file (14MB) containing boundary polygons
- * for all world countries. Used for country-based filtering.
- *
- * @async
- * @returns {Promise<void>}
- */
-async function loadCountryPolygons() {
-  try {
-    const res = await fetch("js/countries.geojson");
-    const data = await res.json();
-    countryFeat = data.features;
-    console.log("Loaded", countryFeat.length, "country polygons");
-  } catch (err) {
-    console.error("Failed to load countries.geojson", err);
-  }
-}
-
-/**
- * Load continent boundary polygons from GeoJSON file.
- *
- * Fetches the continents.geojson file (4KB) containing polygons for
- * the 7 continents. Used for continent-based filtering.
- *
- * @async
- * @returns {Promise<void>}
- */
-async function loadContinentPolygons() {
-  try {
-    const res = await fetch("js/continents.geojson");
-    const data = await res.json();
-    continentFeat = data.features;
-    console.log("Loaded", continentFeat.length, "continent polygons")
-  } catch (e) {
-    console.error("Failed to load continent GeoJSON", e);
-  }
-}
 // async function loadCqZones() {
 //   try {
 //     const res = await fetch("js/cqzones.geojson");
@@ -148,16 +100,6 @@ async function loadContinentPolygons() {
   }
 
 
-async function loadITUZones() {
-  try {
-    const res = await fetch("js/ituzones.geojson");
-    const data = await res.json();
-    ITUZoneFeat = data.features;
-    console.log("Loaded", ITUZoneFeat.length, "ITU Zones");
-  } catch (e) {
-    console.error("Failed to load ITU Zones", e);
-  }
-}
 // generate cq-zones select
 const select1 = document.getElementById("cqZoneFilter");
 
@@ -175,104 +117,6 @@ for (let i = 1; i <= 90; i++) {
   opt.textContent = i;
   select2.appendChild(opt);
 }
-/**
- * Lookup country name from geographic coordinates.
- *
- * Uses Turf.js point-in-polygon test against country boundary polygons
- * to determine which country contains the given coordinates.
- *
- * @param {number} lat - Latitude in decimal degrees
- * @param {number} lon - Longitude in decimal degrees
- * @returns {string} Country name or "Unknown" if not found
- *
- * @example
- * lookupCountry(40.7128, -74.0060) // "United States of America"
- */
-function lookupCountry(lat, lon) {
-  const pt = turf.point([lon, lat]);
-  for (const feature of countryFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
-      return feature.properties.name || "Unknown";
-    }
-  }
-  return "Unknown";
-}
-
-/**
- * Lookup continent name from geographic coordinates.
- *
- * @param {number} lat - Latitude in decimal degrees
- * @param {number} lon - Longitude in decimal degrees
- * @returns {string|null} Continent name or null if not found
- *
- * @example
- * lookupContinent(40.7128, -74.0060) // "North America"
- */
-function lookupContinent(lat, lon) {
-  const pt = turf.point([lon, lat]);
-  for (const feature of continentFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
-      return feature.properties.continent || "Unknown";
-    }
-  }
-  return null;
-}
-
-/**
- * Lookup CQ zone number from geographic coordinates.
- *
- * CQ zones are numbered 1-40 and are used for amateur radio
- * contests and awards (e.g., Worked All Zones - WAZ).
- *
- * @param {number} lat - Latitude in decimal degrees
- * @param {number} lon - Longitude in decimal degrees
- * @returns {string} CQ zone number (1-40) or "Unknown"
- *
- * @example
- * lookupCqZone(40.7128, -74.0060) // "5" (New York is in CQ zone 5)
- */
-function lookupCqZone(lat, lon) {
-  const pt = turf.point([lon, lat]);
-  for (const feature of cqZoneFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
-      return String(feature.properties.cq_zone_number);
-    }
-  }
-  return "Unknown";
-}
-
-/**
- * Lookup ITU zone number from geographic coordinates.
- *
- * ITU zones are numbered 1-90 and are defined by the International
- * Telecommunication Union for amateur radio purposes.
- *
- * @param {number} lat - Latitude in decimal degrees
- * @param {number} lon - Longitude in decimal degrees
- * @returns {string} ITU zone number (1-90) or "Unknown"
- *
- * @example
- * lookupITUZone(40.7128, -74.0060) // "8" (New York is in ITU zone 8)
- */
-function lookupITUZone(lat, lon) {
-  const pt = turf.point([lon, lat]);
-  for (const feature of ITUZoneFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
-      return String(feature.properties.itu_zone_number);
-    }
-  }
-  return "Unknown";
-}
-
-//format date
-// removed date input conversion helper (UI no longer supports date filtering)
-
-
-function getQueryParam(name) {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get(name);
-}
-
 var map = L.map('map').setView(CONFIG.map.initialView, CONFIG.map.initialZoom);
 
 
@@ -322,28 +166,6 @@ var layers = [];
 
 
 
-// helper funcs
-function frequencyToBand(freq) {
-  return CONFIG.freqToBand(freq);
-}
-function parseWsprTime(wsprTimeStr) {
-  const [datePart, timePart] = wsprTimeStr.split(' ');
-  const year = 2000 + parseInt(datePart.slice(0, 2), 10);
-  const month = parseInt(datePart.slice(2, 4), 10) - 1; // JS months: 0–11
-  const day = parseInt(datePart.slice(4, 6), 10);
-  const hour = parseInt(timePart.slice(0, 2), 10);
-  const minute = parseInt(timePart.slice(2, 4), 10);
-
-  const dt = new Date(Date.UTC(year, month, day, hour, minute));
-  return dt.toISOString().replace('T', ' ').slice(0, 19); // "YYYY-MM-DD HH:MM:SS"
-}
-function reverseWsprDate(dateStr) {
-  if (!dateStr || dateStr.length !== 6) return "Unknown date";
-  const year = 2000 + parseInt(dateStr.slice(0, 2), 10);
-  const month = dateStr.slice(2, 4);
-  const day = dateStr.slice(4, 6);
-  return `${year}-${month}-${day}`;
-}
 // band counts out for tables / charts
 let bandCountsOut = {};
 
