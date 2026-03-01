@@ -5,11 +5,19 @@ Provides REST endpoints for fetching spot data in JSON format,
 consumed by the frontend JavaScript (map_ft.js, table_ft.js).
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from services.spots import fetch_spots_for_map, fetch_spots_for_table
 
 api_bp = Blueprint('api', __name__)
+
+
+@api_bp.route('/config')
+def config():
+    return jsonify({
+        'receiver_callsign': current_app.config.get('RECEIVER_CALLSIGN', 'Unknown'),
+        'receiver_grid': current_app.config.get('RECEIVER_GRIDSQUARE', 'Unknown'),
+    })
 
 
 @api_bp.route('/spots')

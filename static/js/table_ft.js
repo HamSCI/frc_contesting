@@ -35,8 +35,24 @@ function setReloadInterval(seconds) {
   }
 }
 
-// Station callsign for display purposes
-const call = CONFIG.station.callsign;
+// Station callsign for display purposes — updated at startup by CONFIG.loadStation()
+let call = CONFIG.station.callsign;
+
+// Connection status helpers (#36 / #41)
+function setStatus(state, label) {
+  const dot = document.getElementById('conn-status-dot');
+  const lbl = document.getElementById('conn-status-label');
+  if (dot) dot.className = `status-dot status-${state}`;
+  if (lbl) lbl.textContent = label;
+}
+
+function setLastUpdated() {
+  const el = document.getElementById('last-updated');
+  if (el) {
+    const now = new Date();
+    el.textContent = `Last updated: ${now.toISOString().slice(11, 19)} UTC`;
+  }
+}
 
 /**
  * CQ Zone to Region mapping.
@@ -63,53 +79,63 @@ const call = CONFIG.station.callsign;
  */
   
   async function loadSpots() {
+    setStatus('checking', 'Checking…');
     const mins = Number(document.getElementById("lastInterval").value) || CONFIG.defaults.lastInterval;
+    sessionStorage.setItem("lastInterval", mins);
+    localStorage.setItem("lastInterval", mins);
     const threshold = Number(document.getElementById("threshold").value) || CONFIG.defaults.threshold;
-  
-    const res = await fetch(`/tbspots?lastInterval=${mins}`);
-    const spots = await res.json();
-  
-    const now = Date.now();
-    const cutoff = now - mins * 60 * 1000;
-  
-    // Filter time
-    const recent = spots.filter(s => parseTableTime(s.time).getTime() >= cutoff);
-  
-    // region → band → count
-    const counts = {};
-    const bands = CONFIG.contestBands;
-    const total = 0;
-  
-    recent.forEach(s => {
-      // MODE FILTER
-      const allowWSPR = document.getElementById("modeWSPR").checked;
-      const allowFT8  = document.getElementById("modeFT8").checked;
-      const allowFT4  = document.getElementById("modeFT4").checked;
 
-      // Normalize mode from backend (wspr / ft8 / ft4)
-      const mode = (s.mode || "").toLowerCase();
+    try {
+      const res = await fetch(`/tbspots?lastInterval=${mins}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const spots = await res.json();
 
-      // If none selected → treat as "all modes"
-      if (!allowWSPR && !allowFT8 && !allowFT4) {
-          // allow everything
-      } else {
-          if (mode === "wspr" && !allowWSPR) return;
-          if (mode === "ft8"  && !allowFT8)  return;
-          if (mode === "ft4"  && !allowFT4)  return;
-      }
+      const now = Date.now();
+      const cutoff = now - mins * 60 * 1000;
 
-      const region = getRegionFromCQ(s.cq_zone);
-      if (!region) return;
-  
-      const band = s.band;  // ✔ using backend band directly
-      if (!bands.includes(band)) return;
-  
-      if (!counts[region]) counts[region] = {};
-      if (!counts[region][band]) counts[region][band] = 0;
-      counts[region][band]++;
-    });
-  
-    buildTable(counts, bands, threshold);
+      // Filter time
+      const recent = spots.filter(s => parseTableTime(s.time).getTime() >= cutoff);
+
+      // region → band → count
+      const counts = {};
+      const bands = CONFIG.contestBands;
+
+      recent.forEach(s => {
+        // MODE FILTER
+        const allowWSPR = document.getElementById("modeWSPR").checked;
+        const allowFT8  = document.getElementById("modeFT8").checked;
+        const allowFT4  = document.getElementById("modeFT4").checked;
+
+        // Normalize mode from backend (wspr / ft8 / ft4)
+        const mode = (s.mode || "").toLowerCase();
+
+        // If none selected → treat as "all modes"
+        if (!allowWSPR && !allowFT8 && !allowFT4) {
+            // allow everything
+        } else {
+            if (mode === "wspr" && !allowWSPR) return;
+            if (mode === "ft8"  && !allowFT8)  return;
+            if (mode === "ft4"  && !allowFT4)  return;
+        }
+
+        const region = getRegionFromCQ(s.cq_zone);
+        if (!region) return;
+
+        const band = s.band;  // ✔ using backend band directly
+        if (!bands.includes(band)) return;
+
+        if (!counts[region]) counts[region] = {};
+        if (!counts[region][band]) counts[region][band] = 0;
+        counts[region][band]++;
+      });
+
+      buildTable(counts, bands, threshold);
+      setStatus('connected', 'Connected');
+      setLastUpdated();
+    } catch (e) {
+      console.error('Failed to load spots:', e);
+      setStatus('disconnected', 'Error');
+    }
   }
   
   function buildTable(counts, bands, threshold) {
@@ -153,16 +179,22 @@ const call = CONFIG.station.callsign;
   }
   
   document.getElementById("updateButton").addEventListener("click", loadSpots);
-  window.addEventListener("DOMContentLoaded", async function(){
-    // Fetch receiver config before loading spots
-    try {
-      const configRes = await fetch('/config');
-      const config = await configRes.json();
-      call = config.receiver_callsign || "Unknown";
-    } catch (e) {
-      console.error("Failed to load config", e);
-      call = "Unknown";
+
+  // Sync lastInterval from map iframe via localStorage storage event
+  window.addEventListener("storage", (e) => {
+    if (e.key === "lastInterval" && e.newValue) {
+      document.getElementById("lastInterval").value = e.newValue;
+      loadSpots();
     }
+  });
+  window.addEventListener("DOMContentLoaded", async function(){
+    // Fetch receiver config via CONFIG.loadStation() (populates CONFIG.station)
+    await CONFIG.loadStation();
+    call = CONFIG.station.callsign;
+
+    // Restore last interval from sessionStorage (shared with map view)
+    const savedMins = sessionStorage.getItem("lastInterval");
+    if (savedMins) document.getElementById("lastInterval").value = savedMins;
 
     loadSpots()
     const reloadSelect = document.getElementById("reloadInterval");

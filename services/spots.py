@@ -71,7 +71,7 @@ def fetch_spots_for_table(last_interval=15):
     docs.reverse()
 
     # Receiver location from configured grid square
-    rxlat, rxlon = maidenhead.to_location(current_app.config['RECEIVER_GRID'])
+    rxlat, rxlon = maidenhead.to_location(current_app.config['RECEIVER_GRIDSQUARE'])
 
     results = []
     for doc in docs:
@@ -130,7 +130,7 @@ def fetch_spots_for_map(last_interval=15):
     docs.reverse()
 
     # Receiver location from configured grid square
-    rxlat, rxlon = maidenhead.to_location(current_app.config['RECEIVER_GRID'])
+    rxlat, rxlon = maidenhead.to_location(current_app.config['RECEIVER_GRIDSQUARE'])
 
     results = []
     for doc in docs:

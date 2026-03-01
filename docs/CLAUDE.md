@@ -35,11 +35,14 @@ This documentation serves to:
 | February 21, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | DB health check + smarter last-updated timestamp (Issue #41) | Liam Miller |
 | February 22, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | ITU zone boundary overlay (FR-MAP-09) | Liam Miller |
 | February 22, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Extract inline CSS to central stylesheet (static/css/style.css) | Liam Miller |
+| February 27, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Milestone 1 audit (#32-#41), #36/#38/#40/#41 fixes, polyline removal, lastInterval sync, documentation | Liam Miller |
+| March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | 404 error diagnosis (OSM tile layer vs offline basemap conflict) | Liam Miller |
+| March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Issue #37 re-fix: offline basemap, favicon, shadow 404, label a11y, lastInterval cross-iframe sync | Liam Miller |
 
 ### Current Model
 
-**Model**: Claude Opus 4.6
-**Model ID**: claude-opus-4-6
+**Model**: Claude Sonnet 4.6
+**Model ID**: claude-sonnet-4-6
 **Context Window**: Large (suitable for entire codebase analysis)
 
 ---
@@ -170,7 +173,7 @@ When modifying [docs/REQUIREMENTS.md](REQUIREMENTS.md):
 
 - Use clear, technical language
 - Reference requirement IDs (e.g., FR-MAP-01) when discussing features
-- Cite line numbers when discussing code (e.g., `web-ft.py:198`)
+- Cite line numbers when discussing code (e.g., `services/spots.py:74`)
 - Provide rationale for technical decisions
 - Use amateur radio terminology correctly (bands, modes, propagation, etc.)
 
@@ -239,9 +242,8 @@ This is not optional. The dashboard must be deployable at remote contest station
 - Is [specific band] open to [specific region]? (FR-Q-06)
 
 **Map View:**
-- Interactive world map with propagation paths (FR-MAP-01)
-- Colored star markers by band (FR-MAP-02)
-- Lines connecting TX and RX stations (FR-MAP-03)
+- Interactive world map (FR-MAP-01)
+- Colored star markers by band at TX locations (FR-MAP-02)
 - Receiver location marker (FR-MAP-04)
 - Zoom and pan support (FR-MAP-05)
 - Clickable markers with spot details (FR-MAP-06)
@@ -539,6 +541,86 @@ For questions about this project or the use of AI assistance, please refer to th
 - `README.md` — documentation updates
 - `docs/CLAUDE.md` — session record
 
+### Session 10: Milestone 1 Completion Audit, Bug Fixes, Polyline Removal, and lastInterval Sync
+**Date**: February 27, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Verify all Milestone 1 issues (#32-#41 excl. #37); implement fixes for #36, #38, #40, #41; remove TX→RX polylines; sync lastInterval across map and table views; update all documentation
+**Status**: Complete
+
+**Activities**:
+- Audited issues #32-#41 (excl. #37): confirmed #32, #33, #34, #35, #39 complete; found #36, #38, #40, #41 incomplete
+- Renamed `RECEIVER_GRID` → `RECEIVER_GRIDSQUARE` in `app.py` to align with `.env.example`; fixed same key name in `services/spots.py` (KeyError bug)
+- Added `receiver_grid` to `/config` JSON response in `routes/api.py`
+- Replaced hardcoded `callsign`/`gridSquare` in `static/js/config.js` with `loadStation()` async method that fetches from `/config` (#38)
+- Added `setStatus()` and `setLastUpdated()` helpers to both `map_ft.js` and `table_ft.js`; wrapped `fetch()` calls in try/catch to drive status indicator on success/error (#36/#41)
+- Added `renderITUZones()` function to `map_ft.js` (modeled after `loadCqZones()`); uses `ITUZoneFeat` from utils.js and `itu_zone_number` GeoJSON property; assigns `ituZoneBordersLayer`/`ituZoneLabelsLayer` (#40)
+- Fixed implicit global `cqZoneLabelsLayer` in `map_ft.js` with explicit `let` declaration
+- Removed TX→RX polyline creation, popup, and layer tracking from `map_ft.js`; grey lines no longer appear on map
+- Fixed runtime ReferenceError: renamed `ituZoneFeatures` → `ITUZoneFeat` in `renderITUZones()` to match utils.js global
+- Fixed `map_ft.js` DOMContentLoaded: guarded line that unconditionally overwrote sessionStorage-restored lastInterval with URL param fallback
+- Added sessionStorage read on load and write on `loadSpots()` to `table_ft.js` so lastInterval is shared between map and table views
+- Updated `README.md`: corrected band color config reference, `/config` response key, map view features, project structure, dev/deploy instructions, footer date
+- Updated `OPERATOR_GUIDE.md`: removed grey-lines references, added v3.0 version history entry
+- Updated `docs/CLAUDE.md`: model history, current model, removed FR-MAP-03, communication style example
+
+**Files Modified**:
+- `app.py` — RECEIVER_GRID → RECEIVER_GRIDSQUARE
+- `routes/api.py` — added receiver_grid to /config response
+- `services/spots.py` — RECEIVER_GRID → RECEIVER_GRIDSQUARE (both fetch functions, KeyError fix)
+- `static/js/config.js` — dynamic loadStation() replacing hardcoded station block
+- `static/js/map_ft.js` — setStatus/setLastUpdated, renderITUZones, polyline removal, ITUZoneFeat fix, cqZoneLabelsLayer declaration, lastInterval sessionStorage guard
+- `static/js/table_ft.js` — setStatus/setLastUpdated, CONFIG.loadStation(), lastInterval sessionStorage read/write
+- `README.md` — multiple accuracy fixes throughout
+- `OPERATOR_GUIDE.md` — polyline references removed, v3.0 version entry added
+- `docs/CLAUDE.md` — session record, model history updated
+
+### Session 11: 404 Error Investigation (map_ft.js) — Resolved in Session 12
+**Date**: February 28 – March 1, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Diagnose browser console "Failed to load resource: 404 NOT FOUND" at `null:1` in map view
+**Status**: Diagnosed; fixed in Session 12
+
+**Diagnosis**:
+- Root cause: `static/js/map_ft.js` still called `L.tileLayer(CONFIG.map.tileUrl, ...)` where `tileUrl` = `"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"` — active external tile layer violating FR-OFF-01/07
+- `loadOfflineBasemap()` from Session 6 was lost in a later merge; the local basemap GeoJSON files in `static/vendor/basemap/` were present but not being loaded
+
+---
+
+### Session 12: Issue #37 Complete Fix — Offline Basemap, Favicon, Shadow 404, Label A11y, lastInterval Sync
+**Date**: March 1, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Complete Issue #37 offline-first requirements; fix several additional bugs found during testing
+**Status**: Complete
+
+**Activities**:
+- Re-applied CDN fix to `templates/index_ft.html` (had been overwritten): `https://unpkg.com/leaflet/dist/leaflet.js` → `vendor/leaflet/leaflet.js`
+- Replaced `L.tileLayer(CONFIG.map.tileUrl, ...)` in `map_ft.js` with `loadBasemap()` — fetches `ne_50m_land.json`, `ne_50m_admin_0_countries.json`, and `states-50m.json` from `static/vendor/basemap/` and renders them as Leaflet GeoJSON vector layers; land fill `#e8e0d8`, country borders `#888`, state borders `#bbb`
+- Removed `tileUrl` and `tileOptions` from `CONFIG.map` in `config.js` (no longer used)
+- Added `background-color: #a8d5e8` (ocean blue) to `#map` in `style.css` so the ocean areas are visually distinct from land
+- Added `/favicon.ico` route to `routes/views.py` returning HTTP 204 — eliminates the browser-generated 404 on every page load
+- Fixed Leaflet marker shadow 404 loop: `L.Icon.Default.prototype.options.shadowUrl = null` → `shadowUrl = ''` still caused Leaflet to construct `imagePath + ''` = `vendor/leaflet/images/`; replaced both overrides with `L.Icon.Default.prototype.createShadow = function() { return null; }` which prevents the shadow element from being created at all
+- Fixed accessibility issue in `templates/table_ft.html`: added `for="lastInterval"` and `for="threshold"` attributes to two `<label>` elements that were missing them (DevTools flagged "no label associated with a form field")
+- Implemented bidirectional `lastInterval` sync between map and table iframes: both views now write to `localStorage` (in addition to `sessionStorage`) when the value changes; each view has a `window.addEventListener("storage", ...)` listener that updates its own input and calls `loadSpots()` when the other frame changes the value — fixes the issue where updating interval in one pane did not update the other
+
+**Technical notes**:
+- `sessionStorage` is isolated per iframe even when same-origin; `localStorage` is shared and fires the `storage` event in all other same-origin frames — that is why switching to `localStorage` enables cross-iframe sync
+- `createShadow` override is the correct Leaflet API to suppress shadow rendering; setting `shadowUrl` to any string (including empty) still causes URL construction internally
+- The `storage` event only fires in frames *other than* the one that wrote the value, so there is no infinite loop risk
+
+**Files Modified**:
+- `templates/index_ft.html` — CDN `<script>` tag re-fixed to local vendor path
+- `static/js/map_ft.js` — `loadBasemap()` added, `L.tileLayer` removed, `createShadow` override, `localStorage` write + `storage` listener
+- `static/js/config.js` — `tileUrl` and `tileOptions` removed from `CONFIG.map`
+- `static/css/style.css` — `background-color: #a8d5e8` added to `#map`
+- `routes/views.py` — `/favicon.ico` route added (HTTP 204)
+- `templates/table_ft.html` — `for` attributes added to two `<label>` elements
+- `static/js/table_ft.js` — `localStorage` write + `storage` listener for cross-iframe sync
+- `README.md` — date updated, lastInterval sync troubleshooting entry added
+- `docs/CLAUDE.md` — session record
+
 ---
 
 ## Version History
@@ -552,6 +634,9 @@ For questions about this project or the use of AI assistance, please refer to th
 | 1.4 | February 21, 2026 | Added Session 7: receiver config extracted to .env (Issue #38) | Claude Opus 4.6 (claude-opus-4-6) |
 | 1.5 | February 21, 2026 | Added Session 8: connection status indicator (Issue #36, FR-UI-03) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 1.6 | February 21, 2026 | Added Session 9: DB health check, 3-state indicator, smarter timestamp | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 1.7 | February 27, 2026 | Added Session 10: Milestone 1 audit, #36/#38/#40/#41 fixes, polyline removal, lastInterval sync, doc updates | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 1.8 | March 1, 2026 | Added Session 11: 404 error diagnosis — OSM tile layer conflict with offline basemap | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 1.9 | March 1, 2026 | Added Session 12: Issue #37 complete — offline basemap, favicon, shadow fix, label a11y, lastInterval cross-iframe sync | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 

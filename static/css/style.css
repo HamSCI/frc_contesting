@@ -84,6 +84,7 @@ html {
 
 #map {
   height: calc(100% - 130px);
+  background-color: #a8d5e8; /* ocean blue for offline basemap */
 }
 
 #spots {

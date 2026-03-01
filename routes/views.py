@@ -5,9 +5,14 @@ Serves HTML templates for the map view, table view, combined view,
 and legacy display view.
 """
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, Response
 
 views_bp = Blueprint('views', __name__)
+
+
+@views_bp.route('/favicon.ico')
+def favicon():
+    return Response(status=204)
 
 
 @views_bp.route('/')

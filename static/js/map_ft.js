@@ -120,11 +120,11 @@ for (let i = 1; i <= 90; i++) {
 var map = L.map('map').setView(CONFIG.map.initialView, CONFIG.map.initialZoom);
 
 // Disable marker shadows globally for performance
-L.Icon.Default.prototype.options.shadowUrl = null;
-L.Icon.Default.prototype.options.shadowSize = [0, 0];
+L.Icon.Default.prototype.createShadow = function () { return null; };
 
 //cq zone overlay
 let cqZoneBordersLayer = null;
+let cqZoneLabelsLayer  = null;
 
 //itu zone overlay
 let ituZoneBordersLayer = null;
@@ -167,17 +167,100 @@ spotCountControl.addTo(map);
 
 
 
-//add images to map
-L.tileLayer(CONFIG.map.tileUrl, CONFIG.map.tileOptions).addTo(map);
+// Load offline basemap from local GeoJSON files (no external tile server)
+async function loadBasemap() {
+  try {
+    const [landRes, countriesRes, statesRes] = await Promise.all([
+      fetch("vendor/basemap/ne_50m_land.json"),
+      fetch("vendor/basemap/ne_50m_admin_0_countries.json"),
+      fetch("vendor/basemap/states-50m.json"),
+    ]);
+    const [land, countries, states] = await Promise.all([
+      landRes.json(), countriesRes.json(), statesRes.json()
+    ]);
+
+    L.geoJSON(land, {
+      style: { color: "#aaa", weight: 0.5, fillColor: "#e8e0d8", fillOpacity: 1 }
+    }).addTo(map);
+
+    L.geoJSON(countries, {
+      style: { color: "#888", weight: 0.5, fill: false }
+    }).addTo(map);
+
+    L.geoJSON(states, {
+      style: { color: "#bbb", weight: 0.3, fill: false }
+    }).addTo(map);
+  } catch (e) {
+    console.error("Failed to load offline basemap", e);
+  }
+}
+loadBasemap();
 var layers = [];
 
 
+
+// Connection status helpers (#36 / #41)
+function setStatus(state, label) {
+  const dot = document.getElementById('conn-status-dot');
+  const lbl = document.getElementById('conn-status-label');
+  if (dot) dot.className = `status-dot status-${state}`;
+  if (lbl) lbl.textContent = label;
+}
+
+function setLastUpdated() {
+  const el = document.getElementById('last-updated');
+  if (el) {
+    const now = new Date();
+    el.textContent = `Last updated: ${now.toISOString().slice(11, 19)} UTC`;
+  }
+}
+
+// ITU zone rendering (#40) — modeled after loadCqZones()
+async function renderITUZones() {
+  if (!ITUZoneFeat || ITUZoneFeat.length === 0) return;
+
+  if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
+  if (ituZoneLabelsLayer)  map.removeLayer(ituZoneLabelsLayer);
+
+  ituZoneBordersLayer = L.geoJSON(ITUZoneFeat, {
+    style: {
+      color: "navy",
+      weight: 0.5,
+      fillOpacity: 0
+    }
+  });
+
+  ituZoneLabelsLayer = L.layerGroup();
+
+  ITUZoneFeat.forEach(feature => {
+    const zoneNum = feature.properties.itu_zone_number;
+    const center  = turf.center(feature).geometry.coordinates;
+    const lat = center[1];
+    const lon = center[0];
+
+    const label = L.divIcon({
+      className: "itu-zone-label",
+      html: `<b>${zoneNum}</b>`,
+      iconSize:   [20, 20],
+      iconAnchor: [10, 10]
+    });
+
+    ituZoneLabelsLayer.addLayer(L.marker([lat, lon], { icon: label }));
+  });
+
+  const cb = document.getElementById("ituOutline");
+  if (cb && cb.checked) {
+    ituZoneBordersLayer.addTo(map);
+    ituZoneLabelsLayer.addTo(map);
+  }
+}
 
 // band counts out for tables / charts
 let bandCountsOut = {};
 
 
 async function loadSpots() {
+  setStatus('checking', 'Checking…');
 
   //all possible color options (derived from config)
   const markerColors = Object.keys(CONFIG.colorHexMap);
@@ -208,7 +291,9 @@ async function loadSpots() {
   if (selectedBand) queryParams.set("band", selectedBand);
   if (selectedCountry) queryParams.set("country", selectedCountry);
   if (selectedContinent) queryParams.set("continent", selectedContinent)
+  try {
   const res = await fetch(`/spots?${queryParams.toString()}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   //console.log(`/spots?${queryParams.toString()}`)
   const spots = await res.json();
 
@@ -339,11 +424,6 @@ async function loadSpots() {
     const icon = markers[markerColor] || markers['black'];
 
 
-    const path = L.polyline([
-      [spot.tx_lat, spot.tx_lon],
-      [spot.rx_lat, spot.rx_lon]
-    ], { color: 'grey' }).addTo(map);
-
     if (!markers[markerColor]) {
       console.warn(`Missing marker color for band: ${bandName}, color: ${markerColor}`);
     }
@@ -378,26 +458,20 @@ async function loadSpots() {
 
     `);
 
-    path.bindPopup(`
-      <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a> ➔ <b>RX:</b> ${spot.rx_sign}<br>
-      <b>SNR:</b> ${spot.snr} dB<br>
-      <b>Drift:</b> ${spot.drift}<br>
-      <b>Freq:</b> ${spot.frequency} MHz<br>
-      <b>Time:</b> ${parseWsprTime(spot.time)}<br>
-      <b>Band:</b> ${spot.band} <br>
-      <b>Decoded Spots:</b> ${spotCount} </br>
-      <b>Mode:</b>  ${spot.mode.toUpperCase()}
-
-    `);
-
-    layers.push(path, txMarker, rxMarker);
+    layers.push(txMarker, rxMarker);
 
     
   });
 
   spotCountControl.update(bandCounts);
   bandCountsOut = bandCounts;
-  console.log(bandCountsOut)
+  console.log(bandCountsOut);
+  setStatus('connected', 'Connected');
+  setLastUpdated();
+  } catch (e) {
+    console.error('Failed to load spots:', e);
+    setStatus('disconnected', 'Error');
+  }
 }
 
 //reload interval
@@ -417,10 +491,12 @@ function setReloadInterval(seconds) {
 
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await CONFIG.loadStation();
   await loadCountryPolygons();
   await loadContinentPolygons();
   await loadCqZones();
   await loadITUZones();
+  await renderITUZones();
   //console.log(lookupContinent(40.7128, -74.0060))
   //console.log(lookupCqZone(40.7128, -74.0060))
 
@@ -483,7 +559,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if(savedContinent){
     continentSelect.value = savedContinent
   }
-  intervalInput.value = getQueryParam("lastInterval") || String(CONFIG.defaults.lastInterval);
+  if (!intervalSaved) intervalInput.value = getQueryParam("lastInterval") || String(CONFIG.defaults.lastInterval);
 
   //band filter
   const band = document.getElementById("bandFilter").value;
@@ -500,6 +576,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const minInterval = document.getElementById("lastInterval").value;
     sessionStorage.setItem("lastInterval", minInterval);
+    localStorage.setItem("lastInterval", minInterval);
     if (minInterval) params.set("lastInterval", minInterval); else params.delete("lastInterval");
 
       // date/hour inputs removed; do not read or store them
@@ -565,6 +642,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Now load spots with new params
     loadSpots();
     //window.location.reload();
+  });
+
+  // Sync lastInterval from table iframe via localStorage storage event
+  window.addEventListener("storage", (e) => {
+    if (e.key === "lastInterval" && e.newValue) {
+      document.getElementById("lastInterval").value = e.newValue;
+      loadSpots();
+    }
   });
 
   //auto reload-on select

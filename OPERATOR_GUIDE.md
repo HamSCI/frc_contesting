@@ -29,8 +29,7 @@ Interactive world map showing propagation paths with colored markers.
 
 **What You See:**
 - **Colored stars** = Transmitter locations (color = band)
-- **Grey lines** = Propagation path from TX to RX (your station)
-- **Blue markers** = Receiver location (KD3ALD)
+- **Blue markers** = Receiver location (your station)
 - **Spot counter** (bottom-right) = How many spots on each band
 
 **Color Guide:**
@@ -51,8 +50,7 @@ Interactive world map showing propagation paths with colored markers.
 **How to Use:**
 1. **Check band openings:** Look for clusters of colored stars in target regions
 2. **Click on markers:** See details (callsign, SNR, time, frequency)
-3. **Click on lines:** See propagation path details
-4. **Use filters:** Narrow down to specific bands or regions (see below)
+3. **Use filters:** Narrow down to specific bands or regions (see below)
 
 ---
 
@@ -497,6 +495,7 @@ HamSCI Personal Space Weather Station Project
 | 2.0 | Jan 2026 | Added FT8 and FT4 support |
 | 2.1 | Jan 2026 | Added table view and regional aggregation |
 | 2.2 | Jan 2026 | Added contest bands filter |
+| 3.0 | Feb 2026 | Modular backend (routes/, services/, utils/); shared config.js + utils.js; ITU zone overlay; connection status indicator; last-updated timestamp; receiver callsign/grid configurable via .env |
 
 ---
 

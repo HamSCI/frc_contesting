@@ -5,9 +5,24 @@
 const CONFIG = {
 
   // ── Station ───────────────────────────────────────────────────────────────
+  // Populated at runtime by loadStation() — do not hardcode values here.
   station: {
-    callsign:   "KD3ALD",
-    gridSquare: "FN21ni",   // Maidenhead grid locator (also referenced in web-ft.py)
+    callsign:   "Unknown",
+    gridSquare: "",
+  },
+
+  // Fetch receiver callsign and grid from the backend and update CONFIG.station in-place.
+  // Call this once (await CONFIG.loadStation()) before using CONFIG.station values.
+  async loadStation() {
+    try {
+      const res = await fetch('/config');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.receiver_callsign) this.station.callsign   = data.receiver_callsign;
+      if (data.receiver_grid)     this.station.gridSquare = data.receiver_grid;
+    } catch (e) {
+      console.error('Failed to load station config from /config:', e);
+    }
   },
 
   // ── Contest bands ─────────────────────────────────────────────────────────
@@ -24,8 +39,6 @@ const CONFIG = {
   map: {
     initialView: [20, 0],
     initialZoom: 2,
-    tileUrl: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    tileOptions: { noWrap: true, bounds: [[-90, -180], [90, 180]] },
   },
 
   // ── Band display order ────────────────────────────────────────────────────

@@ -65,8 +65,9 @@ def create_app():
     app.config['SPOTS_COLLECTION'] = db['spots']
 
     # --- Receiver Configuration ---
-    # Hardcoded default for now; Issue #38 will extract this to .env
-    app.config['RECEIVER_GRID'] = os.getenv('RECEIVER_GRID', 'FN21ni')
+    # Loaded from .env (see .env.example for variable names)
+    app.config['RECEIVER_GRIDSQUARE'] = os.getenv('RECEIVER_GRIDSQUARE', 'FN21ni')
+    app.config['RECEIVER_CALLSIGN'] = os.getenv('RECEIVER_CALLSIGN', 'Unknown')
 
     # --- Load CQ Zone Data ---
     from services.geo import load_cq_zones

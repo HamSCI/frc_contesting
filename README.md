@@ -3,7 +3,7 @@
 **Authors:** Owen Ruzanski (KD3ALD), Liam Miller (KD3BVX), Nathaniel Frissell (W2NAF)
 **Organization:** University of Scranton (W3USR), Frankford Radio Club
 **Project:** HamSCI Personal Space Weather Station Dashboard Development
-**Last Updated:** January 2026
+**Last Updated:** March 2026
 
 ---
 
@@ -94,13 +94,18 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
                   │
                   ↓
 ┌─────────────────────────────────────────────┐
-│       Flask Backend (web-ft.py)             │
-│  Routes:                                     │
+│       Flask Backend (app.py)                │
+│  routes/views.py:                           │
 │    /          → both.html (combined view)   │
 │    /map       → index_ft.html (map)         │
 │    /table     → table_ft.html (table)       │
+│  routes/api.py:                             │
+│    /config    → JSON receiver config        │
 │    /spots     → JSON API (map data)         │
 │    /tbspots   → JSON API (table data)       │
+│  services/spots.py  — DB queries            │
+│  services/geo.py    — CQ zone lookups       │
+│  utils/bands.py     — frequency→band        │
 └─────────────────┬───────────────────────────┘
                   │
                   ↓
@@ -262,10 +267,10 @@ The backend reads these values at startup and serves them to the frontend via th
 
 ### Band Color Configuration
 
-Band colors are defined in [static/js/map_ft.js](static/js/map_ft.js#L210-L226):
+Band colors are defined in [static/js/config.js](static/js/config.js) under `CONFIG.bandColorMap`:
 
 ```javascript
-const bandColorMap = {
+bandColorMap: {
   '160m': 'black',
   '80m': 'red',
   '40m': 'orange',
@@ -273,7 +278,7 @@ const bandColorMap = {
   '15m': 'cyan',
   '10m': 'blue-dark',
   // ... etc
-};
+},
 ```
 
 ---
@@ -343,7 +348,7 @@ Serve receiver station configuration to the frontend.
 ```json
 {
   "receiver_callsign": "KD3ALD",
-  "receiver_gridsquare": "FN21ni"
+  "receiver_grid": "FN21ni"
 }
 ```
 
@@ -363,13 +368,12 @@ curl "http://localhost:5000/config"
 **Features:**
 - Interactive Leaflet map centered at lat 20°, lon 0°
 - **Fully offline basemap**: land fill, country borders, and state/province borders rendered from local Natural Earth GeoJSON (no tile server required)
-- Band-specific colored star markers
-- Polylines connecting TX and RX stations
+- Band-specific colored star markers at transmitter locations
 - Clickable markers with spot details
 - Real-time spot counter by band (bottom-right)
 - CQ zone outline overlay with zone labels
 - ITU zone outline overlay with zone labels
-- Connection status indicator in header (via connection_status.js)
+- Connection status indicator and last-updated timestamp in header
 
 **Filtering Controls:**
 - Time interval (last N minutes)
@@ -469,15 +473,23 @@ frc_contesting/
 │   ├── legacy_python/         # Old Flask variants
 │   ├── legacy_javascript/     # Old JS implementations
 │   └── legacy_templates/      # Old HTML templates
+├── routes/                    # Flask route blueprints
+│   ├── views.py               # HTML page routes (/, /map, /table)
+│   └── api.py                 # JSON API routes (/spots, /tbspots, /config)
+├── services/                  # Backend business logic
+│   ├── spots.py               # MongoDB queries & spot processing
+│   └── geo.py                 # CQ zone point-in-polygon lookups
+├── utils/                     # Shared utilities
+│   └── bands.py               # Frequency → band name conversion
 ├── static/                    # Frontend assets
 │   ├── css/
 │   │   └── style.css          # Central dashboard stylesheet
 │   ├── img/                   # Marker images
 │   ├── js/
-│   │   ├── map_ft.js              # Map visualization
-│   │   ├── table_ft.js            # Table view
-│   │   ├── connection_status.js   # Connection status indicator polling
-│   │   ├── chart.js               # Spot counting
+│   │   ├── config.js          # Shared JS configuration (bands, colors, regions)
+│   │   ├── utils.js           # Shared JS utilities (geo lookups, time parsing)
+│   │   ├── map_ft.js          # Map visualization (Leaflet, markers, overlays)
+│   │   ├── table_ft.js        # Table view (regional band matrix)
 │   │   ├── countries.geojson  # Country boundaries (14MB, for filtering)
 │   │   ├── continents.geojson # Continent boundaries (4KB)
 │   │   ├── cqzones.geojson    # CQ zones (2.7MB)
@@ -497,7 +509,9 @@ frc_contesting/
 │   ├── index_ft.html          # Map view
 │   ├── table_ft.html          # Table view
 │   └── index_wcount.html      # Alternative display with counter
-├── web-ft.py                  # Main Flask app (WSPR+FT8+FT4)
+├── app.py                     # Flask application factory (create_app)
+├── web-ft.py                  # Thin shim for backwards-compatible startup
+├── .env.example               # Environment variable template (copy to .env)
 ├── CONTRIBUTING.md            # Contribution guidelines
 ├── OPERATOR_GUIDE.md          # User guide for operators
 └── README.md                  # This file
@@ -525,7 +539,9 @@ python web-ft.py
 ### Making Code Changes
 
 **Backend Changes (Python):**
-- Edit [web-ft.py](web-ft.py)
+- Routes: edit [routes/api.py](routes/api.py) or [routes/views.py](routes/views.py)
+- DB queries / spot processing: edit [services/spots.py](services/spots.py)
+- App configuration: edit [app.py](app.py)
 - Flask auto-reloads in debug mode
 - Test API endpoints with curl or browser
 
@@ -579,7 +595,7 @@ To add a new client-side filter:
 pip install gunicorn
 
 # Run with 4 worker processes
-gunicorn -w 4 -b 0.0.0.0:5000 web-ft:app
+gunicorn -w 4 -b 0.0.0.0:5000 app:app
 
 # Or with systemd service
 sudo systemctl start hamsci-dashboard
@@ -599,7 +615,7 @@ User=hamsci
 Group=hamsci
 WorkingDirectory=/opt/hamsci-dashboard
 Environment="PATH=/opt/hamsci-dashboard/venv/bin"
-ExecStart=/opt/hamsci-dashboard/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 web-ft:app
+ExecStart=/opt/hamsci-dashboard/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 app:app
 
 [Install]
 WantedBy=multi-user.target
@@ -675,7 +691,7 @@ server {
 
 #### Markers Not Appearing
 
-**Symptoms:** Polylines visible but no TX markers
+**Symptoms:** Map loads but no TX star markers visible
 
 **Debugging:**
 1. Check browser console for JavaScript errors
@@ -700,6 +716,14 @@ server {
       except:
           print(f"Invalid grid: {doc['grid']} from {doc['callsign']}")
   ```
+
+#### lastInterval Not Syncing Between Map and Table
+
+**Symptoms:** Changing the time interval in the map view doesn't update the table, or vice versa
+
+**Cause:** The map (`/map`) and table (`/table`) run in separate iframes — each iframe has isolated `sessionStorage`. Changes in one are not automatically visible to the other.
+
+**Solution (implemented):** Both views write `lastInterval` to `localStorage` in addition to `sessionStorage`. A `storage` event listener in each view detects changes made by the other frame and immediately updates its input and reloads data. This is bidirectional — either view can drive the other.
 
 #### Session Storage Not Persisting
 
@@ -813,4 +837,4 @@ http://dash.kd3ald.com (when operational)
 
 ---
 
-*Last updated January 2026 as part of the HamSCI PSWS Dashboard Development project.*
+*Last updated March 2026 as part of the HamSCI PSWS Dashboard Development project.*
