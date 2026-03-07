@@ -79,7 +79,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 
 ```
 ┌─────────────────────────────────────────────┐
-│         PSWS Receiver (KD3ALD)              │
+│         Your PSWS Receiver                  │
 │  RX-888 SDR + KA9Q-radio + WSPRDaemon      │
 │  Decodes WSPR/FT8/FT4 on all HF bands      │
 └─────────────────┬───────────────────────────┘
@@ -113,7 +113,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 │         Frontend JavaScript                 │
 │  ┌──────────────┐  ┌───────────────┐       │
 │  │  map_ft.js   │  │  table_ft.js  │       │
-│  │  (730 lines) │  │  (183 lines)  │       │
+│  │  (735 lines) │  │  (223 lines)  │       │
 │  │  - Leaflet   │  │  - Regional   │       │
 │  │  - Filtering │  │    aggregation│       │
 │  │  - Markers   │  │  - Band matrix│       │
@@ -131,7 +131,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 ### Data Flow
 
 1. **Data Collection:** PSWS receiver decodes WSPR/FT8/FT4 spots continuously
-2. **Storage:** Spots written to MongoDB with metadata (callsign, grid, frequency, SNR, time, mode)
+2. **Ingestion:** WSPRDaemon calls `storedb/storedb.sh` after each decode cycle, which upserts spots into MongoDB
 3. **API Request:** Frontend requests spots via `/spots?lastInterval=15`
 4. **Processing:** Backend queries MongoDB for spots in time window, converts grids to coordinates
 5. **Client Filtering:** JavaScript applies band/country/zone/mode filters
@@ -156,7 +156,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 ### Prerequisites
 
 - Python 3.8 or higher
-- MongoDB 4.x or higher (with WSPRDaemon database)
+- MongoDB 4.x or higher
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - PSWS receiver system (RX-888 + KA9Q-radio + WSPRDaemon)
 
@@ -488,7 +488,7 @@ frc_contesting/
 │   │   ├── cqzones.geojson    # CQ zones (2.7MB)
 │   │   ├── ituzones.geojson   # ITU zones (1.5MB)
 │   │   └── turf.min.js        # Geospatial library (591KB)
-│   └── vendor/                # Third-party libraries (not git-tracked, download separately)
+│   └── vendor/                # Third-party libraries (git-tracked)
 │       ├── leaflet/           # Leaflet 1.9.4
 │       │   ├── leaflet.js
 │       │   ├── leaflet.css
@@ -497,6 +497,9 @@ frc_contesting/
 │           ├── ne_50m_land.json           # Land mass fill (2.7MB)
 │           ├── ne_50m_admin_0_countries.json  # Country borders (4.5MB)
 │           └── states-50m.json            # State/province borders (1.6MB)
+├── storedb/                   # WSPRDaemon → MongoDB ingestion
+│   ├── storedb.sh             # Shell wrapper called by WSPR_LOGGING_CMD
+│   └── storedb.py             # Reads decoded spots and upserts into MongoDB
 ├── templates/                 # Flask HTML templates
 │   ├── both.html              # Combined map + table view
 │   ├── index_ft.html          # Map view
@@ -582,7 +585,7 @@ python web-ft.py
 - Use browser DevTools Console to debug JavaScript
 
 **Database Changes:**
-- Connect to MongoDB: `mongo --host $MONGODB_HOST --port $MONGODB_PORT -u $MONGODB_USERNAME -p`
+- Connect to MongoDB: `mongosh "mongodb://$MONGODB_USERNAME:$MONGODB_PASSWORD@$MONGODB_HOST:$MONGODB_PORT"`
 - Query spots: `db.spots.find().sort({date: -1, time: -1}).limit(10)`
 
 ### Adding New Filters
@@ -806,7 +809,7 @@ server {
 ### Related Documentation
 
 - [Requirements Document](docs/REQUIREMENTS.md) - Formal requirements specification
-- [Claude AI Assistance Documentation](docs/CLAUDE.md) - AI contribution history and guidelines
+- [Claude AI Assistance Documentation](CLAUDE.md) - AI contribution history and guidelines
 - [Operator Guide](OPERATOR_GUIDE.md) - User guide for radio operators
 - [Contributing Guide](CONTRIBUTING.md) - Developer contribution guidelines
 - [Archive Documentation](_archive/README.md) - Legacy code reference
@@ -873,9 +876,6 @@ Special thanks to:
 **Faculty Advisor:**
 Dr. Nathaniel Frissell (W2NAF)
 University of Scranton, Department of Physics/Engineering
-
-**Dashboard URL:**
-http://dash.kd3ald.com (when operational)
 
 ---
 

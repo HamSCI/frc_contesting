@@ -48,8 +48,8 @@ Before contributing, ensure you have:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/hamsci/contesting-dashboard.git
-   cd contesting-dashboard
+   git clone https://github.com/HamSCI/frc_contesting.git
+   cd frc_contesting
    ```
 
 2. **Create virtual environment:**
@@ -572,7 +572,7 @@ If applicable, add screenshots
 ## Environment
 - Browser: [e.g., Chrome 120]
 - OS: [e.g., Windows 11]
-- Dashboard URL: [e.g., http://dash.kd3ald.com]
+- Dashboard URL: [e.g., http://192.168.1.100:5000]
 - Time of occurrence: [e.g., 2026-01-07 14:30 UTC]
 
 ## Additional Context
@@ -661,7 +661,7 @@ For technical questions, feel free to open a discussion or contact the maintaine
 ### Project Documentation
 
 - [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) - Formal requirements specification
-- [docs/CLAUDE.md](docs/CLAUDE.md) - AI assistance history and guidelines
+- [CLAUDE.md](CLAUDE.md) - AI assistance history and guidelines
 - [README.md](README.md) - Complete technical documentation
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) - User guide for operators
 
@@ -700,7 +700,7 @@ Contributors will be recognized in:
 
 ## License
 
-By contributing to this project, you agree that your contributions will be licensed under the same license as the project (to be determined - likely MIT or GPL).
+By contributing to this project, you agree that your contributions will be licensed under the GNU General Public License v3.0.
 
 ---
 
