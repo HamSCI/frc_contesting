@@ -285,11 +285,11 @@ MONGODB_PASSWORD=choose_a_strong_password
 Set the receiver callsign and Maidenhead grid square in your `.env` file:
 
 ```bash
-RECEIVER_CALLSIGN=KD3ALD
-RECEIVER_GRIDSQUARE=FN21ni
+RECEIVER_CALLSIGN=W1ABC
+RECEIVER_GRIDSQUARE=FN42hx
 ```
 
-The backend reads these values at startup and serves them to the frontend via the `/config` API endpoint. The grid square can be 4-character (e.g., `FN21`) or 6-character (e.g., `FN21ni`).
+Replace `W1ABC` with your station callsign and `FN42hx` with your Maidenhead grid square. The grid square can be 4-character (e.g., `FN42`) or 6-character (e.g., `FN42hx`). The backend reads these values at startup and serves them to the frontend via the `/config` API endpoint.
 
 ### Band Color Configuration
 
@@ -549,13 +549,16 @@ The dashboard receives spot data via a script called by WSPRDaemon after each de
 
 #### Setup
 
-1. Add the following line to `~/wsprdaemon/wsprdaemon.conf` (in the site-specific section near the top):
+1. Add the following line to `~/wsprdaemon/wsprdaemon.conf` (in the site-specific section near the top), replacing the path with the actual location of your cloned repo:
 
+   ```bash
+   WSPR_LOGGING_CMD="/path/to/frc_contesting/storedb/storedb.sh"
+   ```
+
+   For example, if the repo is cloned to `/home/w3usr/frc_contesting`:
    ```bash
    WSPR_LOGGING_CMD="/home/w3usr/frc_contesting/storedb/storedb.sh"
    ```
-
-   Adjust the path if the repo is cloned to a different location.
 
 2. Restart WSPRDaemon to pick up the change:
 
@@ -574,7 +577,7 @@ Credentials and receiver configuration are read from `.env` — no hardcoded val
 To verify the integration before restarting WSPRDaemon:
 
 ```bash
-/home/w3usr/frc_contesting/storedb/storedb.sh
+/path/to/frc_contesting/storedb/storedb.sh
 mongosh "mongodb://YOUR_USER:YOUR_PASSWORD@localhost:27017/admin" --eval "db.getSiblingDB('wspr_db').spots.countDocuments()" --quiet
 ```
 
@@ -651,43 +654,54 @@ To add a new client-side filter:
 
 ### Production Deployment with Gunicorn
 
+Install gunicorn into the virtual environment and run with 4 worker processes, binding to all interfaces:
+
 ```bash
-# Install gunicorn
+source venv/bin/activate
 pip install gunicorn
-
-# Run with 4 worker processes
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
-
-# Or with systemd service
-sudo systemctl start hamsci-dashboard
+gunicorn -w 4 -b 0.0.0.0:5000 "app:create_app()"
 ```
 
-### Systemd Service File
+The dashboard will be accessible at `http://YOUR_IP:5000` from any machine on the network.
 
-Create `/etc/systemd/system/hamsci-dashboard.service`:
+### Systemd Service File (autostart on boot)
+
+Create `/etc/systemd/system/frc-dashboard.service`, replacing `YOUR_USER` and `/path/to/frc_contesting` with your actual username and repo path:
 
 ```ini
 [Unit]
-Description=HamSCI Contesting Dashboard
-After=network.target
+Description=FRC Contesting Dashboard
+After=network.target mongod.service
 
 [Service]
-User=hamsci
-Group=hamsci
-WorkingDirectory=/opt/hamsci-dashboard
-Environment="PATH=/opt/hamsci-dashboard/venv/bin"
-ExecStart=/opt/hamsci-dashboard/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 app:app
+User=YOUR_USER
+Group=YOUR_USER
+WorkingDirectory=/path/to/frc_contesting
+Environment="PATH=/path/to/frc_contesting/venv/bin"
+ExecStart=/path/to/frc_contesting/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 "app:create_app()"
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 ```
 
+Then enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable frc-dashboard
+sudo systemctl start frc-dashboard
+sudo systemctl status frc-dashboard
+```
+
 ### Nginx Reverse Proxy
+
+If you want to serve the dashboard on port 80 (or with HTTPS), use nginx as a reverse proxy. Replace `your.hostname.com` with your actual hostname or IP:
 
 ```nginx
 server {
     listen 80;
-    server_name dash.kd3ald.com;
+    server_name your.hostname.com;
 
     location / {
         proxy_pass http://127.0.0.1:5000;
@@ -696,7 +710,7 @@ server {
     }
 
     location /static {
-        alias /opt/hamsci-dashboard/static;
+        alias /path/to/frc_contesting/static;
         expires 1h;
     }
 }
