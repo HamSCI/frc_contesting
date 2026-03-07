@@ -543,6 +543,41 @@ frc_contesting/
 └── README.md                  # This file
 ```
 
+### WSPRDaemon Integration
+
+The dashboard receives spot data via a script called by WSPRDaemon after each decode cycle. This is configured with the `WSPR_LOGGING_CMD` variable in `wsprdaemon.conf`.
+
+#### Setup
+
+1. Add the following line to `~/wsprdaemon/wsprdaemon.conf` (in the site-specific section near the top):
+
+   ```bash
+   WSPR_LOGGING_CMD="/home/w3usr/frc_contesting/storedb/storedb.sh"
+   ```
+
+   Adjust the path if the repo is cloned to a different location.
+
+2. Restart WSPRDaemon to pick up the change:
+
+   ```bash
+   wsprdaemon -z && wsprdaemon -A
+   ```
+
+#### How it works
+
+After each decode cycle, WSPRDaemon calls [storedb/storedb.sh](storedb/storedb.sh), which activates the virtual environment and runs [storedb/storedb.py](storedb/storedb.py). The Python script reads the decoded spots from `/dev/shm/wsprdaemon/uploads/wsprnet/spots.txt` and upserts them into the `wspr_db.spots` MongoDB collection. Upsert is used to avoid duplicates if the script is called more than once for the same cycle.
+
+Credentials and receiver configuration are read from `.env` — no hardcoded values.
+
+#### Manual test
+
+To verify the integration before restarting WSPRDaemon:
+
+```bash
+/home/w3usr/frc_contesting/storedb/storedb.sh
+mongosh "mongodb://YOUR_USER:YOUR_PASSWORD@localhost:27017/admin" --eval "db.getSiblingDB('wspr_db').spots.countDocuments()" --quiet
+```
+
 ### Running the Development Server
 
 ```bash
