@@ -362,7 +362,7 @@ The Personal Space Weather Station at YOUR_CALLSIGN **continuously monitors all 
 - ⚠️ **Antenna limitations:** Small active antenna (not a beam or large wire)
 
 **What this means for you:**
-- **Dashboard shows:** What stations can hear at KD3ALD location
+- **Dashboard shows:** What stations can hear at YOUR_CALLSIGN location
 - **Dashboard doesn't show:** What you'll hear at YOUR location
 - **But:** HF propagation is generally reciprocal, so it's a good indicator!
 
@@ -385,7 +385,7 @@ Use this dashboard as a **guide** for band conditions, but always verify with yo
 
 **Solutions:**
 1. **Clear browser cache:** Ctrl+F5 (Windows) or Cmd+Shift+R (Mac)
-2. **Check internet connection:** GeoJSON files are large (~18MB)
+2. **Check browser console:** Open DevTools (F12) and look for loading errors
 3. **Try different browser:** Chrome, Firefox, or Edge
 4. **Disable browser extensions:** Some ad blockers interfere with maps
 

@@ -171,7 +171,7 @@ def fetch_wspr_spots(lastInterval=15):
 
 # Variables: lowercase with underscores
 spot_count = 0
-rx_callsign = "KD3ALD"
+rx_callsign = "W3USR"
 
 # Constants: UPPERCASE with underscores
 CONTEST_BANDS = ["160m", "80m", "40m", "20m", "15m", "10m"]
@@ -247,7 +247,7 @@ function loadSpots() {
 
 // Variables: camelCase
 let spotCount = 0;
-const rxCallsign = "KD3ALD";
+const rxCallsign = "W3USR";
 
 // Constants: SCREAMING_SNAKE_CASE
 const CONTEST_BANDS = ["160m", "80m", "40m", "20m", "15m", "10m"];
@@ -440,8 +440,8 @@ If you'd like to help set up testing infrastructure, please reach out!
 3. Screenshots (if UI changes)
 
 **When using AI assistance (Claude, etc.):**
-1. Review [docs/CLAUDE.md](docs/CLAUDE.md) for project context and guidelines
-2. Update docs/CLAUDE.md session history if making significant contributions
+1. Review [CLAUDE.md](CLAUDE.md) for project context and guidelines
+2. Update CLAUDE.md session history if making significant contributions
 3. Follow the offline-first constraints (no CDN dependencies)
 4. Reference requirement IDs when implementing features
 
@@ -722,4 +722,4 @@ Bud Trench, AA3B
 
 **Thank you for contributing to HamSCI and advancing amateur radio science!**
 
-*73 de KD3ALD*
+*73 de HamSCI*

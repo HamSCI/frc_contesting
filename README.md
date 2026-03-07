@@ -294,7 +294,7 @@ Fetch spots for map display with full propagation details.
     "tx_sign": "W1ABC",
     "tx_lat": 42.3601,
     "tx_lon": -71.0589,
-    "rx_sign": "KD3ALD",
+    "rx_sign": "W3USR",
     "rx_lat": 40.7589,
     "rx_lon": -74.2215,
     "frequency": 14.097,
@@ -340,8 +340,8 @@ Serve receiver station configuration to the frontend.
 **Response Format:**
 ```json
 {
-  "receiver_callsign": "KD3ALD",
-  "receiver_grid": "FN21ni"
+  "receiver_callsign": "W3USR",
+  "receiver_grid": "FN21ej"
 }
 ```
 
@@ -433,7 +433,7 @@ Each document represents one decoded WSPR/FT8/FT4 spot.
 {
   _id: ObjectId("..."),
   callsign: "W1ABC",           // Transmitter callsign
-  rx_callsign: "KD3ALD",       // Receiver callsign
+  rx_callsign: "W3USR",        // Receiver callsign
   grid: "FN42hx",              // 6-character Maidenhead grid square
   frequency: 14.097062,        // Frequency in MHz
   band: "20m",                 // Band designation

@@ -71,10 +71,10 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 
 ### Key Documents
 
-- [docs/REQUIREMENTS.md](REQUIREMENTS.md) - Formal requirements specification (primary reference)
-- [README.md](../README.md) - Complete technical documentation
-- [OPERATOR_GUIDE.md](../OPERATOR_GUIDE.md) - User guide for radio operators
-- [CONTRIBUTING.md](../CONTRIBUTING.md) - Developer contribution guidelines
+- [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) - Formal requirements specification (primary reference)
+- [README.md](README.md) - Complete technical documentation
+- [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) - User guide for radio operators
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Developer contribution guidelines
 - [HamSCI Workshop 2025 Poster](references/Ruzankski,%20Owen%20-%20FRC_W3USR_POSTER%20-%20HamSCI%20Workshop%202025.pdf) - Project overview and goals
 - [FRC Proposal](references/20250123%20FRC%20Proposal.pdf) - Detailed project proposal
 
@@ -184,7 +184,7 @@ When modifying [docs/REQUIREMENTS.md](REQUIREMENTS.md):
 ### On First Message
 
 1. Read [docs/REQUIREMENTS.md](REQUIREMENTS.md) to understand the project
-2. Read [docs/CLAUDE.md](CLAUDE.md) (this file) to understand the AI contribution history
+2. Read [CLAUDE.md](CLAUDE.md) (this file) to understand the AI contribution history
 3. Check `git log` to see recent changes
 4. Ask the user what they would like to work on
 
@@ -457,7 +457,7 @@ For questions about this project or the use of AI assistance, please refer to th
 - Updated `templates/index_ft.html` and `templates/index_wcount.html`: replaced `https://unpkg.com/leaflet/...` with `vendor/leaflet/...`
 - Updated `README.md` and `docs/CLAUDE.md`
 
-**Note**: `static/vendor/` is not git-tracked. Re-run the download commands in README.md → "Offline Basemap Files" and "Leaflet Vendor Files" sections after any `git clean` or fresh clone.
+**Note**: `static/vendor/` and GeoJSON files are git-tracked and included in the repository. No separate download is needed after a fresh clone.
 
 **Files Modified**:
 - `static/vendor/leaflet/` — new directory (leaflet.js, leaflet.css, images/)
@@ -647,7 +647,7 @@ This documentation file is part of the HamSCI Contesting and DXing Dashboard pro
 **Recommended Citation Format**:
 ```
 This project was developed with assistance from Claude (Anthropic) AI assistant.
-See docs/CLAUDE.md for detailed contribution history.
+See CLAUDE.md for detailed contribution history.
 ```
 
 ---
