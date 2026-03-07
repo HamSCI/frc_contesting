@@ -189,46 +189,13 @@ See [requirements.txt](requirements.txt) for the complete list:
 - geopy>=2.2.0 - Geocoding
 - python-dotenv>=0.19.0 - Environment variable management
 
-### GeoJSON Data Files
+### Static Data Files
 
-The following GeoJSON files must be present in `static/js/` (used for point-in-polygon filtering):
+All required static data files are included in the repository — no separate downloads needed:
 
-- `countries.geojson` (14MB) - Country boundaries
-- `continents.geojson` (4KB) - Continent boundaries
-- `cqzones.geojson` (2.7MB) - CQ zone polygons (40 zones)
-- `ituzones.geojson` (1.5MB) - ITU zone polygons (90 zones)
-
-These files are included in the repository.
-
-### Offline Basemap Files
-
-The following files provide the offline map background and **must be downloaded separately** — they are not tracked by git due to their size. Run the setup commands below to download them to `static/vendor/basemap/`:
-
-```bash
-mkdir -p static/vendor/basemap
-curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/physical/ne_50m_land.json -o static/vendor/basemap/ne_50m_land.json
-curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/cultural/ne_50m_admin_0_countries.json -o static/vendor/basemap/ne_50m_admin_0_countries.json
-curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/cultural/ne_50m_admin_1_states_provinces.json -o static/vendor/basemap/states-50m.json
-```
-
-- `ne_50m_land.json` (2.7MB) - Land mass polygons (ocean/land fill)
-- `ne_50m_admin_0_countries.json` (4.5MB) - Country border outlines
-- `states-50m.json` (1.6MB) - State/province border outlines
-
-### Leaflet Vendor Files
-
-Leaflet 1.9.4 is vendored locally and must also be downloaded separately:
-
-```bash
-mkdir -p static/vendor/leaflet/images
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/leaflet.js -o static/vendor/leaflet/leaflet.js
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/leaflet.css -o static/vendor/leaflet/leaflet.css
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png -o static/vendor/leaflet/images/marker-icon.png
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png -o static/vendor/leaflet/images/marker-icon-2x.png
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png -o static/vendor/leaflet/images/marker-shadow.png
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers.png -o static/vendor/leaflet/images/layers.png
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png -o static/vendor/leaflet/images/layers-2x.png
-```
+- **GeoJSON boundary files** (`static/js/`) — country, continent, CQ zone, and ITU zone polygons used for client-side filtering
+- **Offline basemap** (`static/vendor/basemap/`) — Natural Earth land, country border, and state/province GeoJSON files for the offline map background
+- **Leaflet 1.9.4** (`static/vendor/leaflet/`) — map library and marker images, vendored locally so no CDN is required
 
 ---
 
