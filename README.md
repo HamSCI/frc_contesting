@@ -254,6 +254,32 @@ The application uses environment variables for secure credential management.
 
 **IMPORTANT:** Never commit the `.env` file to git! It's already in `.gitignore`.
 
+### MongoDB Authentication Setup
+
+If your MongoDB instance does not yet have a user configured, create one before running the app:
+
+```bash
+mongosh
+```
+
+```js
+use wspr_db
+db.createUser({
+  user: "wspr_user",
+  pwd: "choose_a_strong_password",
+  roles: [{ role: "readWrite", db: "wspr_db" }]
+})
+```
+
+Then set the matching credentials in your `.env` file:
+
+```bash
+MONGODB_USERNAME=wspr_user
+MONGODB_PASSWORD=choose_a_strong_password
+```
+
+> **Note:** By default, MongoDB on a fresh install has no authentication enabled. It is strongly recommended to enable authentication, especially if the machine is network-accessible. See the [MongoDB security checklist](https://www.mongodb.com/docs/manual/administration/security-checklist/) for details.
+
 ### Receiver Station Configuration
 
 Set the receiver callsign and Maidenhead grid square in your `.env` file:
