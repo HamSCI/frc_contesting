@@ -142,13 +142,54 @@ spotCountControl.onAdd = function () {
   return this._div;
 };
 
+const bandOrder = [
+  '160m', '80m', '60m', '40m', '30m',
+  '20m', '17m', '15m', '12m', '10m',
+  '6m', '4m', '2m', '70cm', 'unknown'
+];
+
+const bandColorMap = {
+  '160m': 'black',
+  '80m': 'red',
+  '60m': 'orange-dark',
+  '40m': 'orange',
+  '30m': 'yellow',
+  '20m': 'green',
+  '17m': 'green-light',
+  '15m': 'cyan',
+  '12m': 'blue-dark',
+  '10m': 'blue-dark',
+  '6m': 'purple',
+  '4m': 'violet',
+  '2m': 'pink',
+  '70cm': 'white',
+  'unknown': 'green-dark'
+};
+
+const colorHexMap = {
+  "red": "991F24",
+  "orange-dark": "D43019",
+  "orange": "EE8918",
+  "yellow": "F5B72D",
+  "blue-dark": "183C52",
+  "blue": "106AB6",
+  "cyan": "21A2DA",
+  "purple": "4E2960",
+  "violet": "8B1E89",
+  "pink": "BB4A99",
+  "green-dark": "004B22",
+  "green": "008B38",
+  "green-light": "5AA429",
+  "black": "211D1E",
+  "white": "F5F4F5"
+};
 
 spotCountControl.update = function (bandCounts) {
   const lines = Object.entries(bandCounts)
-    .sort(([a], [b]) => CONFIG.bandOrder.indexOf(a) - CONFIG.bandOrder.indexOf(b))
+    .sort(([a], [b]) => bandOrder.indexOf(a) - bandOrder.indexOf(b))
     .map(([band, count]) => {
-      const markerColor = CONFIG.bandColorMap[band] || 'black';
-      const hex = CONFIG.colorHexMap[markerColor] || '000000';
+      const markerColor = bandColorMap[band] || 'black';
+      const hex = colorHexMap[markerColor] || '000000';
       return `<span style="
         display: inline-block;
         width: 12px;
@@ -262,8 +303,31 @@ let bandCountsOut = {};
 async function loadSpots() {
   setStatus('checking', 'Checking…');
 
-  //all possible color options (derived from config)
-  const markerColors = Object.keys(CONFIG.colorHexMap);
+  //all possible color options
+  const markerColors = [
+    'red', 'orange-dark', 'orange', 'yellow', 'blue-dark',
+    'cyan', 'purple', 'violet', 'pink',
+    'green-dark', 'green', 'green-light',
+    'black', 'white'
+  ];
+  //band color map
+  const bandColorMap = {
+    '160m': 'black',
+    '80m': 'red',
+    '60m': 'orange-dark',
+    '40m': 'orange',
+    '30m': 'yellow',
+    '20m': 'green',
+    '17m': 'green-light',
+    '15m': 'cyan',
+    '12m': 'blue-dark',
+    '10m': 'blue-dark',
+    '6m': 'purple',
+    '4m': 'violet',
+    '2m': 'pink',
+    '70cm': 'white',
+    'unknown': 'green-dark'
+  };
   
   
   const markers = {};
@@ -279,7 +343,7 @@ async function loadSpots() {
   
 
 // load all params, build url , load json
-  const lastInterval = document.getElementById("lastInterval").value || getQueryParam("lastInterval") || CONFIG.defaults.lastInterval;
+  const lastInterval = document.getElementById("lastInterval").value || getQueryParam("lastInterval") || 15;
   const selectedBand = getQueryParam("band") || document.getElementById("bandFilter").value;
   const selectedCountry = document.getElementById("countryFilter").value;
   const selectedContinent = document.getElementById("continentFilter").value;
@@ -395,7 +459,7 @@ async function loadSpots() {
 
     // "Contest Bands Only" mode
     if (selectedBand === "CBs") {
-      if (!CONFIG.contestBands.includes(bandName)) {
+      if (!CONTEST_BANDS.includes(bandName)) {
         return; // skip non-contest bands
       }
     }
@@ -412,7 +476,7 @@ async function loadSpots() {
     const spotInfo = document.getElementById("spot-info");
     spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${bandName1}`;
     const title = document.getElementById("title");
-    title.textContent = `WSPR Spots From ${CONFIG.station.callsign} PSWS Receiver`
+    title.textContent = `WSPR Spots From ${spot.rx_sign} PSWS Receiver`
 
     //num decoded per spot
     const spotKey = `${spot.tx_sign}_${spot.rx_sign}_${spot.frequency}`;
@@ -420,7 +484,7 @@ async function loadSpots() {
     
 
     //colored markers
-    const markerColor = CONFIG.bandColorMap[bandName] || 'black';
+    const markerColor = bandColorMap[bandName] || 'black';
     const icon = markers[markerColor] || markers['black'];
 
 

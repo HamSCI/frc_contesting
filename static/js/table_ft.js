@@ -156,7 +156,16 @@ function setLastUpdated() {
     bands.forEach(b => html += `<th class='band-header'>${b.replace("m","")}</th>`);
     html += "</tr>";
   
-    const regionPairs = CONFIG.regionPairs;
+    const regionPairs = [
+      ["Europe","Caribbean"],
+      ["South America","Japan"],
+      ["Africa","VK"],
+      ["YB","China"],
+      ["UA9","Indian"],
+      ["Middle East","Thailand"],
+      ["North America","Oceania"],
+      ["Unknown","Not in Use"]
+    ];
   
     for (const [r1, r2] of regionPairs) {
       html += `<tr><th class='region-header' colspan='${bands.length}'>${r1}</th><th class='region-header' colspan='${bands.length}'>${r2}</th></tr>`;
