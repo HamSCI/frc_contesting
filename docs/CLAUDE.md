@@ -38,6 +38,11 @@ This documentation serves to:
 | February 27, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Milestone 1 audit (#32-#41), #36/#38/#40/#41 fixes, polyline removal, lastInterval sync, documentation | Liam Miller |
 | March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | 404 error diagnosis (OSM tile layer vs offline basemap conflict) | Liam Miller |
 | March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Issue #37 re-fix: offline basemap, favicon, shadow 404, label a11y, lastInterval cross-iframe sync | Liam Miller |
+| April 4, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | ITU-R HF Prop prediction web interface: navigation menu, prediction page scaffolding, P2P form, ITURHFProp subprocess integration (WSL) | Liam Miller |
+| April 9, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | P2P prediction page map: offline basemap, TX/RX draggable markers, geodesic arc, legend, default Scranton→London path | Liam Miller |
+| April 9, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | P2P BCR/MUF chart: HTML5 Canvas heatmap with bilinear interpolation, contour lines, Catmull-Rom MUF line, hover tooltip, MUF/OPMUF toggle | Liam Miller |
+| April 10, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | P2P chart polish: Viridis colormap, vermillion MUF line, antenna type dropdowns, chart background, contest/single frequency output filtering (two-run backend) | Liam Miller |
+| April 10, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | P2P UX + chart expansion: auto-scroll fix, responsive stacking, BCR/SNR/PR metric buttons, S-meter PR scale, discrete legend blocks, generalised contour lines, MUF edge clamp, results export (copy/download CSV) | Liam Miller |
 
 ### Current Model
 
@@ -621,6 +626,173 @@ For questions about this project or the use of AI assistance, please refer to th
 - `README.md` — date updated, lastInterval sync troubleshooting entry added
 - `docs/CLAUDE.md` — session record
 
+### Session 13: ITU-R HF Prop Prediction Web Interface
+**Date**: April 4, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Build the web interface for the ITU-R HF propagation prediction software package (`itu_r_hf/`)
+**Duration**: 2.25 hours (10:15–12:30)
+**Status**: In Progress — form and backend wired; executable integration pending full test
+
+**Activities**:
+- Added hamburger (☰) navigation menu to `both.html`: fixed-position button (top-left) opens a slide-out panel with "Spots" and "Prediction" links; clicking outside closes it
+- Created `/prediction` route and `prediction.html`: landing page with "How to Use this Program" heading and tab bar
+- Created `/prediction/p2p` route and `prediction_p2p.html`: full point-to-point prediction form
+- Created `/prediction/area` route and `prediction_area.html`: placeholder area prediction page
+- All prediction pages share the hamburger nav and a three-tab bar (How To / Point to Point / Area) with the active tab highlighted
+- Built full P2P input form with: TX/RX lat/lng, antenna gain (dBi), year/month/SSN, frequency selector (Single / Contest Bands / HF Spectrum toggle), TX power (W), signal type dropdown (WSPR/FT8/CW/SSB Usable/SSB Marginal — auto-sets BW and SNRr), path type (Short/Long), noise environment with dB values, and output options checklist (BMUF, OPMUF, Field Strength, Received Power, SNR, BCR)
+- Contest Bands mode shows pill labels (160m / 80m / 40m / 20m / 15m / 10m); sends `1.9, 3.75, 7.1, 14.15, 21.2, 28.3` MHz to the program
+- HF Spectrum mode sends 1–30 MHz in 1 MHz steps
+- "Run Prediction" button turns orange ("Running...") during the subprocess call; reverts on completion; required-field errors shown in red above the button
+- Results displayed in a dark scrollable `<pre>` block with the "Data Format:" column-header section bolded (Option B display)
+- Added `POST /api/predict/p2p` to `routes/api.py`: validates inputs, converts TX power (W → dB(kW)), builds a `.in` input file in `itu_r_hf/tmp/`, runs `ITURHFProp`, reads and returns the output text, cleans up temp files
+- Cross-platform subprocess: on Windows uses WSL (`wsl bash -c "LD_LIBRARY_PATH=... exe -s in out"`) with all paths converted to `/mnt/c/...` format; on Linux calls the binary directly with `LD_LIBRARY_PATH` set; WSL was installed on the development machine to avoid needing Visual Studio
+- Hardcoded behind the scenes: ISOTROPIC antennas, TX2RX orientation, ANALOG modulation, 50% reliability threshold, all 24 hours output, grid corners = RX location
+- Added CSS sections 10–12 to `static/css/style.css`: hamburger nav, prediction page tabs, and full prediction form styling
+
+**Key Decisions**:
+- WSL chosen over Visual Studio compilation to run the Linux binary on Windows — distributable, no compiler needed
+- Backend uses `platform.system()` to select WSL vs direct call automatically — same codebase works on Windows (local/LAN) and Linux (public server)
+- `DataFilePath` and `RptFilePath` in the `.in` file use WSL-format paths on Windows so the Linux binary can resolve them correctly
+
+**Files Modified/Created**:
+- `templates/both.html` — hamburger nav added
+- `templates/prediction.html` — new (prediction landing page)
+- `templates/prediction_p2p.html` — new (full P2P form)
+- `templates/prediction_area.html` — new (placeholder)
+- `routes/views.py` — `/prediction`, `/prediction/p2p`, `/prediction/area` routes added
+- `routes/api.py` — `POST /api/predict/p2p` endpoint added; `platform`, `math`, `uuid`, `subprocess`, `os` imports added
+- `static/css/style.css` — sections 10 (hamburger nav), 11 (prediction tabs), 12 (prediction form) appended
+- `docs/CLAUDE.md` — session record
+
+### Session 15: P2P Prediction Page — BCR/MUF Propagation Chart
+**Date**: April 9, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Replace the "Coming Soon" placeholder panel with a live BCR/MUF propagation chart
+**Duration**: 2 hours (20:30–22:30)
+**Status**: Complete
+
+**Activities**:
+- Replaced `.pred-coming-soon` div with `<canvas id="pred-chart">` (HTML5 Canvas, zero dependencies, fully offline)
+- Backend (`routes/api.py`): always runs full 1–30 MHz spectrum × all 24 UTC hours regardless of form frequency selection; always merges `RPT_BMUF`, `RPT_OPMUF`, `RPT_BCR` into the report options; added `parse_chart_data()` to dynamically parse column positions from the `Data Format:` section and extract `bcr[30][24]`, `bmuf[24]`, `opmuf[24]` arrays; returns `{output, chart_data}` from the endpoint
+- Canvas chart renders: bilinear-interpolated BCR heatmap (smooth color gradient, no CDN), 9 contour lines at 10% BCR boundaries (marching squares algorithm), Catmull-Rom spline MUF/OPMUF line, Y-axis (MHz), X-axis (UTC), color legend bar with BCR % labels
+- Color gradient: dark blue (0%) → cyan (25%) → green (50%) → yellow-orange (75%) → red (100%), with sigmoid-based soft stepping to create defined bands while preserving smoothness
+- Contour lines computed with marching squares — scans each adjacent grid cell pair for crossings at each 10% boundary, draws 1px semi-transparent lines precisely aligned to the heatmap coordinate system
+- MUF toggle buttons added between map row and form: "MUF (50th Pctl.)" and "OPMUF (85th Pctl.)"; switching redraws only the line, not the heatmap
+- Hover tooltip: mousemove maps pixel position back to the raw grid cell and displays `{freq} MHz | {UTC} UTC | {BCR}%` in a dark overlay at the top-left of the plot area
+- `putImageData` coordinate fix: bilinear heatmap uses physical pixels (CSS px × DPR) since `createImageData`/`putImageData` bypass the `ctx.scale(dpr, dpr)` transform
+- Contour line alignment fix: coordinate mapping in `drawContourLines()` updated to match `drawBilinearHeatmap()` exactly (`fiToY = MT + ph*(1-fi/29)`, `hiToX = ML + (hi/23)*pw`)
+- Confirmed BMUF < OPMUF is correct per ITU-R P.533: BMUF is the 50th-percentile MUF (median), OPMUF includes scatter modes and can exceed BMUF
+- Added CSS Section 14: `.pred-chart-canvas`, `.pred-muf-toggle`, `.muf-toggle-btn`
+
+**Key Decisions**:
+- HTML5 Canvas chosen over Plotly.js — fully offline (no 3 MB bundle), faster rendering, complete control over coordinate system
+- `BCR_COLOR_LUT` precomputed at page load (1001-entry array, sigmoid-stepped) — eliminates per-pixel gradient math in the inner loop
+- Marching squares run on the raw 24×30 grid (not the interpolated pixels) — ensures contour lines track the actual data boundaries
+- `putImageData` requires explicit DPR scaling since it bypasses `ctx.scale()`
+- Both `parse_chart_data()` column detection and marching squares coordinate mapping must use the same axis conventions as the pixel loop
+
+**Files Modified**:
+- `routes/api.py` — `parse_chart_data()` added; `predict_p2p()` updated (forced spectrum, merged chart options, returns `chart_data`); `import re` added
+- `templates/prediction_p2p.html` — canvas replaces Coming Soon; MUF toggle buttons added; full chart JS (`bcrColor`, `bcrColorRGB`, `BCR_COLOR_LUT`, `catmullRomPoints`, `drawBilinearHeatmap`, `drawContourLines`, `renderChart`, `bindChartHover`, `setMufMode`); `runPrediction()` updated to call `renderChart`
+- `static/css/style.css` — Section 14 appended
+
+---
+
+### Session 14: P2P Prediction Page — Mini Map, Draggable Markers, Geodesic Arc
+**Date**: April 9, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Add an interactive offline mini map to the P2P prediction page with TX/RX markers and a great circle path
+**Duration**: 45 minutes (10:15–11:00)
+**Status**: Complete
+
+**Activities**:
+- Added offline Leaflet basemap (land + country + state outlines, no tile server) to `/prediction/p2p` using absolute vendor paths (`/vendor/leaflet/`, `/vendor/basemap/`) — required because the page lives at a subpath (`/prediction/p2p`), where relative paths would resolve incorrectly
+- Placed map in a `.pred-map-row` flex layout: map on the left, "Coming Soon" placeholder box on the right, both 360 px tall — placeholder reserved for a future results panel
+- Added draggable TX (red `#ef4444`) and RX (blue `#3b82f6`) markers using `L.marker` + `L.divIcon` — `L.circleMarker` does not support dragging
+- Implemented `updateMarkers()` with a create-or-move pattern: markers are created once and repositioned via `setLatLng()` on subsequent calls, preventing drag handlers from being re-bound on every keystroke
+- Geodesic arc (orange dashed, `#f97316`) computed with a pure-JS spherical interpolation (`geodesicPoints()`, 100 waypoints) — no external library needed
+- Added `antimeridianFix()` to normalize longitudes as a continuous sequence, preventing the polyline from drawing a shortcut across the map on trans-Pacific paths
+- Drag events update the lat/lon input fields live and redraw the arc; input field changes reposition the markers and redraw the arc
+- Default path pre-populated on load: TX = Scranton PA (41.409, -75.6624), RX = London UK (51.5074, -0.1278); map centered at `[46, -37]` zoom 3 (mid-Atlantic) so both endpoints are visible
+- Added Leaflet `L.control` legend (bottom-right) showing TX/RX dot colors
+- Added CSS Section 13 to `static/css/style.css`: `.pred-map-row`, `#pred-map`, `.pred-coming-soon`, `.pred-map-legend`, `.legend-dot`
+
+**Key Decisions**:
+- `L.divIcon` chosen over `L.circleMarker` — only `L.marker` supports the `draggable` option
+- Geodesic math inlined (no turf.js dependency) — keeps the pred page self-contained
+- Absolute vendor paths (`/vendor/...`) required on all sub-route pages; relative paths only work on top-level routes
+
+**Files Modified**:
+- `templates/prediction_p2p.html` — Leaflet CSS link, map row HTML, full JS rewrite of second script block
+- `static/css/style.css` — Section 13 appended (map row, legend)
+- `docs/CLAUDE.md` — session record
+
+### Session 16: P2P Chart Polish + Contest Frequency Output Filtering
+**Date**: April 10, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Visual polish on the BCR/MUF chart and accurate frequency output filtering for contest/single modes
+**Duration**: 1.5 hours (11:00–12:30)
+**Status**: Complete
+
+**Activities**:
+- Added TX and RX antenna type dropdowns (Isotropic only; ready for additional types later); `onAntennaTypeChange()` resets gain field to 2.15 dBi when Isotropic is re-selected
+- Changed antenna gain label from `"TX Antenna Gain (dBi, 0 = isotropic)"` → `"TX Antenna Gain (dBi)"`; default value changed from 0 to 2.15 (standard isotropic reference gain)
+- Changed chart canvas background from near-black `#0d0d14` to light grey `#d8d8d8`; border softened to `#bbb`
+- Replaced original blue→cyan→green→yellow→red BCR color gradient with the Viridis colormap for colorblind accessibility; stops sampled at 10% BCR intervals mapped onto Viridis 0.0–0.9 (compressed scale) to spread the high-end green/yellow range — prevents 90% and 100% from appearing identical
+- Changed MUF/OPMUF line from white to vermillion `#D55E00` (Okabe-Ito colorblind-safe palette); draws a 4px semi-transparent black shadow pass first, then a 2px vermillion pass on top — ensures visibility across the full Viridis range
+- Added contest/single frequency output filtering: for contest mode, backend runs ITURHFProp twice — once with 1–30 MHz integers (chart) and once with the 6 specific contest frequencies (text output); for single mode, runs twice with the exact entered frequency for text output; spectrum mode reuses the chart run output
+- Contest frequencies: 160m=1.9 MHz, 80m=3.6 MHz, 40m=7.125 MHz, 20m=14.15 MHz, 15m=21.2 MHz, 10m=28.3 MHz
+- Added `filterOutputByFreq(text, mode, singleFreq)` JS function to filter text output rows client-side before rendering; keeps all header/Data Format lines, filters only data rows by frequency match (±0.01 MHz tolerance)
+- Fixed segfault (exit code 139): initial approach of appending extra frequencies to the 30-integer list exceeded ITURHFProp's internal frequency array limit; resolved by two separate subprocess runs rather than a single oversized list
+
+**Key Decisions**:
+- Viridis compressed to 0.0–0.9 (not full 0.0–1.0): the full Viridis scale has near-identical RGB values at 90% and 100%; the compressed scale gives each 10% band a clearly distinct color while still ending in recognizable yellow-green
+- Two-run approach for contest/single: replacing integer MHz steps with non-integer values would make the chart heatmap subtly inaccurate (propagation at 7.125 MHz ≠ propagation at 7.0 MHz); two runs preserve chart accuracy while giving exact text output
+- `CONTEST_FREQS` defined at module level in `api.py` and as a JS constant in the template — single source of truth for each layer
+
+**Files Modified**:
+- `templates/prediction_p2p.html` — antenna type dropdowns, label text, gain default, `onAntennaTypeChange()`, `CONTEST_FREQS` JS constant, `filterOutputByFreq()`, output filter applied before `<pre>` render; `VIRIDIS_STOPS` updated; MUF line draw updated to vermillion + shadow
+- `routes/api.py` — `CONTEST_FREQS` constant added; frequency-building logic replaced with `_execute(freq_string)` nested helper; two-run logic for contest/single modes
+- `static/css/style.css` — canvas background and border updated (Section 14)
+
+### Session 17: P2P UX Fixes + Chart Metric Expansion + Results Export
+**Date**: April 10, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: UX polish and chart feature expansion on the P2P prediction page
+**Duration**: 2.25 hours (18:30–20:45)
+**Status**: Complete
+
+**Activities**:
+- Removed auto-scroll to results (`scrollIntoView` call deleted) — page stays at current position after prediction completes
+- Added responsive stacking media query (`@media (max-width: 900px)`): `.pred-map-row` switches to `flex-direction: column`; both panels get `flex: none` and `height: 300px` so neither collapses in split-screen
+- Added SNR and PR metric buttons alongside MUF buttons in a two-group `pred-chart-controls` flex layout; BCR button is default active
+- Backend: added `RPT_SNR` and `RPT_PR` to `required_chart`; updated `parse_chart_data()` to extract SNR (column keyword `'SNR'`) and PR (column keyword `'RECEIVER'`) into separate 30×24 arrays; returns `snr` and `pr` alongside `bcr` in `chart_data`
+- `renderChart()` refactored to select metric data/scale/label based on `chartMetric` state: BCR fixed 0–100%, SNR fixed -30 to 60 dB, PR fixed S-meter scale (S0 = -163 dBW, S9 = -103 dBW, 6 dB per S-unit, IARU HF standard)
+- `drawBilinearHeatmap()` generalised: now accepts `dataMin`/`dataMax` and normalises any metric to 0–100% before the Viridis LUT lookup
+- `drawContourLines()` generalised: `data` and `levels` now parameters; BCR uses fixed `[10,20,...,90]`, SNR uses 9 equal 9 dB steps across -30 to 60, PR uses exact S-unit boundaries `[-157,-151,...,-109]` dBW
+- Legend bar changed from smooth gradient to 10 discrete solid blocks (one per Viridis stop) with tick labels at each boundary: BCR shows `100%`→`0%`, SNR shows `60`→`-30` dB, PR shows `S9`→`S0`
+- Hover tooltip shows raw dBW value for PR (not S-unit) and `dB` for SNR
+- MUF line x-coordinates clamped: first point set to `ML`, last point to `ML + pw` — line now runs edge-to-edge with no gap at either end
+- `Path.SNRXXp` parameter tested at 90 (reverted to 50 by user after testing)
+- Results area background changed from black (`#0b0b0b`) to light grey (`#d8d8d8`) matching the chart panel; text changed to dark (`#1a1a1a`)
+- Added "Copy to Clipboard" and "Download CSV" buttons above the `<pre>` results block: Copy briefly shows "Copied!" on the button; Download generates a timestamped filename `MM_DD_YYYY_HH-MM_prediction.csv` (HH-MM uses hyphen — colons are invalid in Windows filenames)
+
+**Key Decisions**:
+- PR uses a fixed S-meter scale rather than auto-scale: the S-meter is a known amateur radio reference (IARU HF standard, S9 = -73 dBm = -103 dBW), making the chart immediately interpretable without needing to read the legend range each time
+- SNR uses a fixed -30 to 60 dB range rather than auto-scale: spans the full range from inaudible to excellent for any digital/voice mode, making cross-prediction comparisons consistent
+- `'RECEIVER'` (not `'RECEIVED'`) matched the ITURHFProp column descriptor `"Pr - Median receiver power (dB)"` — corrected after initial parse failure
+- Discrete legend blocks chosen over smooth gradient bar: each block directly corresponds to one Viridis color band, making the legend a true key to the chart regions
+
+**Files Modified**:
+- `routes/api.py` — `required_chart` expanded; `parse_chart_data()` updated for SNR/PR columns
+- `templates/prediction_p2p.html` — two-group button layout; `chartMetric` state; `setChartMetric()`; `drawBilinearHeatmap()` signature; `drawContourLines()` signature; `renderChart()` metric selection, contour levels, discrete legend, hover label; MUF edge clamp; `copyResults()`/`downloadCsv()` functions; results export buttons; results `<pre>` stays light
+- `static/css/style.css` — responsive stacking media query; `.pred-chart-controls`/`.pred-metric-toggle` layout; `.pred-results pre` light grey; `.results-actions` button row
+
 ---
 
 ## Version History
@@ -637,6 +809,11 @@ For questions about this project or the use of AI assistance, please refer to th
 | 1.7 | February 27, 2026 | Added Session 10: Milestone 1 audit, #36/#38/#40/#41 fixes, polyline removal, lastInterval sync, doc updates | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 1.8 | March 1, 2026 | Added Session 11: 404 error diagnosis — OSM tile layer conflict with offline basemap | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 1.9 | March 1, 2026 | Added Session 12: Issue #37 complete — offline basemap, favicon, shadow fix, label a11y, lastInterval cross-iframe sync | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 2.0 | April 4, 2026 | Added Session 13: ITU-R HF Prop prediction interface — nav menu, prediction page scaffolding, P2P form, WSL subprocess integration | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 2.1 | April 9, 2026 | Added Session 14: P2P map — offline basemap, draggable TX/RX markers, geodesic arc, legend, default Scranton→London path | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 2.2 | April 9, 2026 | Added Session 15: P2P BCR/MUF chart — Canvas heatmap, contour lines, MUF spline, hover tooltip, MUF/OPMUF toggle with percentile labels | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 2.3 | April 10, 2026 | Added Session 16: chart polish (Viridis, vermillion MUF line, antenna dropdowns, grey background), contest/single frequency output filtering with two-run backend | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 2.4 | April 10, 2026 | Added Session 17: auto-scroll fix, responsive stacking, BCR/SNR/PR metric buttons, S-meter PR scale, discrete legend, generalised contours, MUF edge clamp, results export (copy/download CSV) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 

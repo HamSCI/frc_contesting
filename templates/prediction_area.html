@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prediction — Area</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body class="pred-page">
+
+  <button id="hamburger-btn" onclick="toggleNav()">&#9776;</button>
+  <div id="nav-overlay" onclick="closeNav()"></div>
+  <nav id="nav-panel">
+    <a href="/">Spots</a>
+    <a href="/prediction">Prediction</a>
+  </nav>
+
+  <div class="pred-tabs">
+    <a class="pred-tab-btn" href="/prediction">How To</a>
+    <a class="pred-tab-btn" href="/prediction/p2p">Point to Point</a>
+    <a class="pred-tab-btn active" href="/prediction/area">Area</a>
+  </div>
+
+  <h1 style="text-align:center; margin-top: 40px;">Area</h1>
+
+  <script>
+    function toggleNav() {
+      document.getElementById('nav-panel').classList.toggle('open');
+      document.getElementById('nav-overlay').classList.toggle('open');
+    }
+    function closeNav() {
+      document.getElementById('nav-panel').classList.remove('open');
+      document.getElementById('nav-overlay').classList.remove('open');
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prediction — Point to Point</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+</head>
+
+<body class="pred-page">
+
+  <button id="hamburger-btn" onclick="toggleNav()">&#9776;</button>
+  <div id="nav-overlay" onclick="closeNav()"></div>
+  <nav id="nav-panel">
+    <a href="/">Spots</a>
+    <a href="/prediction">Prediction</a>
+  </nav>
+
+  <div class="pred-tabs">
+    <a class="pred-tab-btn" href="/prediction">How To</a>
+    <a class="pred-tab-btn active" href="/prediction/p2p">Point to Point</a>
+    <a class="pred-tab-btn" href="/prediction/area">Area</a>
+  </div>
+
+  <h1 style="text-align:center; margin-top: 30px; margin-bottom: 10px;">Point to Point</h1>
+
+  <div class="pred-map-row">
+    <div id="pred-map"></div>
+    <canvas id="pred-chart" class="pred-chart-canvas"></canvas>
+  </div>
+
+  <div class="pred-chart-controls">
+    <div class="pred-muf-toggle">
+      <button class="muf-toggle-btn active" id="btn-bmuf"  onclick="setMufMode('bmuf')">MUF (50th Pctl.)</button>
+      <button class="muf-toggle-btn"        id="btn-opmuf" onclick="setMufMode('opmuf')">OPMUF (85th Pctl.)</button>
+    </div>
+    <div class="pred-metric-toggle">
+      <button class="muf-toggle-btn active" id="btn-bcr" onclick="setChartMetric('bcr')">BCR</button>
+      <button class="muf-toggle-btn"        id="btn-snr" onclick="setChartMetric('snr')">SNR</button>
+      <button class="muf-toggle-btn"        id="btn-pr"  onclick="setChartMetric('pr')">PR</button>
+    </div>
+  </div>
+
+  <div class="pred-form">
+
+    <!-- TX / RX Location -->
+    <h2>Location</h2>
+    <div class="pred-form-grid">
+      <div class="pred-field">
+        <label>TX Latitude (decimal °, N positive)</label>
+        <input type="number" id="tx_lat" step="any" placeholder="e.g. 49.67">
+      </div>
+      <div class="pred-field">
+        <label>RX Latitude (decimal °, N positive)</label>
+        <input type="number" id="rx_lat" step="any" placeholder="e.g. 51.12">
+      </div>
+      <div class="pred-field">
+        <label>TX Longitude (decimal °, E positive)</label>
+        <input type="number" id="tx_lng" step="any" placeholder="e.g. 6.32">
+      </div>
+      <div class="pred-field">
+        <label>RX Longitude (decimal °, E positive)</label>
+        <input type="number" id="rx_lng" step="any" placeholder="e.g. 7.27">
+      </div>
+    </div>
+
+    <!-- Antenna Gain -->
+    <h2>Antenna Gain</h2>
+    <div class="pred-form-grid">
+      <div class="pred-field">
+        <label>TX Antenna Type</label>
+        <select id="tx_antenna_type" onchange="onAntennaTypeChange('tx')">
+          <option value="isotropic">Isotropic</option>
+        </select>
+      </div>
+      <div class="pred-field">
+        <label>RX Antenna Type</label>
+        <select id="rx_antenna_type" onchange="onAntennaTypeChange('rx')">
+          <option value="isotropic">Isotropic</option>
+        </select>
+      </div>
+      <div class="pred-field">
+        <label>TX Antenna Gain (dBi)</label>
+        <input type="number" id="tx_gain" step="any" value="2.15" placeholder="2.15">
+      </div>
+      <div class="pred-field">
+        <label>RX Antenna Gain (dBi)</label>
+        <input type="number" id="rx_gain" step="any" value="2.15" placeholder="2.15">
+      </div>
+    </div>
+
+    <!-- Time & Solar -->
+    <h2>Time &amp; Solar Activity</h2>
+    <div class="pred-form-grid-3">
+      <div class="pred-field">
+        <label>Year</label>
+        <input type="number" id="year" placeholder="e.g. 2025" min="1900" max="2100">
+      </div>
+      <div class="pred-field">
+        <label>Month</label>
+        <select id="month">
+          <option value="">— select —</option>
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
+      <div class="pred-field">
+        <label>SSN / R12 (smoothed sunspot number)</label>
+        <input type="number" id="ssn" min="0" max="400" placeholder="e.g. 50">
+      </div>
+    </div>
+
+    <!-- Frequency -->
+    <h2>Frequency</h2>
+    <div class="freq-toggle-group">
+      <button class="freq-toggle-btn active" onclick="setFreqMode('single', this)">Single</button>
+      <button class="freq-toggle-btn" onclick="setFreqMode('contest', this)">Contest Bands</button>
+      <button class="freq-toggle-btn" onclick="setFreqMode('spectrum', this)">HF Spectrum</button>
+    </div>
+    <div id="single-freq-input" class="pred-field" style="max-width:200px; margin-top:6px;">
+      <label>Frequency (MHz)</label>
+      <input type="number" id="single_freq" step="any" min="1" max="30" placeholder="e.g. 14.15">
+    </div>
+    <div id="contest-band-labels" class="contest-band-labels">
+      <span class="band-label">160m</span>
+      <span class="band-label">80m</span>
+      <span class="band-label">40m</span>
+      <span class="band-label">20m</span>
+      <span class="band-label">15m</span>
+      <span class="band-label">10m</span>
+    </div>
+    <div id="spectrum-note" style="display:none; font-size:12px; color:#555; margin-top:6px;">
+      1 MHz steps from 1 to 30 MHz (30 frequencies)
+    </div>
+
+    <!-- Signal & Power -->
+    <h2>Signal</h2>
+    <div class="pred-form-grid">
+      <div class="pred-field">
+        <label>TX Power (Watts)</label>
+        <input type="number" id="tx_power" min="0.001" step="any" placeholder="e.g. 100">
+      </div>
+      <div class="pred-field">
+        <label>Signal Type</label>
+        <select id="signal_type">
+          <option value="wspr" data-bw="2500" data-snr="-29">WSPR (BW: 2500 Hz / SNR: -29 dB)</option>
+          <option value="ft8"  data-bw="50"   data-snr="-3">FT8 (BW: 50 Hz / SNR: -3 dB)</option>
+          <option value="cw"   data-bw="500"  data-snr="0">CW (BW: 500 Hz / SNR: 0 dB)</option>
+          <option value="ssbu" data-bw="3000" data-snr="6">SSB Usable (BW: 3000 Hz / SNR: 6 dB)</option>
+          <option value="ssbm" data-bw="3000" data-snr="15">SSB Marginal (BW: 3000 Hz / SNR: 15 dB)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Path & Noise -->
+    <h2>Path &amp; Noise</h2>
+    <div class="pred-form-grid">
+      <div class="pred-field">
+        <label>Path Type</label>
+        <select id="path_type">
+          <option value="SHORTPATH">Short Path</option>
+          <option value="LONGPATH">Long Path</option>
+        </select>
+      </div>
+      <div class="pred-field">
+        <label>Noise Environment</label>
+        <select id="noise_env">
+          <option value="CITY">City (~73 dB)</option>
+          <option value="RESIDENTIAL">Residential (~62 dB)</option>
+          <option value="RURAL" selected>Rural (~53 dB)</option>
+          <option value="QUIETRURAL">Quiet Rural (~43 dB)</option>
+          <option value="QUIET">Quiet (galactic noise only)</option>
+          <option value="NOISY">Noisy</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Output Options -->
+    <h2>Output Options</h2>
+    <div class="output-checklist">
+      <label><input type="checkbox" name="rpt" value="RPT_BMUF"  checked> Basic MUF</label>
+      <label><input type="checkbox" name="rpt" value="RPT_OPMUF" checked> Operational MUF</label>
+      <label><input type="checkbox" name="rpt" value="RPT_E"     checked> Field Strength</label>
+      <label><input type="checkbox" name="rpt" value="RPT_PR"    checked> Received Power</label>
+      <label><input type="checkbox" name="rpt" value="RPT_SNR"   checked> SNR</label>
+      <label><input type="checkbox" name="rpt" value="RPT_BCR"   checked> BCR (%)</label>
+    </div>
+
+    <!-- Submit -->
+    <div class="pred-error" id="pred-error"></div>
+    <button class="run-btn" id="run-btn" onclick="runPrediction()">Run Prediction</button>
+
+  </div>
+
+  <!-- Results -->
+  <div class="pred-results" id="pred-results" style="display:none;">
+    <div class="pred-form" style="margin-top:20px;">
+      <h2>Results</h2>
+      <div class="results-actions">
+        <button class="run-btn" onclick="copyResults(event)">Copy to Clipboard</button>
+        <button class="run-btn" onclick="downloadCsv()">Download CSV</button>
+      </div>
+      <pre id="results-pre"></pre>
+    </div>
+  </div>
+
+  <script>
+    // --- Nav ---
+    function toggleNav() {
+      document.getElementById('nav-panel').classList.toggle('open');
+      document.getElementById('nav-overlay').classList.toggle('open');
+    }
+    function closeNav() {
+      document.getElementById('nav-panel').classList.remove('open');
+      document.getElementById('nav-overlay').classList.remove('open');
+    }
+
+    // --- Frequency mode ---
+    let freqMode = 'single';
+
+    function setFreqMode(mode, btn) {
+      freqMode = mode;
+      document.querySelectorAll('.freq-toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('single-freq-input').style.display   = mode === 'single'   ? 'flex' : 'none';
+      document.getElementById('contest-band-labels').classList.toggle('visible', mode === 'contest');
+      document.getElementById('spectrum-note').style.display       = mode === 'spectrum' ? 'block' : 'none';
+    }
+
+    // --- Validate & run ---
+    function runPrediction() {
+      const btn = document.getElementById('run-btn');
+      if (btn.classList.contains('loading')) return;
+
+      const errors = [];
+
+      const txLat  = document.getElementById('tx_lat').value.trim();
+      const txLng  = document.getElementById('tx_lng').value.trim();
+      const rxLat  = document.getElementById('rx_lat').value.trim();
+      const rxLng  = document.getElementById('rx_lng').value.trim();
+      const year   = document.getElementById('year').value.trim();
+      const month  = document.getElementById('month').value;
+      const ssn    = document.getElementById('ssn').value.trim();
+      const txPow  = document.getElementById('tx_power').value.trim();
+      const singleFreq = document.getElementById('single_freq').value.trim();
+
+      if (!txLat)  errors.push('TX Latitude');
+      if (!txLng)  errors.push('TX Longitude');
+      if (!rxLat)  errors.push('RX Latitude');
+      if (!rxLng)  errors.push('RX Longitude');
+      if (!year)   errors.push('Year');
+      if (!month)  errors.push('Month');
+      if (!ssn)    errors.push('SSN / R12');
+      if (!txPow)  errors.push('TX Power');
+      if (freqMode === 'single' && !singleFreq) errors.push('Frequency');
+
+      const checkedOutputs = [...document.querySelectorAll('input[name="rpt"]:checked')].map(c => c.value);
+      if (checkedOutputs.length === 0) errors.push('at least one Output Option');
+
+      const errEl = document.getElementById('pred-error');
+      if (errors.length > 0) {
+        errEl.textContent = 'Required fields missing: ' + errors.join(', ');
+        errEl.classList.add('visible');
+        return;
+      }
+      errEl.classList.remove('visible');
+
+      // Set loading state
+      btn.classList.add('loading');
+      btn.textContent = 'Running...';
+
+      const signalSel = document.getElementById('signal_type');
+      const selectedOpt = signalSel.options[signalSel.selectedIndex];
+
+      const payload = {
+        tx_lat:     parseFloat(txLat),
+        tx_lng:     parseFloat(txLng),
+        rx_lat:     parseFloat(rxLat),
+        rx_lng:     parseFloat(rxLng),
+        tx_gain:    parseFloat(document.getElementById('tx_gain').value) || 0,
+        rx_gain:    parseFloat(document.getElementById('rx_gain').value) || 0,
+        year:       parseInt(year),
+        month:      parseInt(month),
+        ssn:        parseInt(ssn),
+        tx_power_w: parseFloat(txPow),
+        bw:         parseFloat(selectedOpt.dataset.bw),
+        snr:        parseFloat(selectedOpt.dataset.snr),
+        path_type:  document.getElementById('path_type').value,
+        noise_env:  document.getElementById('noise_env').value,
+        freq_mode:  freqMode,
+        single_freq: freqMode === 'single' ? parseFloat(singleFreq) : null,
+        rpt_options: checkedOutputs
+      };
+
+      fetch('/api/predict/p2p', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(data => {
+        btn.classList.remove('loading');
+        btn.textContent = 'Run Prediction';
+
+        const resultsDiv = document.getElementById('pred-results');
+        const pre = document.getElementById('results-pre');
+        resultsDiv.style.display = 'block';
+
+        if (data.error) {
+          pre.innerHTML = '<span style="color:#ef4444;">Error: ' + escHtml(data.error) + '</span>';
+          return;
+        }
+
+        // Filter output rows to selected frequencies
+        const singleFreqVal = freqMode === 'single' ? parseFloat(document.getElementById('single_freq').value) : null;
+        const text = filterOutputByFreq(data.output, freqMode, singleFreqVal);
+        const fmtIdx = text.indexOf('Data Format:');
+        if (fmtIdx === -1) {
+          pre.textContent = text;
+        } else {
+          // Find where data rows begin (after the blank line following the column list)
+          // The format section ends before the first data row (lines starting with digits)
+          const lines = text.split('\n');
+          let fmtStart = -1, fmtEnd = -1;
+          for (let i = 0; i < lines.length; i++) {
+            if (fmtStart === -1 && lines[i].includes('Data Format:')) { fmtStart = i; }
+            if (fmtStart !== -1 && fmtEnd === -1 && i > fmtStart) {
+              // Data rows start with a digit or are the "Data Row" label
+              const trimmed = lines[i].trim();
+              if (/^\d/.test(trimmed)) { fmtEnd = i; break; }
+            }
+          }
+          if (fmtEnd === -1) fmtEnd = lines.length;
+
+          const before = lines.slice(0, fmtStart).join('\n');
+          const header = lines.slice(fmtStart, fmtEnd).join('\n');
+          const after  = lines.slice(fmtEnd).join('\n');
+
+          pre.innerHTML = escHtml(before)
+            + '<strong>' + escHtml(header) + '</strong>'
+            + escHtml(after);
+        }
+
+        if (data.chart_data) {
+          lastChartData = data.chart_data;
+          renderChart(data.chart_data);
+          bindChartHover();
+        }
+
+
+      })
+      .catch(err => {
+        btn.classList.remove('loading');
+        btn.textContent = 'Run Prediction';
+        const pre = document.getElementById('results-pre');
+        document.getElementById('pred-results').style.display = 'block';
+        pre.innerHTML = '<span style="color:#ef4444;">Network error: ' + escHtml(String(err)) + '</span>';
+      });
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function copyResults(event) {
+      const pre = document.getElementById('results-pre');
+      navigator.clipboard.writeText(pre.innerText).then(function() {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      });
+    }
+
+    function downloadCsv() {
+      const pre  = document.getElementById('results-pre');
+      const now  = new Date();
+      const mm   = String(now.getMonth() + 1).padStart(2, '0');
+      const dd   = String(now.getDate()).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      const hh   = String(now.getHours()).padStart(2, '0');
+      const min  = String(now.getMinutes()).padStart(2, '0');
+      const name = `${mm}_${dd}_${yyyy}_${hh}-${min}_prediction.csv`;
+      const blob = new Blob([pre.innerText], { type: 'text/csv' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // =====================================================================
+    // BCR / MUF Chart
+    // =====================================================================
+    let lastChartData   = null;
+    let mufMode         = 'bmuf';
+    let chartMetric     = 'bcr';
+    let chartHoverBound = false;
+
+    function onAntennaTypeChange(side) {
+      const type = document.getElementById(side + '_antenna_type').value;
+      if (type === 'isotropic') {
+        document.getElementById(side + '_gain').value = 2.15;
+      }
+    }
+
+    function setMufMode(mode) {
+      mufMode = mode;
+      document.querySelectorAll('.pred-muf-toggle .muf-toggle-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-' + mode).classList.add('active');
+      if (lastChartData) renderChart(lastChartData);
+    }
+
+    function setChartMetric(metric) {
+      chartMetric = metric;
+      document.querySelectorAll('.pred-metric-toggle .muf-toggle-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-' + metric).classList.add('active');
+      if (lastChartData) renderChart(lastChartData);
+    }
+
+    // Viridis colormap stops — BCR 0–100% mapped to Viridis 0.0–0.9
+    // (slight compression spreads high-end bands while keeping yellow at 100%)
+    const CONTEST_FREQS = [1.9, 3.6, 7.125, 14.15, 21.2, 28.3];
+
+    // Filter raw output to only rows matching the selected frequencies.
+    // Non-data lines (headers, Data Format section) are always kept.
+    function filterOutputByFreq(text, mode, singleFreq) {
+      if (mode === 'spectrum') return text;
+      const targets = mode === 'contest' ? CONTEST_FREQS : [singleFreq];
+      return text.split('\n').filter(line => {
+        if (!/^\d/.test(line.trim())) return true;
+        const parts = line.split(',');
+        if (parts.length < 3) return true;
+        const freq = parseFloat(parts[2]);
+        return targets.some(t => Math.abs(freq - t) < 0.01);
+      }).join('\n');
+    }
+
+    const VIRIDIS_STOPS = [
+      [  0, [ 68,   1,  84]],   // Viridis 0.00
+      [ 10, [ 72,  36, 116]],   // Viridis 0.09
+      [ 20, [ 64,  66, 134]],   // Viridis 0.18
+      [ 30, [ 53,  95, 141]],   // Viridis 0.27
+      [ 40, [ 42, 120, 142]],   // Viridis 0.36
+      [ 50, [ 35, 144, 140]],   // Viridis 0.45
+      [ 60, [ 40, 168, 131]],   // Viridis 0.54
+      [ 70, [ 70, 190, 111]],   // Viridis 0.63
+      [ 80, [124, 209,  79]],   // Viridis 0.72
+      [ 90, [188, 223,  42]],   // Viridis 0.81
+      [100, [253, 231,  37]],   // Viridis 0.90
+    ];
+
+    // Viridis gradient returning CSS string (used by legend)
+    function bcrColor(pct) {
+      pct = Math.max(0, Math.min(100, pct));
+      let lo = VIRIDIS_STOPS[0], hi = VIRIDIS_STOPS[VIRIDIS_STOPS.length - 1];
+      for (let i = 0; i < VIRIDIS_STOPS.length - 1; i++) {
+        if (pct >= VIRIDIS_STOPS[i][0] && pct <= VIRIDIS_STOPS[i + 1][0]) {
+          lo = VIRIDIS_STOPS[i]; hi = VIRIDIS_STOPS[i + 1]; break;
+        }
+      }
+      const t = (lo[0] === hi[0]) ? 0 : (pct - lo[0]) / (hi[0] - lo[0]);
+      const r = Math.round(lo[1][0] + t * (hi[1][0] - lo[1][0]));
+      const g = Math.round(lo[1][1] + t * (hi[1][1] - lo[1][1]));
+      const b = Math.round(lo[1][2] + t * (hi[1][2] - lo[1][2]));
+      return `rgb(${r},${g},${b})`;
+    }
+
+    // Same gradient returning [r,g,b] — avoids CSS string overhead in pixel loops
+    function bcrColorRGB(pct) {
+      pct = Math.max(0, Math.min(100, pct));
+      let lo = VIRIDIS_STOPS[0], hi = VIRIDIS_STOPS[VIRIDIS_STOPS.length - 1];
+      for (let i = 0; i < VIRIDIS_STOPS.length - 1; i++) {
+        if (pct >= VIRIDIS_STOPS[i][0] && pct <= VIRIDIS_STOPS[i + 1][0]) { lo = VIRIDIS_STOPS[i]; hi = VIRIDIS_STOPS[i + 1]; break; }
+      }
+      const t = (lo[0] === hi[0]) ? 0 : (pct - lo[0]) / (hi[0] - lo[0]);
+      return [
+        Math.round(lo[1][0] + t * (hi[1][0] - lo[1][0])),
+        Math.round(lo[1][1] + t * (hi[1][1] - lo[1][1])),
+        Math.round(lo[1][2] + t * (hi[1][2] - lo[1][2])),
+      ];
+    }
+
+    // Catmull-Rom spline through pts=[{x,y},...], tension=0.5
+    function catmullRomPoints(pts, tension) {
+      const result = [];
+      for (let i = 0; i < pts.length; i++) {
+        if (i === 0) { result.push({ type: 'M', x: pts[0].x, y: pts[0].y }); continue; }
+        const p0 = pts[Math.max(i - 2, 0)];
+        const p1 = pts[i - 1];
+        const p2 = pts[i];
+        const p3 = pts[Math.min(i + 1, pts.length - 1)];
+        const cp1x = p1.x + (p2.x - p0.x) / 6 * tension * 2;
+        const cp1y = p1.y + (p2.y - p0.y) / 6 * tension * 2;
+        const cp2x = p2.x - (p3.x - p1.x) / 6 * tension * 2;
+        const cp2y = p2.y - (p3.y - p1.y) / 6 * tension * 2;
+        result.push({ type: 'C', cp1x, cp1y, cp2x, cp2y, x: p2.x, y: p2.y });
+      }
+      return result;
+    }
+
+    // Precomputed LUT: BCR 0.0–100.0 (0.1-step) → [r,g,b]
+    // Soft-stepped sigmoid (k=2.5) creates defined bands with ~2-3% smooth transitions.
+    const BCR_COLOR_LUT = (function() {
+      const lut = new Array(1001);
+      for (let i = 0; i <= 1000; i++) {
+        const raw = i / 10;
+        let sum = 0;
+        for (let b = 10; b <= 90; b += 10) {
+          sum += 1 / (1 + Math.exp(-2.5 * (raw - b)));
+        }
+        lut[i] = bcrColorRGB((sum / 9) * 100);
+      }
+      return lut;
+    }());
+
+    // Bilinear-interpolated BCR heatmap written directly to ImageData pixels.
+    // putImageData bypasses ctx.scale(), so dimensions and placement must be in
+    // physical pixels (CSS px * dpr).
+    function drawBilinearHeatmap(ctx, data, ML, MT, pw, ph, dpr, dataMin, dataMax) {
+      const W = Math.round(pw * dpr), H = Math.round(ph * dpr);
+      if (W <= 0 || H <= 0) return;
+      const imgData = ctx.createImageData(W, H);
+      const d = imgData.data;
+      const range = (dataMax === dataMin) ? 1 : (dataMax - dataMin);
+      for (let py = 0; py < H; py++) {
+        for (let px = 0; px < W; px++) {
+          const gfi = 29 - (py / (H - 1)) * 29;
+          const ghi = (px / (W - 1)) * 23;
+          const fi0 = Math.floor(gfi), fi1 = Math.min(fi0 + 1, 29);
+          const hi0 = Math.floor(ghi), hi1 = Math.min(hi0 + 1, 23);
+          const tf = gfi - fi0, th = ghi - hi0;
+          const v00 = data[fi0][hi0] ?? dataMin;
+          const v10 = data[fi1][hi0] ?? dataMin;
+          const v01 = data[fi0][hi1] ?? dataMin;
+          const v11 = data[fi1][hi1] ?? dataMin;
+          const val = v00*(1-tf)*(1-th) + v10*tf*(1-th) + v01*(1-tf)*th + v11*tf*th;
+          const norm = (val - dataMin) / range * 100;
+          const rgb = BCR_COLOR_LUT[Math.min(1000, Math.max(0, Math.round(norm * 10)))];
+          const idx = (py * W + px) * 4;
+          d[idx] = rgb[0]; d[idx+1] = rgb[1]; d[idx+2] = rgb[2]; d[idx+3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, Math.round(ML * dpr), Math.round(MT * dpr));
+    }
+
+    // Draw contour lines at each 10% BCR boundary using marching squares.
+    // Coordinate mapping mirrors drawBilinearHeatmap exactly:
+    //   fi=0  (1 MHz)  → y = MT + ph   (bottom)
+    //   fi=29 (30 MHz) → y = MT        (top)
+    //   hi=0  (UTC 1)  → x = ML        (left)
+    //   hi=23 (UTC 24) → x = ML + pw   (right)
+    function drawContourLines(ctx, data, levels, ML, MT, pw, ph) {
+      function fiToY(fi) { return MT + ph * (1 - fi / 29); }
+      function hiToX(hi) { return ML + (hi / 23) * pw; }
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.lineWidth   = 1;
+      ctx.lineJoin    = 'round';
+      ctx.lineCap     = 'round';
+
+      for (const level of levels) {
+        ctx.beginPath();
+        for (let fi = 0; fi < 29; fi++) {
+          for (let hi = 0; hi < 23; hi++) {
+            const v00 = data[fi    ][hi    ] ?? 0;  // bottom-left
+            const v10 = data[fi + 1][hi    ] ?? 0;  // top-left
+            const v01 = data[fi    ][hi + 1] ?? 0;  // bottom-right
+            const v11 = data[fi + 1][hi + 1] ?? 0;  // top-right
+
+            function cross(a, b) { return (level - a) / (b - a); }
+            const crosses = [];
+
+            // Bottom edge  (fi,   hi → hi+1)
+            if ((v00 < level) !== (v01 < level))
+              crosses.push({ x: hiToX(hi + cross(v00, v01)), y: fiToY(fi) });
+            // Top edge     (fi+1, hi → hi+1)
+            if ((v10 < level) !== (v11 < level))
+              crosses.push({ x: hiToX(hi + cross(v10, v11)), y: fiToY(fi + 1) });
+            // Left edge    (hi,   fi → fi+1)
+            if ((v00 < level) !== (v10 < level))
+              crosses.push({ x: hiToX(hi),     y: fiToY(fi + cross(v00, v10)) });
+            // Right edge   (hi+1, fi → fi+1)
+            if ((v01 < level) !== (v11 < level))
+              crosses.push({ x: hiToX(hi + 1), y: fiToY(fi + cross(v01, v11)) });
+
+            if (crosses.length === 2) {
+              ctx.moveTo(crosses[0].x, crosses[0].y);
+              ctx.lineTo(crosses[1].x, crosses[1].y);
+            } else if (crosses.length === 4) {
+              const centre = (v00 + v01 + v10 + v11) / 4;
+              if (centre >= level) {
+                ctx.moveTo(crosses[0].x, crosses[0].y); ctx.lineTo(crosses[3].x, crosses[3].y);
+                ctx.moveTo(crosses[1].x, crosses[1].y); ctx.lineTo(crosses[2].x, crosses[2].y);
+              } else {
+                ctx.moveTo(crosses[0].x, crosses[0].y); ctx.lineTo(crosses[1].x, crosses[1].y);
+                ctx.moveTo(crosses[2].x, crosses[2].y); ctx.lineTo(crosses[3].x, crosses[3].y);
+              }
+            }
+          }
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function renderChart(chartData, hoverCell) {
+      const canvas = document.getElementById('pred-chart');
+      const dpr    = window.devicePixelRatio || 1;
+      const cssW   = canvas.offsetWidth;
+      const cssH   = canvas.offsetHeight;
+      canvas.width  = cssW * dpr;
+      canvas.height = cssH * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      // Margins (in CSS px)
+      const ML = 46, MR = 72, MT = 14, MB = 28;
+      const pw = cssW - ML - MR;
+      const ph = cssH - MT - MB;
+      const cw = pw / 24;
+      const ch = ph / 30;
+
+      const { bcr, bmuf, opmuf, snr, pr } = chartData;
+
+      // --- Select active metric ---
+      let metricData, metricMin, metricMax, metricLabel;
+      if (chartMetric === 'snr' && snr) {
+        metricData = snr;
+        metricMin = -30; metricMax = 60; metricLabel = 'SNR dB';
+      } else if (chartMetric === 'pr' && pr) {
+        metricData = pr;
+        // Fixed S-meter scale: S0–S9, IARU HF standard (S9 = -103 dBW, each S-unit = 6 dB)
+        metricMin = -163; metricMax = -103; metricLabel = 'S-meter';
+      } else {
+        metricData = bcr; metricMin = 0; metricMax = 100; metricLabel = 'BCR %';
+      }
+
+      // --- Background (outside plot) ---
+      ctx.fillStyle = '#0d0d14';
+      ctx.fillRect(0, 0, cssW, cssH);
+
+      // --- Heatmap (bilinear interpolation) ---
+      drawBilinearHeatmap(ctx, metricData, ML, MT, pw, ph, dpr, metricMin, metricMax);
+
+      // --- Contour lines at equal-interval boundaries for active metric ---
+      let contourLevels;
+      if (chartMetric === 'bcr') {
+        contourLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+      } else if (chartMetric === 'pr') {
+        // S-unit boundaries: -157, -151, ..., -109 (every 6 dB from S0/S1 up to S8/S9)
+        contourLevels = [-157, -151, -145, -139, -133, -127, -121, -115, -109];
+      } else {
+        // SNR: 9 equal steps across fixed -30 to 60 range
+        const step = (metricMax - metricMin) / 10;
+        contourLevels = [];
+        for (let i = 1; i <= 9; i++) contourLevels.push(metricMin + step * i);
+      }
+      drawContourLines(ctx, metricData, contourLevels, ML, MT, pw, ph);
+
+      // --- MUF line (Catmull-Rom spline) ---
+      const mufValues = (mufMode === 'bmuf') ? bmuf : opmuf;
+      const mufPts = [];
+      for (let hi = 0; hi < 24; hi++) {
+        const val = mufValues[hi];
+        if (val === null || val === undefined) continue;
+        mufPts.push({
+          x: ML + (hi + 0.5) * cw,
+          y: MT + ph - ((val - 1) / 29) * ph
+        });
+      }
+      // Clamp first and last points to the plot edges so the line reaches both sides
+      if (mufPts.length > 0) {
+        mufPts[0].x = ML;
+        mufPts[mufPts.length - 1].x = ML + pw;
+      }
+      if (mufPts.length >= 2) {
+        const cmds = catmullRomPoints(mufPts, 0.5);
+        ctx.beginPath();
+        cmds.forEach(function(cmd) {
+          if (cmd.type === 'M') ctx.moveTo(cmd.x, cmd.y);
+          else ctx.bezierCurveTo(cmd.cp1x, cmd.cp1y, cmd.cp2x, cmd.cp2y, cmd.x, cmd.y);
+        });
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.lineWidth   = 4;
+        ctx.stroke();
+        ctx.strokeStyle = '#D55E00';
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+      }
+
+      // --- Y axis labels (left) ---
+      ctx.fillStyle  = '#ccc';
+      ctx.font       = `${11}px courier`;
+      ctx.textAlign  = 'right';
+      ctx.textBaseline = 'middle';
+      [2, 5, 10, 15, 20, 25, 30].forEach(function(mhz) {
+        const y = MT + ph - ((mhz - 1) / 29) * ph;
+        ctx.fillText(mhz, ML - 6, y);
+      });
+
+      // Y axis title
+      ctx.save();
+      ctx.translate(10, MT + ph / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.font = '10px courier';
+      ctx.fillText('MHz', 0, 0);
+      ctx.restore();
+
+      // --- X axis labels (bottom) ---
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'top';
+      ctx.font = '11px courier';
+      [0, 4, 8, 12, 16, 20, 24].forEach(function(h) {
+        // h=0 → left edge, h=24 → right edge
+        const x = ML + (h / 24) * pw;
+        ctx.fillText(h, x, MT + ph + 5);
+      });
+
+      // X axis title
+      ctx.textAlign = 'center';
+      ctx.font = '10px courier';
+      ctx.fillText('UTC', ML + pw / 2, MT + ph + 18);
+
+      // --- Color legend (right side) ---
+      const lx = ML + pw + 10;
+      const lw = 14;
+      // Discrete legend: 10 solid blocks, one per Viridis stop (top = high, bottom = low)
+      const blockH = ph / 10;
+      for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = bcrColor(90 - i * 10);  // i=0 → top (90–100%), i=9 → bottom (0–10%)
+        ctx.fillRect(lx, MT + i * blockH, lw, blockH + 0.5);
+      }
+      // Legend ticks at block boundaries
+      ctx.fillStyle    = '#ccc';
+      ctx.font         = '10px courier';
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'middle';
+      if (chartMetric === 'bcr') {
+        for (let i = 0; i <= 10; i++) {
+          const y = MT + i * blockH;
+          ctx.fillText((100 - i * 10) + '%', lx + lw + 4, y);
+        }
+      } else if (chartMetric === 'pr') {
+        // S9 at top, S0 at bottom — tick at each block boundary
+        for (let i = 0; i <= 10; i++) {
+          const y = MT + i * blockH;
+          ctx.fillText('S' + (9 - i), lx + lw + 4, y);
+        }
+      } else {
+        // SNR: -30 at bottom, 60 at top, 10 dB blocks
+        for (let i = 0; i <= 10; i++) {
+          const val = metricMax - i * 10;
+          const y = MT + i * blockH;
+          ctx.fillText(val.toFixed(0), lx + lw + 4, y);
+        }
+      }
+      // Legend title
+      ctx.save();
+      ctx.translate(cssW - 8, MT + ph / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.font = '10px courier';
+      ctx.fillText(metricLabel, 0, 0);
+      ctx.restore();
+
+      // --- Hover overlay ---
+      if (hoverCell) {
+        const { hi, fi } = hoverCell;
+        const rawVal  = (metricData[fi][hi] !== null && metricData[fi][hi] !== undefined)
+                        ? metricData[fi][hi] : null;
+        const dispVal = rawVal !== null
+                        ? (chartMetric === 'bcr'
+                            ? rawVal.toFixed(0) + '%'
+                            : rawVal.toFixed(1) + ' dB')
+                        : '—';
+        const hour    = hi + 1;
+        const freqMhz = fi + 1;
+        const label   = `${freqMhz} MHz  |  ${hour} UTC  |  ${dispVal}`;
+
+        ctx.font = 'bold 12px courier';
+        const tw = ctx.measureText(label).width;
+        const bx = ML + 8, by = MT + 8;
+        const bpad = 5;
+        ctx.fillStyle = 'rgba(0,0,0,0.72)';
+        ctx.fillRect(bx - bpad, by - bpad, tw + bpad * 2, 22);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign    = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, bx, by);
+      }
+    }
+
+    function bindChartHover() {
+      if (chartHoverBound) return;
+      chartHoverBound = true;
+      const canvas = document.getElementById('pred-chart');
+      canvas.addEventListener('mousemove', function(e) {
+        if (!lastChartData) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width  / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const dpr = window.devicePixelRatio || 1;
+        // Convert to CSS-px space
+        const cx = (e.clientX - rect.left);
+        const cy = (e.clientY - rect.top);
+        const ML = 46, MR = 72, MT = 14, MB = 28;
+        const pw = canvas.offsetWidth  - ML - MR;
+        const ph = canvas.offsetHeight - MT - MB;
+        const cw = pw / 24, ch = ph / 30;
+        const hi = Math.floor((cx - ML) / cw);
+        const fi = 29 - Math.floor((cy - MT) / ch);
+        if (hi < 0 || hi > 23 || fi < 0 || fi > 29) {
+          renderChart(lastChartData, null);
+          return;
+        }
+        renderChart(lastChartData, { hi, fi });
+      });
+      canvas.addEventListener('mouseleave', function() {
+        if (lastChartData) renderChart(lastChartData, null);
+      });
+    }
+  </script>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script>
+    // Suppress Leaflet marker shadow 404
+    L.Icon.Default.prototype.createShadow = function() { return null; };
+
+    // --- State ---
+    let predMap  = null;
+    let txMarker = null, rxMarker = null, arcLine = null;
+
+    const DEFAULTS = {
+      tx_lat:  41.409,    tx_lng: -75.6624,   // Scranton, PA
+      rx_lat:  51.5074,   rx_lng:  -0.1278    // London, UK
+    };
+
+    // --- Icon factory (divIcon so the marker is draggable) ---
+    function makeIcon(color) {
+      return L.divIcon({
+        className: '',
+        html: '<div style="width:14px;height:14px;border-radius:50%;background:' + color +
+              ';border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.5);cursor:grab;"></div>',
+        iconSize:   [14, 14],
+        iconAnchor: [7,  7]
+      });
+    }
+
+    // --- Geodesic helpers ---
+    function geodesicPoints(lat1, lon1, lat2, lon2, n) {
+      const toRad = d => d * Math.PI / 180;
+      const toDeg = r => r * 180 / Math.PI;
+      const φ1 = toRad(lat1), λ1 = toRad(lon1);
+      const φ2 = toRad(lat2), λ2 = toRad(lon2);
+      const d = 2 * Math.asin(Math.sqrt(
+        Math.sin((φ2 - φ1) / 2) ** 2 +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin((λ2 - λ1) / 2) ** 2
+      ));
+      if (d < 1e-10) return [[lat1, lon1]];
+      const pts = [];
+      for (let i = 0; i <= n; i++) {
+        const f = i / n;
+        const A = Math.sin((1 - f) * d) / Math.sin(d);
+        const B = Math.sin(f * d)       / Math.sin(d);
+        const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+        const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+        const z = A * Math.sin(φ1)                 + B * Math.sin(φ2);
+        pts.push([toDeg(Math.atan2(z, Math.sqrt(x * x + y * y))), toDeg(Math.atan2(y, x))]);
+      }
+      return pts;
+    }
+
+    // Normalize longitudes so the polyline doesn't jump across the map at ±180°
+    function antimeridianFix(pts) {
+      const out = [pts[0].slice()];
+      for (let i = 1; i < pts.length; i++) {
+        let [lat, lon] = pts[i];
+        const prev = out[i - 1][1];
+        while (lon - prev >  180) lon -= 360;
+        while (prev - lon >  180) lon += 360;
+        out.push([lat, lon]);
+      }
+      return out;
+    }
+
+    // --- Arc redraw (does not touch markers) ---
+    function redrawArc() {
+      if (arcLine) { predMap.removeLayer(arcLine); arcLine = null; }
+      if (!txMarker || !rxMarker) return;
+      const tp = txMarker.getLatLng(), rp = rxMarker.getLatLng();
+      const pts = geodesicPoints(tp.lat, tp.lng, rp.lat, rp.lng, 100);
+      arcLine = L.polyline(antimeridianFix(pts), {
+        color: '#f97316', weight: 1.5, opacity: 0.75, dashArray: '5 4'
+      }).addTo(predMap);
+    }
+
+    // --- Create-or-move markers, then redraw arc ---
+    function updateMarkers() {
+      if (!predMap) return;
+
+      const txLat = parseFloat(document.getElementById('tx_lat').value);
+      const txLng = parseFloat(document.getElementById('tx_lng').value);
+      const rxLat = parseFloat(document.getElementById('rx_lat').value);
+      const rxLng = parseFloat(document.getElementById('rx_lng').value);
+
+      const valid = (lat, lng) =>
+        !isNaN(lat) && !isNaN(lng) &&
+        lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+      // TX marker
+      if (valid(txLat, txLng)) {
+        if (!txMarker) {
+          txMarker = L.marker([txLat, txLng], { icon: makeIcon('#ef4444'), draggable: true }).addTo(predMap);
+          txMarker.on('drag', function() {
+            const p = txMarker.getLatLng();
+            document.getElementById('tx_lat').value = p.lat.toFixed(4);
+            document.getElementById('tx_lng').value = p.lng.toFixed(4);
+            redrawArc();
+          });
+        } else {
+          txMarker.setLatLng([txLat, txLng]);
+        }
+      } else if (txMarker) {
+        predMap.removeLayer(txMarker); txMarker = null;
+      }
+
+      // RX marker
+      if (valid(rxLat, rxLng)) {
+        if (!rxMarker) {
+          rxMarker = L.marker([rxLat, rxLng], { icon: makeIcon('#3b82f6'), draggable: true }).addTo(predMap);
+          rxMarker.on('drag', function() {
+            const p = rxMarker.getLatLng();
+            document.getElementById('rx_lat').value = p.lat.toFixed(4);
+            document.getElementById('rx_lng').value = p.lng.toFixed(4);
+            redrawArc();
+          });
+        } else {
+          rxMarker.setLatLng([rxLat, rxLng]);
+        }
+      } else if (rxMarker) {
+        predMap.removeLayer(rxMarker); rxMarker = null;
+      }
+
+      redrawArc();
+    }
+
+    // --- Map init ---
+    async function loadPredMap() {
+      // Pre-populate fields with default Scranton → London path
+      Object.entries(DEFAULTS).forEach(([id, val]) => {
+        document.getElementById(id).value = val;
+      });
+
+      predMap = L.map('pred-map', {
+        zoomControl: true,
+        attributionControl: false,
+        scrollWheelZoom: false,
+        maxBounds: [[-90, -180], [90, 180]]
+      }).setView([46, -37], 3);   // centered between Scranton and London
+
+      // Legend
+      const legend = L.control({ position: 'bottomright' });
+      legend.onAdd = function() {
+        const div = L.DomUtil.create('div', 'pred-map-legend');
+        div.innerHTML =
+          '<div class="legend-row"><span class="legend-dot tx-dot"></span>TX</div>' +
+          '<div class="legend-row"><span class="legend-dot rx-dot"></span>RX</div>';
+        return div;
+      };
+      legend.addTo(predMap);
+
+      // Basemap
+      try {
+        const [landRes, countriesRes, statesRes] = await Promise.all([
+          fetch('/vendor/basemap/ne_50m_land.json'),
+          fetch('/vendor/basemap/ne_50m_admin_0_countries.json'),
+          fetch('/vendor/basemap/states-50m.json'),
+        ]);
+        const [land, countries, states] = await Promise.all([
+          landRes.json(), countriesRes.json(), statesRes.json()
+        ]);
+        L.geoJSON(land,      { style: { color: '#aaa', weight: 0.5, fillColor: '#e8e0d8', fillOpacity: 1 } }).addTo(predMap);
+        L.geoJSON(countries, { style: { color: '#888', weight: 0.5, fill: false } }).addTo(predMap);
+        L.geoJSON(states,    { style: { color: '#bbb', weight: 0.3, fill: false } }).addTo(predMap);
+      } catch (e) {
+        console.error('Failed to load offline basemap', e);
+      }
+
+      updateMarkers();  // draw default path after basemap is ready
+    }
+
+    loadPredMap();
+
+    // Live update on field changes
+    ['tx_lat', 'tx_lng', 'rx_lat', 'rx_lng'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', updateMarkers);
+    });
+  </script>
+
+</body>
+</html>

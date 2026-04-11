@@ -159,6 +159,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - MongoDB 4.x or higher (with WSPRDaemon database)
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - PSWS receiver system (RX-888 + KA9Q-radio + WSPRDaemon)
+- **Windows server/dev only:** WSL (Windows Subsystem for Linux) with Ubuntu installed — required only when running the Flask server on Windows (the ITURHFProp binary runs on the server, not in the browser, so website visitors have no WSL requirement regardless of their OS; see [Windows WSL Setup](#windows-wsl-setup) below)
 
 ### Python Dependencies
 
@@ -229,6 +230,47 @@ curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png -o static
 curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers.png -o static/vendor/leaflet/images/layers.png
 curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png -o static/vendor/leaflet/images/layers-2x.png
 ```
+
+### Windows WSL Setup
+
+The HF propagation prediction feature (`/prediction/p2p`) uses the ITURHFProp binary, which is
+compiled for Linux. The binary runs on the **Flask server** — not in the user's browser — so
+**website visitors have no WSL requirement** regardless of what OS they use.
+
+WSL is only needed in two cases:
+- **Local development on Windows:** running the Flask dev server on a Windows machine
+- **Windows server deployment:** hosting the app on a Windows server rather than Linux
+
+If the server is Linux (the typical production setup), the binary runs natively and WSL is
+not needed at all.
+
+**1. Install WSL (run in terminal as Administrator):**
+
+```powershell
+wsl --install
+```
+
+**2. Install Ubuntu via terminal:**
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+**3. Restart your machine.**
+
+**4. Launch Ubuntu at least once** to complete the initial setup (create a UNIX username and password when prompted).
+
+**5. Verify WSL can be called from the project directory:**
+
+```bash
+wsl bash -c "echo WSL OK"
+```
+
+If this prints `WSL OK`, the backend subprocess call will work correctly.
+
+> **Note:** WSL is required only on the machine running the Flask server, and only on Windows.
+> Website visitors need nothing regardless of their OS. The spots map and table view work
+> without WSL on any platform.
 
 ---
 
