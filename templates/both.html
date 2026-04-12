@@ -8,11 +8,29 @@
 
 <body class="scroll-page">
 
+  <button id="hamburger-btn" onclick="toggleNav()">&#9776;</button>
+  <div id="nav-overlay" onclick="closeNav()"></div>
+  <nav id="nav-panel">
+    <a href="/">Spots</a>
+    <a href="/prediction">Prediction</a>
+  </nav>
+
   <iframe class="fullFrame" src="/map"></iframe>
 
   <div id="divider"></div>
 
-     <iframe class="fullFrame" src="/table"></iframe>
+  <iframe class="fullFrame" src="/table"></iframe>
+
+  <script>
+    function toggleNav() {
+      document.getElementById('nav-panel').classList.toggle('open');
+      document.getElementById('nav-overlay').classList.toggle('open');
+    }
+    function closeNav() {
+      document.getElementById('nav-panel').classList.remove('open');
+      document.getElementById('nav-overlay').classList.remove('open');
+    }
+  </script>
 
 </body>
 </html>

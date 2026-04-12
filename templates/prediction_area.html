@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prediction — Area</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+</head>
+
+<body class="pred-page">
+
+  <button id="hamburger-btn" onclick="toggleNav()">&#9776;</button>
+  <div id="nav-overlay" onclick="closeNav()"></div>
+  <nav id="nav-panel">
+    <a href="/">Spots</a>
+    <a href="/prediction">Prediction</a>
+  </nav>
+
+  <div class="pred-tabs">
+    <a class="pred-tab-btn" href="/prediction">How To</a>
+    <a class="pred-tab-btn" href="/prediction/p2p">Point to Point</a>
+    <a class="pred-tab-btn active" href="/prediction/area">Area</a>
+  </div>
+
+  <h1 style="text-align:center; margin-top: 30px; margin-bottom: 10px;">Area</h1>
+
+  <div id="area-map"></div>
+
+  <!-- Chart controls: time nav | metric buttons | overlay options -->
+  <div class="area-chart-controls">
+    <div class="area-time-nav">
+      <button class="time-arrow-btn" onclick="stepHour(-1)">&#9664;</button>
+      <span id="area-hour-display">-- UTC</span>
+      <button class="time-arrow-btn" onclick="stepHour(+1)">&#9654;</button>
+    </div>
+    <div class="pred-metric-toggle">
+      <button class="muf-toggle-btn active" id="btn-bcr" onclick="setAreaMetric('bcr')">BCR</button>
+      <button class="muf-toggle-btn"        id="btn-snr" onclick="setAreaMetric('snr')">SNR</button>
+      <button class="muf-toggle-btn"        id="btn-pr"  onclick="setAreaMetric('pr')">PR</button>
+    </div>
+    <div class="area-overlay-controls">
+      <div class="area-overlay-field">
+        <label for="overlay-opacity">Opacity</label>
+        <input type="number" id="overlay-opacity" min="0" max="1" step="0.05" value="0.75"
+               oninput="refreshOverlay()">
+      </div>
+      <div class="area-overlay-field">
+        <label for="overlay-res">Resolution</label>
+        <select id="overlay-res">
+          <option value="15" selected>Low (15°)</option>
+          <option value="10">Medium (10°)</option>
+          <option value="5">High (5°)</option>
+          <option value="2">Very High (2°) &#9888; slow</option>
+        </select>
+      </div>
+    </div>
+    <button class="run-btn" style="margin-top:0;" onclick="openAreaDownloadModal()">Download Image</button>
+  </div>
+
+  <div class="pred-form">
+
+    <!-- TX Location -->
+    <h2>Location</h2>
+    <div class="pred-form-grid">
+      <div class="pred-field">
+        <label>TX Latitude (decimal °, N positive)</label>
+        <input type="number" id="tx_lat" step="any" placeholder="e.g. 41.409">
+      </div>
+      <div class="pred-field">
+        <label>TX Longitude (decimal °, E positive)</label>
+        <input type="number" id="tx_lng" step="any" placeholder="e.g. -75.662">
+      </div>
+    </div>
+
+    <!-- Antenna -->
+    <h2>Antenna</h2>
+    <div class="pred-form-grid-3">
+      <div class="pred-field">
+        <label>TX Antenna Type</label>
+        <select id="tx_antenna_type" onchange="onAntennaTypeChange('tx')">
+          <option value="isotropic">Isotropic</option>
+        </select>
+      </div>
+      <div class="pred-field">
+        <label>TX Antenna Gain (dBi)</label>
+        <input type="number" id="tx_gain" step="any" value="2.15" placeholder="2.15">
+      </div>
+      <div class="pred-field">
+        <label>RX Antenna Gain (dBi)</label>
+        <input type="number" id="rx_gain" step="any" value="2.15" placeholder="2.15">
+      </div>
+    </div>
+
+    <!-- Time & Solar Activity -->
+    <h2>Time &amp; Solar Activity</h2>
+    <div class="pred-form-grid">
+      <div class="pred-field">
+        <label>Year</label>
+        <input type="number" id="year" placeholder="e.g. 2025" min="1900" max="2100">
+      </div>
+      <div class="pred-field">
+        <label>Month</label>
+        <select id="month">
+          <option value="">— select —</option>
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
+    </div>
+    <div class="pred-form-grid" style="margin-top: 0;">
+      <div class="pred-field">
+        <label>Initial Display Hour (UTC, 0–23)</label>
+        <input type="number" id="hour" min="0" max="23" placeholder="e.g. 14">
+      </div>
+      <div class="pred-field">
+        <label>SSN / R12 (smoothed sunspot number)</label>
+        <input type="number" id="ssn" min="0" max="400" placeholder="e.g. 50">
+      </div>
+    </div>
+
+    <!-- Frequency -->
+    <h2>Frequency</h2>
+    <div class="pred-field" style="max-width: 200px; margin-top: 6px;">
+      <label>Frequency (MHz)</label>
+      <input type="number" id="freq" step="any" min="1" max="30" placeholder="e.g. 14.15">
+    </div>
+
+    <!-- Signal -->
+    <h2>Signal</h2>
+    <div class="pred-form-grid">
+      <div class="pred-field">
+        <label>TX Power (Watts)</label>
+        <input type="number" id="tx_power" min="0.001" step="any" placeholder="e.g. 100">
+      </div>
+      <div class="pred-field">
+        <label>Signal Type</label>
+        <select id="signal_type">
+          <option value="wspr" data-bw="2500" data-snr="-29">WSPR (BW: 2500 Hz / SNR: -29 dB)</option>
+          <option value="ft8"  data-bw="50"   data-snr="-3">FT8 (BW: 50 Hz / SNR: -3 dB)</option>
+          <option value="cw"   data-bw="500"  data-snr="0">CW (BW: 500 Hz / SNR: 0 dB)</option>
+          <option value="ssbu" data-bw="3000" data-snr="6">SSB Usable (BW: 3000 Hz / SNR: 6 dB)</option>
+          <option value="ssbm" data-bw="3000" data-snr="15">SSB Marginal (BW: 3000 Hz / SNR: 15 dB)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Noise -->
+    <h2>Noise</h2>
+    <div class="pred-field" style="max-width: 300px;">
+      <label>Noise Environment</label>
+      <select id="noise_env">
+        <option value="CITY">City (~73 dB)</option>
+        <option value="RESIDENTIAL">Residential (~62 dB)</option>
+        <option value="RURAL" selected>Rural (~53 dB)</option>
+        <option value="QUIETRURAL">Quiet Rural (~43 dB)</option>
+        <option value="QUIET">Quiet (galactic noise only)</option>
+        <option value="NOISY">Noisy</option>
+      </select>
+    </div>
+
+    <!-- Submit -->
+    <div class="pred-error" id="pred-error"></div>
+    <button class="run-btn" id="run-btn" onclick="runAreaPrediction()">Run Prediction</button>
+
+  </div>
+
+  <!-- Results -->
+  <div class="pred-results" id="pred-results" style="display:none;">
+    <div class="pred-form" style="margin-top:20px;">
+      <h2>Results</h2>
+      <div class="results-actions">
+        <button class="run-btn" onclick="copyResults(event)">Copy to Clipboard</button>
+        <button class="run-btn" onclick="downloadCsv()">Download CSV</button>
+      </div>
+      <pre id="results-pre"></pre>
+    </div>
+  </div>
+
+  <!-- Area download modal -->
+  <div id="area-download-modal" style="display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+    <div style="background:#1a1a2e; border:1px solid #333; border-radius:6px; padding:24px;
+      min-width:320px; color:#ccc; font-family:courier;">
+      <h3 style="margin:0 0 16px; color:#fff;">Download Area Map</h3>
+      <div style="margin-bottom:12px;">
+        <label><input type="radio" name="dl-extent" value="whole" checked> Whole Map (360° &times; 180°)</label>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label><input type="radio" name="dl-extent" value="surround"> Surrounding Area (&plusmn;90° lon, &plusmn;45° lat from TX)</label>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label><input type="radio" name="dl-extent" value="custom"> Custom bounds</label>
+        <div id="dl-custom-fields" style="display:none; margin-top:8px; grid-template-columns:1fr 1fr; gap:6px;">
+          <label>Lat min <input id="dl-lat-min" type="number" value="-90" min="-90" max="90" style="width:70px;"></label>
+          <label>Lat max <input id="dl-lat-max" type="number" value="90"  min="-90" max="90" style="width:70px;"></label>
+          <label>Lon min <input id="dl-lon-min" type="number" value="-180" min="-180" max="180" style="width:70px;"></label>
+          <label>Lon max <input id="dl-lon-max" type="number" value="180"  min="-180" max="180" style="width:70px;"></label>
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; gap:10px;">
+        <button class="run-btn" onclick="executeAreaDownload()">Download</button>
+        <button class="run-btn" onclick="closeAreaDownloadModal()">Cancel</button>
+      </div>
+      <div id="dl-status" style="margin-top:10px; font-size:12px; color:#aaa;"></div>
+    </div>
+  </div>
+
+  <script>
+    // =====================================================================
+    // Nav
+    // =====================================================================
+    function toggleNav() {
+      document.getElementById('nav-panel').classList.toggle('open');
+      document.getElementById('nav-overlay').classList.toggle('open');
+    }
+    function closeNav() {
+      document.getElementById('nav-panel').classList.remove('open');
+      document.getElementById('nav-overlay').classList.remove('open');
+    }
+
+    function onAntennaTypeChange(side) { /* future: set gain from antenna metadata */ }
+
+    // =====================================================================
+    // Viridis color tables (identical to prediction_p2p.html)
+    // =====================================================================
+    const VIRIDIS_STOPS = [
+      [  0, [ 68,   1,  84]],
+      [ 10, [ 72,  36, 116]],
+      [ 20, [ 64,  66, 134]],
+      [ 30, [ 53,  95, 141]],
+      [ 40, [ 42, 120, 142]],
+      [ 50, [ 35, 144, 140]],
+      [ 60, [ 40, 168, 131]],
+      [ 70, [ 70, 190, 111]],
+      [ 80, [124, 209,  79]],
+      [ 90, [188, 223,  42]],
+      [100, [253, 231,  37]],
+    ];
+
+    function bcrColor(pct) {
+      pct = Math.max(0, Math.min(100, pct));
+      let lo = VIRIDIS_STOPS[0], hi = VIRIDIS_STOPS[VIRIDIS_STOPS.length - 1];
+      for (let i = 0; i < VIRIDIS_STOPS.length - 1; i++) {
+        if (pct >= VIRIDIS_STOPS[i][0] && pct <= VIRIDIS_STOPS[i + 1][0]) {
+          lo = VIRIDIS_STOPS[i]; hi = VIRIDIS_STOPS[i + 1]; break;
+        }
+      }
+      const t = (lo[0] === hi[0]) ? 0 : (pct - lo[0]) / (hi[0] - lo[0]);
+      const r = Math.round(lo[1][0] + t * (hi[1][0] - lo[1][0]));
+      const g = Math.round(lo[1][1] + t * (hi[1][1] - lo[1][1]));
+      const b = Math.round(lo[1][2] + t * (hi[1][2] - lo[1][2]));
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function bcrColorRGB(pct) {
+      pct = Math.max(0, Math.min(100, pct));
+      let lo = VIRIDIS_STOPS[0], hi = VIRIDIS_STOPS[VIRIDIS_STOPS.length - 1];
+      for (let i = 0; i < VIRIDIS_STOPS.length - 1; i++) {
+        if (pct >= VIRIDIS_STOPS[i][0] && pct <= VIRIDIS_STOPS[i + 1][0]) {
+          lo = VIRIDIS_STOPS[i]; hi = VIRIDIS_STOPS[i + 1]; break;
+        }
+      }
+      const t = (lo[0] === hi[0]) ? 0 : (pct - lo[0]) / (hi[0] - lo[0]);
+      return [
+        Math.round(lo[1][0] + t * (hi[1][0] - lo[1][0])),
+        Math.round(lo[1][1] + t * (hi[1][1] - lo[1][1])),
+        Math.round(lo[1][2] + t * (hi[1][2] - lo[1][2])),
+      ];
+    }
+
+    // Precomputed LUT: 0.0–100.0 (0.1-step) → [r,g,b], soft-stepped sigmoid
+    const BCR_COLOR_LUT = (function() {
+      const lut = new Array(1001);
+      for (let i = 0; i <= 1000; i++) {
+        const raw = i / 10;
+        let sum = 0;
+        for (let b = 10; b <= 90; b += 10) {
+          sum += 1 / (1 + Math.exp(-2.5 * (raw - b)));
+        }
+        lut[i] = bcrColorRGB((sum / 9) * 100);
+      }
+      return lut;
+    }());
+
+    // =====================================================================
+    // Area overlay state
+    // =====================================================================
+    let lastAreaData = null;
+    let areaMetric   = 'bcr';
+    let areaHour     = 0;
+    let areaOverlay  = null;
+
+    function setAreaMetric(metric) {
+      areaMetric = metric;
+      document.querySelectorAll('.pred-metric-toggle .muf-toggle-btn')
+        .forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-' + metric).classList.add('active');
+      if (lastAreaData) renderAreaOverlay();
+    }
+
+    function stepHour(delta) {
+      areaHour = (areaHour + delta + 24) % 24;
+      document.getElementById('area-hour-display').textContent =
+        String(areaHour).padStart(2, '0') + ' UTC';
+      if (lastAreaData) { renderAreaOverlay(); refreshGrayline(); }
+    }
+
+    function refreshOverlay() {
+      if (lastAreaData) renderAreaOverlay();
+    }
+
+    function renderAreaOverlay() {
+      const { lats, lons } = lastAreaData;
+      const metricArr = lastAreaData[areaMetric];   // [24][nLa][nLo]
+      const hourSlice = metricArr[areaHour];         // [nLa][nLo]
+
+      let dataMin, dataMax;
+      if      (areaMetric === 'snr') { dataMin = -30;  dataMax = 60;   }
+      else if (areaMetric === 'pr')  { dataMin = -163; dataMax = -103; }
+      else                           { dataMin = 0;    dataMax = 100;  }
+
+      const nLa   = lats.length, nLo = lons.length;
+      const resLa = (lats[nLa - 1] - lats[0]) / (nLa - 1);
+      const resLo = (lons[nLo - 1] - lons[0]) / (nLo - 1);
+      const range = (dataMax === dataMin) ? 1 : (dataMax - dataMin);
+
+      // Viewport-sized canvas — no CSS scaling needed, crisp 1:1 pixels
+      const mapSize = areaMap.getSize();
+      const W = mapSize.x || 720;
+      const H = mapSize.y || 360;
+
+      // Mercator-correct lat/lon per row/column using Leaflet's own CRS math
+      const pixLats = new Float64Array(H);
+      const pixLons = new Float64Array(W);
+      for (let py = 0; py < H; py++)
+        pixLats[py] = areaMap.containerPointToLatLng([0, py]).lat;
+      for (let px = 0; px < W; px++)
+        pixLons[px] = areaMap.containerPointToLatLng([px, 0]).lng;
+
+      const offscreen = document.createElement('canvas');
+      offscreen.width = W; offscreen.height = H;
+      const ctx = offscreen.getContext('2d');
+      const imgData = ctx.createImageData(W, H);
+      const d = imgData.data;
+      const valGrid = new Float32Array(W * H);   // reused for contour marching squares
+
+      for (let py = 0; py < H; py++) {
+        for (let px = 0; px < W; px++) {
+          const lat = pixLats[py];
+          // Wrap lon to [-180, 180) — containerPointToLatLng returns >180 or <-180
+          // when Leaflet repeats tiles (common at zoom 2 on wide screens)
+          const rawLon = pixLons[px];
+          const lon = ((rawLon + 180) % 360 + 360) % 360 - 180;
+
+          const gLa = (lat - lats[0]) / resLa;
+          const gLo = (lon - lons[0]) / resLo;
+          const la0 = Math.max(0, Math.min(nLa - 2, Math.floor(gLa)));
+          const lo0 = Math.max(0, Math.min(nLo - 2, Math.floor(gLo)));
+          const la1 = la0 + 1, lo1 = lo0 + 1;
+          const tla = gLa - la0, tlo = gLo - lo0;
+
+          const v00 = hourSlice[la0][lo0] ?? dataMin;
+          const v10 = hourSlice[la1][lo0] ?? dataMin;
+          const v01 = hourSlice[la0][lo1] ?? dataMin;
+          const v11 = hourSlice[la1][lo1] ?? dataMin;
+          const val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
+                    + v01*(1-tla)*tlo     + v11*tla*tlo;
+
+          valGrid[py * W + px] = val;
+
+          const norm = (val - dataMin) / range * 100;
+          const rgb  = BCR_COLOR_LUT[Math.min(1000, Math.max(0, Math.round(norm * 10)))];
+          const idx  = (py * W + px) * 4;
+          d[idx] = rgb[0]; d[idx + 1] = rgb[1]; d[idx + 2] = rgb[2];
+          d[idx + 3] = norm < 10 ? 0 : 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      // Contour lines — marching squares directly on valGrid (same surface as pixels)
+      let contourLevels;
+      if (areaMetric === 'bcr') {
+        contourLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+      } else if (areaMetric === 'pr') {
+        contourLevels = [-157, -151, -145, -139, -133, -127, -121, -115, -109];
+      } else {
+        const step = (dataMax - dataMin) / 10;
+        contourLevels = [];
+        for (let i = 1; i <= 9; i++) contourLevels.push(dataMin + step * i);
+      }
+      // Boundary contour (no-data → data edge) drawn first, more prominently
+      drawAreaContours(ctx, valGrid, W, H, [contourLevels[0]], 'rgba(0,0,0,0.70)', 1.5);
+      // Inner band-to-band contours
+      drawAreaContours(ctx, valGrid, W, H, contourLevels.slice(1), 'rgba(0,0,0,0.45)', 1);
+
+      const opacity = parseFloat(document.getElementById('overlay-opacity').value);
+      const dataUrl = offscreen.toDataURL('image/png');
+
+      if (areaOverlay) { areaMap.removeLayer(areaOverlay); areaOverlay = null; }
+      // Bounds = current viewport so the canvas maps 1:1 to visible area
+      areaOverlay = L.imageOverlay(dataUrl, areaMap.getBounds(), {
+        opacity: isNaN(opacity) ? 0.75 : Math.max(0, Math.min(1, opacity)),
+        pane: 'heatmapPane'
+      }).addTo(areaMap);
+
+      renderAreaLegend();
+    }
+
+    // Marching squares on the pixel-resolution valGrid (W×H flat Float32Array).
+    // Coordinates are already in canvas pixels — no scaling needed.
+    function drawAreaContours(ctx, valGrid, W, H, levels, strokeStyle, lineWidth) {
+      ctx.save();
+      ctx.strokeStyle = strokeStyle || 'rgba(0,0,0,0.45)';
+      ctx.lineWidth   = lineWidth   || 1;
+      ctx.lineJoin    = 'round';
+      ctx.lineCap     = 'round';
+
+      for (const level of levels) {
+        ctx.beginPath();
+        for (let gy = 0; gy < H - 1; gy++) {
+          for (let gx = 0; gx < W - 1; gx++) {
+            const v00 = valGrid[ gy      * W + gx    ];
+            const v01 = valGrid[ gy      * W + gx + 1];
+            const v10 = valGrid[(gy + 1) * W + gx    ];
+            const v11 = valGrid[(gy + 1) * W + gx + 1];
+
+            const crosses = [];
+            function crossT(a, b) { return (level - a) / (b - a); }
+
+            if ((v00 < level) !== (v01 < level)) {
+              const t = crossT(v00, v01);
+              crosses.push({ x: gx + t, y: gy });
+            }
+            if ((v10 < level) !== (v11 < level)) {
+              const t = crossT(v10, v11);
+              crosses.push({ x: gx + t, y: gy + 1 });
+            }
+            if ((v00 < level) !== (v10 < level)) {
+              const t = crossT(v00, v10);
+              crosses.push({ x: gx, y: gy + t });
+            }
+            if ((v01 < level) !== (v11 < level)) {
+              const t = crossT(v01, v11);
+              crosses.push({ x: gx + 1, y: gy + t });
+            }
+            if (crosses.length === 2) {
+              ctx.moveTo(crosses[0].x, crosses[0].y);
+              ctx.lineTo(crosses[1].x, crosses[1].y);
+            }
+          }
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // =====================================================================
+    // Color-bar legend
+    // =====================================================================
+    function renderAreaLegend() {
+      const canvas = document.getElementById('area-legend-canvas');
+      if (!canvas) return;
+
+      let dataMin, dataMax, metricLabel, contourLevels;
+      if (areaMetric === 'snr') {
+        dataMin = -30; dataMax = 60; metricLabel = 'SNR';
+        contourLevels = [];
+        for (let i = 1; i <= 9; i++) contourLevels.push(-30 + 9 * i);
+      } else if (areaMetric === 'pr') {
+        dataMin = -163; dataMax = -103; metricLabel = 'PR';
+        contourLevels = [-157, -151, -145, -139, -133, -127, -121, -115, -109];
+      } else {
+        dataMin = 0; dataMax = 100; metricLabel = 'BCR';
+        contourLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+      }
+
+      const range      = dataMax - dataMin;
+      const barW       = 18;
+      const barH       = 180;
+      const padT       = 18;   // room for metric label above bar
+      const padB       = 6;
+      const gap        = 5;    // gap between bar right edge and tick labels
+      const tickLevels = [dataMax, ...contourLevels, dataMin];
+
+      // Measure widest tick label to size canvas correctly
+      const tmpCtx = canvas.getContext('2d');
+      tmpCtx.font = '10px courier';
+      let maxLW = 0;
+      for (const l of tickLevels) {
+        const txt = areaMetric === 'bcr' ? l + '%'
+                  : areaMetric === 'snr' ? l + ' dB'
+                  :                        l + ' dBW';
+        maxLW = Math.max(maxLW, tmpCtx.measureText(txt).width);
+      }
+
+      const W = barW + gap + Math.ceil(maxLW) + 2;
+      const H = padT + barH + padB;
+      canvas.width  = W;
+      canvas.height = H;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+
+      // Metric title
+      ctx.font         = 'bold 11px courier';
+      ctx.fillStyle    = '#ddd';
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(metricLabel, 0, 2);
+
+      // Color bar — top = dataMax (yellow), bottom = dataMin (dark purple)
+      for (let i = 0; i < barH; i++) {
+        const norm = (1 - i / (barH - 1)) * 100;
+        if (norm < 10) {
+          ctx.fillStyle = 'rgba(100,100,100,0.4)';
+        } else {
+          const rgb = BCR_COLOR_LUT[Math.min(1000, Math.max(0, Math.round(norm * 10)))];
+          ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+        }
+        ctx.fillRect(0, padT + i, barW, 1);
+      }
+
+      // Thin border around bar
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth   = 0.5;
+      ctx.strokeRect(0.5, padT + 0.5, barW - 1, barH - 1);
+
+      // Boundary line at norm=10 (no-data / data edge)
+      const boundY = padT + (1 - 0.10) * (barH - 1);
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(0,   boundY);
+      ctx.lineTo(barW, boundY);
+      ctx.stroke();
+
+      // Tick marks + labels
+      ctx.font         = '10px courier';
+      ctx.fillStyle    = '#ccc';
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'middle';
+
+      for (const level of tickLevels) {
+        const norm = (level - dataMin) / range * 100;
+        const y    = padT + (1 - norm / 100) * (barH - 1);
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth   = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(barW,         y);
+        ctx.lineTo(barW + gap - 1, y);
+        ctx.stroke();
+        const txt = areaMetric === 'bcr' ? level + '%'
+                  : areaMetric === 'snr' ? level + ' dB'
+                  :                        level + ' dBW';
+        ctx.fillText(txt, barW + gap, y);
+      }
+    }
+
+    // =====================================================================
+    // Prediction API call
+    // =====================================================================
+    function runAreaPrediction() {
+      const btn = document.getElementById('run-btn');
+      if (btn.classList.contains('loading')) return;
+
+      const errors   = [];
+      const txLat    = document.getElementById('tx_lat').value.trim();
+      const txLng    = document.getElementById('tx_lng').value.trim();
+      const year     = document.getElementById('year').value.trim();
+      const month    = document.getElementById('month').value;
+      const hourVal  = document.getElementById('hour').value.trim();
+      const ssn      = document.getElementById('ssn').value.trim();
+      const txPow    = document.getElementById('tx_power').value.trim();
+      const freq     = document.getElementById('freq').value.trim();
+
+      // --- Presence checks ---
+      if (!txLat)          errors.push('TX Latitude is required');
+      if (!txLng)          errors.push('TX Longitude is required');
+      if (!year)           errors.push('Year is required');
+      if (!month)          errors.push('Month is required');
+      if (hourVal === '')  errors.push('Initial Display Hour is required');
+      if (!ssn)            errors.push('SSN / R12 is required');
+      if (!txPow)          errors.push('TX Power is required');
+      if (!freq)           errors.push('Frequency is required');
+
+      // --- Range checks (only when the field is non-empty) ---
+      const txLatN = parseFloat(txLat), txLngN = parseFloat(txLng);
+      const txPowN = parseFloat(txPow);
+      const freqN  = parseFloat(freq);
+
+      if (txLat    && (isNaN(txLatN) || txLatN < -90  || txLatN > 90))   errors.push('TX Latitude must be \u221290 to 90\u00b0');
+      if (txLng    && (isNaN(txLngN) || txLngN < -180 || txLngN > 180))  errors.push('TX Longitude must be \u2212180 to 180\u00b0');
+      if (year     && (isNaN(Number(year)) || Number(year) % 1 !== 0 || Number(year) < 1900 || Number(year) > 2100))
+        errors.push('Year must be a whole number 1900\u20132100');
+      if (ssn      && (isNaN(Number(ssn))  || Number(ssn)  % 1 !== 0 || Number(ssn)  < 0   || Number(ssn)  > 400))
+        errors.push('SSN / R12 must be a whole number 0\u2013400');
+      if (hourVal  && (isNaN(Number(hourVal)) || Number(hourVal) % 1 !== 0 || Number(hourVal) < 0 || Number(hourVal) > 23))
+        errors.push('Initial Display Hour must be a whole number 0\u201323');
+      if (txPow    && (isNaN(txPowN) || txPowN <= 0  || txPowN > 50000)) errors.push('TX Power must be > 0 and \u2264 50\u202f000 W');
+      if (freq     && (isNaN(freqN)  || freqN < 1    || freqN > 30))     errors.push('Frequency must be 1\u201330 MHz');
+
+      const errEl = document.getElementById('pred-error');
+      if (errors.length > 0) {
+        errEl.innerHTML = errors.map(e => '\u2022 ' + e).join('<br>');
+        errEl.classList.add('visible');
+        return;
+      }
+      errEl.classList.remove('visible');
+
+      btn.classList.add('loading');
+      btn.textContent = 'Running...';
+
+      const sigSel = document.getElementById('signal_type');
+      const sigOpt = sigSel.options[sigSel.selectedIndex];
+
+      const payload = {
+        tx_lat:     parseFloat(txLat),
+        tx_lng:     parseFloat(txLng),
+        tx_gain:    parseFloat(document.getElementById('tx_gain').value)  || 2.15,
+        rx_gain:    parseFloat(document.getElementById('rx_gain').value)  || 2.15,
+        year:       parseInt(year),
+        month:      parseInt(month),
+        ssn:        parseInt(ssn),
+        tx_power_w: parseFloat(txPow),
+        freq:       parseFloat(freq),
+        bw:         parseFloat(sigOpt.dataset.bw),
+        snr:        parseFloat(sigOpt.dataset.snr),
+        noise_env:  document.getElementById('noise_env').value,
+        resolution: parseInt(document.getElementById('overlay-res').value)
+      };
+
+      fetch('/api/predict/area', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(result => {
+        btn.classList.remove('loading');
+        btn.textContent = 'Run Prediction';
+
+        const resultsDiv = document.getElementById('pred-results');
+        const pre        = document.getElementById('results-pre');
+        resultsDiv.style.display = 'block';
+
+        if (result.error) {
+          pre.innerHTML = '<span style="color:#ef4444;">Error: ' + escHtml(result.error) + '</span>';
+          return;
+        }
+
+        pre.textContent = result.output;
+
+        if (result.area_data) {
+          lastAreaData = result.area_data;
+          areaHour = Math.max(0, Math.min(23, parseInt(hourVal) || 0));
+          document.getElementById('area-hour-display').textContent =
+            String(areaHour).padStart(2, '0') + ' UTC';
+          renderAreaOverlay();
+          refreshGrayline();
+        }
+      })
+      .catch(err => {
+        btn.classList.remove('loading');
+        btn.textContent = 'Run Prediction';
+        document.getElementById('pred-results').style.display = 'block';
+        document.getElementById('results-pre').innerHTML =
+          '<span style="color:#ef4444;">Network error: ' + escHtml(String(err)) + '</span>';
+      });
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function copyResults(event) {
+      const pre = document.getElementById('results-pre');
+      navigator.clipboard.writeText(pre.innerText).then(function() {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      });
+    }
+
+    function downloadCsv() {
+      const pre  = document.getElementById('results-pre');
+      const now  = new Date();
+      const mm   = String(now.getMonth() + 1).padStart(2, '0');
+      const dd   = String(now.getDate()).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      const hh   = String(now.getHours()).padStart(2, '0');
+      const min  = String(now.getMinutes()).padStart(2, '0');
+      const name = `${mm}_${dd}_${yyyy}_${hh}-${min}_area_prediction.csv`;
+      const blob = new Blob([pre.innerText], { type: 'text/csv' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = name; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function openAreaDownloadModal() {
+      if (!lastAreaData) { alert('Run a prediction first.'); return; }
+      const modal = document.getElementById('area-download-modal');
+      modal.style.display = 'flex';
+      document.getElementById('dl-status').textContent = '';
+    }
+
+    function closeAreaDownloadModal() {
+      document.getElementById('area-download-modal').style.display = 'none';
+    }
+
+    document.addEventListener('change', function(e) {
+      if (e.target.name !== 'dl-extent') return;
+      document.getElementById('dl-custom-fields').style.display =
+        e.target.value === 'custom' ? 'grid' : 'none';
+    });
+
+    function executeAreaDownload() {
+      const extent   = document.querySelector('input[name="dl-extent"]:checked').value;
+      const statusEl = document.getElementById('dl-status');
+      statusEl.textContent = 'Rendering\u2026';
+
+      let latMin, latMax, lonMin, lonMax;
+      if (extent === 'whole') {
+        latMin = -85; latMax = 85; lonMin = -180; lonMax = 180;
+      } else if (extent === 'surround') {
+        const txLat = parseFloat(document.getElementById('tx_lat').value) || 0;
+        const txLon = parseFloat(document.getElementById('tx_lng').value) || 0;
+        latMin = Math.max(-85, txLat - 45); latMax = Math.min(85, txLat + 45);
+        lonMin = Math.max(-180, txLon - 90); lonMax = Math.min(180, txLon + 90);
+      } else {
+        latMin = parseFloat(document.getElementById('dl-lat-min').value);
+        latMax = parseFloat(document.getElementById('dl-lat-max').value);
+        lonMin = parseFloat(document.getElementById('dl-lon-min').value);
+        lonMax = parseFloat(document.getElementById('dl-lon-max').value);
+        const dlErrors = [];
+        if (isNaN(latMin) || latMin < -90  || latMin > 90)  dlErrors.push('Lat min must be \u221290 to 90\u00b0');
+        if (isNaN(latMax) || latMax < -90  || latMax > 90)  dlErrors.push('Lat max must be \u221290 to 90\u00b0');
+        if (isNaN(lonMin) || lonMin < -180 || lonMin > 180) dlErrors.push('Lon min must be \u2212180 to 180\u00b0');
+        if (isNaN(lonMax) || lonMax < -180 || lonMax > 180) dlErrors.push('Lon max must be \u2212180 to 180\u00b0');
+        if (!isNaN(latMin) && !isNaN(latMax) && latMin >= latMax) dlErrors.push('Lat min must be less than Lat max');
+        if (!isNaN(lonMin) && !isNaN(lonMax) && lonMin >= lonMax) dlErrors.push('Lon min must be less than Lon max');
+        if (dlErrors.length > 0) {
+          statusEl.innerHTML = dlErrors.map(e => '\u2022 ' + e).join('<br>');
+          return;
+        }
+      }
+
+      const lonRange = lonMax - lonMin;
+      const latRange = latMax - latMin;
+      const W = 1440;
+      const H = Math.max(100, Math.round(W * latRange / lonRange));
+
+      function lonToX(lon) { return (lon - lonMin) / lonRange * W; }
+      function latToY(lat) { return (latMax - lat) / latRange * H; }
+
+      // --- Background canvas (ocean + land) ---
+      const bgCanvas = document.createElement('canvas');
+      bgCanvas.width = W; bgCanvas.height = H;
+      const bgCtx = bgCanvas.getContext('2d');
+
+      bgCtx.fillStyle = '#c9d8e8';   // ocean
+      bgCtx.fillRect(0, 0, W, H);
+
+      if (basemapLand) {
+        bgCtx.fillStyle = '#e8e0d8';
+        bgCtx.strokeStyle = '#aaa';
+        bgCtx.lineWidth = 0.5;
+        for (const f of basemapLand.features)
+          drawGeoJSONFeature(bgCtx, f, lonToX, latToY, true);
+      }
+      if (basemapCountries) {
+        bgCtx.strokeStyle = '#888';
+        bgCtx.lineWidth = 0.5;
+        for (const f of basemapCountries.features)
+          drawGeoJSONFeature(bgCtx, f, lonToX, latToY, false);
+      }
+
+      // --- Heatmap canvas (transparent where no signal) ---
+      const { lats, lons } = lastAreaData;
+      const hourSlice = lastAreaData[areaMetric][areaHour];
+
+      let dataMin, dataMax;
+      if      (areaMetric === 'snr') { dataMin = -30;  dataMax = 60;   }
+      else if (areaMetric === 'pr')  { dataMin = -163; dataMax = -103; }
+      else                           { dataMin = 0;    dataMax = 100;  }
+
+      const nLa   = lats.length, nLo = lons.length;
+      const resLa = (lats[nLa - 1] - lats[0]) / (nLa - 1);
+      const resLo = (lons[nLo - 1] - lons[0]) / (nLo - 1);
+      const range = dataMax - dataMin;
+
+      const htCanvas = document.createElement('canvas');
+      htCanvas.width = W; htCanvas.height = H;
+      const htCtx   = htCanvas.getContext('2d');
+      const imgData = htCtx.createImageData(W, H);
+      const d       = imgData.data;
+      const valGrid = new Float32Array(W * H);
+
+      for (let py = 0; py < H; py++) {
+        const lat = latMax - (py / (H - 1)) * latRange;
+        const gLa = (lat - lats[0]) / resLa;
+        if (gLa < 0 || gLa > nLa - 1) continue;
+        const la0 = Math.max(0, Math.min(nLa - 2, Math.floor(gLa)));
+        const la1 = la0 + 1;
+        const tla = gLa - la0;
+
+        for (let px = 0; px < W; px++) {
+          const lon = lonMin + (px / (W - 1)) * lonRange;
+          const gLo = (lon - lons[0]) / resLo;
+          if (gLo < 0 || gLo > nLo - 1) continue;
+          const lo0 = Math.max(0, Math.min(nLo - 2, Math.floor(gLo)));
+          const lo1 = lo0 + 1;
+          const tlo = gLo - lo0;
+
+          const v00 = hourSlice[la0][lo0] ?? dataMin;
+          const v10 = hourSlice[la1][lo0] ?? dataMin;
+          const v01 = hourSlice[la0][lo1] ?? dataMin;
+          const v11 = hourSlice[la1][lo1] ?? dataMin;
+          const val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
+                    + v01*(1-tla)*tlo     + v11*tla*tlo;
+
+          valGrid[py * W + px] = val;
+
+          const norm = (val - dataMin) / range * 100;
+          if (norm < 10) continue;
+          const rgb = BCR_COLOR_LUT[Math.min(1000, Math.max(0, Math.round(norm * 10)))];
+          const idx = (py * W + px) * 4;
+          d[idx] = rgb[0]; d[idx + 1] = rgb[1]; d[idx + 2] = rgb[2]; d[idx + 3] = 220;
+        }
+      }
+      htCtx.putImageData(imgData, 0, 0);
+
+      // Contours drawn on the heatmap canvas
+      let contourLevels;
+      if (areaMetric === 'bcr') {
+        contourLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+      } else if (areaMetric === 'pr') {
+        contourLevels = [-157, -151, -145, -139, -133, -127, -121, -115, -109];
+      } else {
+        const step = (dataMax - dataMin) / 10;
+        contourLevels = [];
+        for (let i = 1; i <= 9; i++) contourLevels.push(dataMin + step * i);
+      }
+      drawAreaContours(htCtx, valGrid, W, H, [contourLevels[0]], 'rgba(0,0,0,0.70)', 1.5);
+      drawAreaContours(htCtx, valGrid, W, H, contourLevels.slice(1), 'rgba(0,0,0,0.45)', 1);
+
+      // --- Composite: land + heatmap ---
+      bgCtx.drawImage(htCanvas, 0, 0);
+
+      // --- Legend (bottom-right) ---
+      const legendCanvas = document.getElementById('area-legend-canvas');
+      if (legendCanvas && legendCanvas.width > 0) {
+        const pad = 16;
+        const lx = W - legendCanvas.width - pad;
+        const ly = H - legendCanvas.height - pad;
+        bgCtx.fillStyle = 'rgba(0,0,0,0.65)';
+        bgCtx.fillRect(lx - 6, ly - 6, legendCanvas.width + 12, legendCanvas.height + 12);
+        bgCtx.drawImage(legendCanvas, lx, ly);
+      }
+
+      // --- Download ---
+      const now  = new Date();
+      const MM   = String(now.getMonth() + 1).padStart(2, '0');
+      const DD   = String(now.getDate()).padStart(2, '0');
+      const YYYY = now.getFullYear();
+      const a    = document.createElement('a');
+      a.download  = `${areaMetric}_${MM}_${DD}_${YYYY}_area_prediction.png`;
+      a.href      = bgCanvas.toDataURL('image/png');
+      a.click();
+
+      statusEl.textContent = 'Done!';
+      setTimeout(closeAreaDownloadModal, 800);
+    }
+
+    function drawGeoJSONFeature(ctx, feature, lonToX, latToY, fill) {
+      const geom = feature.geometry;
+      if (!geom) return;
+      function drawRings(coords) {
+        ctx.beginPath();
+        for (const ring of coords) {
+          let first = true;
+          for (const [lon, lat] of ring) {
+            const x = lonToX(lon), y = latToY(lat);
+            if (first) { ctx.moveTo(x, y); first = false; }
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+        }
+        if (fill) ctx.fill();
+        ctx.stroke();
+      }
+      if (geom.type === 'Polygon') drawRings(geom.coordinates);
+      else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(p => drawRings(p));
+    }
+  </script>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script>
+    // Suppress Leaflet marker shadow 404
+    L.Icon.Default.prototype.createShadow = function() { return null; };
+
+    let areaMap       = null;
+    let txMarker      = null;
+    let basemapLand      = null;
+    let basemapCountries = null;
+    let graylineOverlay  = null;
+    let graylineTimer    = null;
+
+    // =====================================================================
+    // Grayline / terminator overlay
+    // =====================================================================
+
+    // Solar declination and equation of time for a given Date (UTC).
+    // Returns { decl: radians, eqTime: minutes }
+    function solarParams(date) {
+      const JD = date / 86400000 + 2440587.5;
+      const n  = JD - 2451545.0;
+      const L  = (280.460 + 0.9856474 * n) % 360;           // mean longitude deg
+      const g  = (357.528 + 0.9856003 * n) * Math.PI / 180; // mean anomaly rad
+      const lam = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
+      const eps = 23.439 * Math.PI / 180;                    // obliquity
+      const decl = Math.asin(Math.sin(eps) * Math.sin(lam));
+      // Equation of time (minutes) — approximation sufficient for grayline
+      const RA = Math.atan2(Math.cos(eps) * Math.sin(lam), Math.cos(lam));
+      const eqTime = 4 * (L * Math.PI / 180 - RA) * 180 / Math.PI;
+      return { decl, eqTime };
+    }
+
+    // Render the grayline to an offscreen canvas and return it.
+    // The canvas is equirectangular: W×H pixels covering [-180,180] lon, [90,-90] lat.
+    function renderGraylineCanvas(date) {
+      const W = 720, H = 360;
+      const { decl, eqTime } = solarParams(date);
+
+      // UTC fractional hours
+      const utcH = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      const img = ctx.createImageData(W, H);
+      const d   = img.data;
+
+      // Solar elevation angle thresholds (degrees below horizon)
+      // positive = above horizon, negative = below
+      // Night starts at astronomical twilight: -18°
+      const toRad = Math.PI / 180;
+
+      for (let py = 0; py < H; py++) {
+        const lat = (90 - py * 180 / (H - 1)) * toRad;
+        for (let px = 0; px < W; px++) {
+          const lon = (-180 + px * 360 / (W - 1));
+          // Solar hour angle
+          const solarTime = utcH + lon / 15 + eqTime / 60;
+          const ha = (solarTime - 12) * 15 * toRad;
+          // Solar elevation
+          const sinEl = Math.sin(lat) * Math.sin(decl)
+                      + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
+          const elDeg = Math.asin(Math.max(-1, Math.min(1, sinEl))) / toRad;
+
+          // elDeg > 0   : daytime — transparent
+          // 0 to -6     : civil twilight
+          // -6 to -12   : nautical twilight
+          // -12 to -18  : astronomical twilight
+          // < -18       : night
+          let alpha = 0;
+          if (elDeg <= -18) {
+            alpha = 180;
+          } else if (elDeg <= -12) {
+            alpha = Math.round(120 + ((-12 - elDeg) / 6) * 60);  // 120→180
+          } else if (elDeg <= -6) {
+            alpha = Math.round(50  + ((-6  - elDeg) / 6) * 70);  // 50→120
+          } else if (elDeg <= 0) {
+            alpha = Math.round(((-elDeg) / 6) * 50);              // 0→50
+          }
+
+          if (alpha > 0) {
+            const idx = (py * W + px) * 4;
+            d[idx]     = 0;
+            d[idx + 1] = 10;
+            d[idx + 2] = 30;
+            d[idx + 3] = alpha;
+          }
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      return canvas;
+    }
+
+    function refreshGrayline() {
+      if (!areaMap) return;
+      let d;
+      if (lastAreaData) {
+        const yr = parseInt(document.getElementById('year').value)  || new Date().getUTCFullYear();
+        const mo = parseInt(document.getElementById('month').value) || (new Date().getUTCMonth() + 1);
+        d = new Date(Date.UTC(yr, mo - 1, 15, areaHour, 0, 0));
+      } else {
+        d = new Date();
+      }
+      const canvas  = renderGraylineCanvas(d);
+      const dataUrl = canvas.toDataURL('image/png');
+      if (graylineOverlay) {
+        graylineOverlay.setUrl(dataUrl);
+      } else {
+        graylineOverlay = L.imageOverlay(dataUrl, [[-90, -180], [90, 180]], {
+          opacity: 1,
+          pane:    'graylinePane',
+          interactive: false
+        }).addTo(areaMap);
+      }
+    }
+
+    // --- Icon factory ---
+    function makeIcon(color) {
+      return L.divIcon({
+        className: '',
+        html: '<div style="width:14px;height:14px;border-radius:50%;background:' + color +
+              ';border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.5);cursor:grab;"></div>',
+        iconSize:   [14, 14],
+        iconAnchor: [7,  7]
+      });
+    }
+
+    // --- TX marker sync ---
+    function updateTxMarker() {
+      if (!areaMap) return;
+      const lat = parseFloat(document.getElementById('tx_lat').value);
+      const lng = parseFloat(document.getElementById('tx_lng').value);
+      const valid = !isNaN(lat) && !isNaN(lng) &&
+                    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+      if (valid) {
+        if (!txMarker) {
+          txMarker = L.marker([lat, lng], { icon: makeIcon('#ef4444'), draggable: true }).addTo(areaMap);
+          txMarker.on('drag', function() {
+            const p = txMarker.getLatLng();
+            document.getElementById('tx_lat').value = p.lat.toFixed(4);
+            document.getElementById('tx_lng').value = p.lng.toFixed(4);
+          });
+        } else {
+          txMarker.setLatLng([lat, lng]);
+        }
+      } else if (txMarker) {
+        areaMap.removeLayer(txMarker);
+        txMarker = null;
+      }
+    }
+
+    // --- Map init ---
+    async function loadAreaMap() {
+      document.getElementById('tx_lat').value = 41.409;
+      document.getElementById('tx_lng').value = -75.6624;
+
+      areaMap = L.map('area-map', {
+        zoomControl: true,
+        attributionControl: false,
+        scrollWheelZoom: false,
+        maxBounds: [[-90, -180], [90, 180]]
+      }).setView([20, 0], 2);
+
+      // Grayline pane: above basemap (400) but below heatmap and markers
+      areaMap.createPane('graylinePane');
+      areaMap.getPane('graylinePane').style.zIndex = 420;
+      areaMap.getPane('graylinePane').style.pointerEvents = 'none';
+
+      // Custom pane for heatmap: above basemap vectors (400) but below markers (600)
+      areaMap.createPane('heatmapPane');
+      areaMap.getPane('heatmapPane').style.zIndex = 450;
+
+      // Re-render after zoom/pan/resize so the canvas stays pixel-perfect
+      areaMap.on('zoomend moveend resize', refreshOverlay);
+
+      // Hover info box (top-left)
+      const areaInfoControl = L.control({ position: 'topleft' });
+      areaInfoControl.onAdd = function() {
+        const div = L.DomUtil.create('div', 'area-info-box');
+        div.id = 'area-info-box';
+        div.innerHTML = '<span id="area-hover-value">—</span>';
+        return div;
+      };
+      areaInfoControl.addTo(areaMap);
+
+      areaMap.on('mousemove', function(e) {
+        const el = document.getElementById('area-hover-value');
+        if (!el) return;
+        if (!lastAreaData) { el.textContent = '—'; return; }
+        const lat = e.latlng.lat;
+        const rawLon = e.latlng.lng;
+        const lon = ((rawLon + 180) % 360 + 360) % 360 - 180;
+        const { lats, lons } = lastAreaData;
+        const nLa = lats.length, nLo = lons.length;
+        const resLa = (lats[nLa - 1] - lats[0]) / (nLa - 1);
+        const resLo = (lons[nLo - 1] - lons[0]) / (nLo - 1);
+        const gLa = (lat - lats[0]) / resLa;
+        const gLo = (lon - lons[0]) / resLo;
+        if (gLa < 0 || gLa > nLa - 1 || gLo < 0 || gLo > nLo - 1) {
+          el.textContent = '—'; return;
+        }
+        const la0 = Math.max(0, Math.min(nLa - 2, Math.floor(gLa)));
+        const lo0 = Math.max(0, Math.min(nLo - 2, Math.floor(gLo)));
+        const tla = gLa - la0, tlo = gLo - lo0;
+        const hourSlice = lastAreaData[areaMetric][areaHour];
+        const v00 = hourSlice[la0    ][lo0    ] ?? null;
+        const v10 = hourSlice[la0 + 1][lo0    ] ?? null;
+        const v01 = hourSlice[la0    ][lo0 + 1] ?? null;
+        const v11 = hourSlice[la0 + 1][lo0 + 1] ?? null;
+        if (v00 === null || v10 === null || v01 === null || v11 === null) {
+          el.textContent = '—'; return;
+        }
+        const val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
+                  + v01*(1-tla)*tlo     + v11*tla*tlo;
+        if (areaMetric === 'bcr')
+          el.textContent = 'BCR: ' + val.toFixed(0) + '%';
+        else if (areaMetric === 'snr')
+          el.textContent = 'SNR: ' + val.toFixed(1) + ' dB';
+        else
+          el.textContent = 'PR: '  + val.toFixed(1) + ' dBW';
+      });
+      areaMap.on('mouseout', function() {
+        const el = document.getElementById('area-hover-value');
+        if (el) el.textContent = '—';
+      });
+
+      // Color-bar legend (top-right)
+      const areaLegendControl = L.control({ position: 'topright' });
+      areaLegendControl.onAdd = function() {
+        const div = L.DomUtil.create('div', 'area-legend-control');
+        div.innerHTML = '<canvas id="area-legend-canvas"></canvas>';
+        return div;
+      };
+      areaLegendControl.addTo(areaMap);
+
+      // TX-only legend
+      const legend = L.control({ position: 'bottomright' });
+      legend.onAdd = function() {
+        const div = L.DomUtil.create('div', 'pred-map-legend');
+        div.innerHTML = '<div class="legend-row"><span class="legend-dot tx-dot"></span>TX</div>';
+        return div;
+      };
+      legend.addTo(areaMap);
+
+      // Offline basemap
+      try {
+        const [landRes, countriesRes, statesRes] = await Promise.all([
+          fetch('/vendor/basemap/ne_50m_land.json'),
+          fetch('/vendor/basemap/ne_50m_admin_0_countries.json'),
+          fetch('/vendor/basemap/states-50m.json'),
+        ]);
+        const [land, countries, states] = await Promise.all([
+          landRes.json(), countriesRes.json(), statesRes.json()
+        ]);
+        basemapLand      = land;
+        basemapCountries = countries;
+        L.geoJSON(land,      { style: { color: '#aaa', weight: 0.5, fillColor: '#e8e0d8', fillOpacity: 1 } }).addTo(areaMap);
+        L.geoJSON(countries, { style: { color: '#888', weight: 0.5, fill: false } }).addTo(areaMap);
+        L.geoJSON(states,    { style: { color: '#bbb', weight: 0.3, fill: false } }).addTo(areaMap);
+      } catch (e) {
+        console.error('Failed to load offline basemap', e);
+      }
+
+      // Initial grayline render + auto-refresh every 60 s
+      refreshGrayline();
+      graylineTimer = setInterval(refreshGrayline, 60000);
+
+      updateTxMarker();
+    }
+
+    ['tx_lat', 'tx_lng'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', updateTxMarker);
+    });
+
+    loadAreaMap();
+  </script>
+
+</body>
+</html>
