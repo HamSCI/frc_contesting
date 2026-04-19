@@ -138,7 +138,7 @@ def parse_area_data(text, resolution):
                     col_lon = idx
                 if 'BCR'      in desc and col_bcr is None: col_bcr = idx
                 if 'SNR'      in desc and col_snr is None: col_snr = idx
-                if 'RECEIVER' in desc and col_pr  is None: col_pr  = idx
+                if 'RECEIVER' in desc and 'POWER' in desc and col_pr is None: col_pr = idx
 
     if None in (col_lat, col_lon, col_bcr):
         return None

@@ -24,7 +24,12 @@
 
   <h1 style="text-align:center; margin-top: 30px; margin-bottom: 10px;">Area</h1>
 
-  <div id="area-map"></div>
+  <div id="area-map-row">
+    <div id="area-map"></div>
+    <div id="area-legend-wrapper">
+      <canvas id="area-legend-canvas"></canvas>
+    </div>
+  </div>
 
   <!-- Chart controls: time nav | metric buttons | overlay options -->
   <div class="area-chart-controls">
@@ -325,9 +330,9 @@
       const hourSlice = metricArr[areaHour];         // [nLa][nLo]
 
       let dataMin, dataMax;
-      if      (areaMetric === 'snr') { dataMin = -30;  dataMax = 60;   }
-      else if (areaMetric === 'pr')  { dataMin = -163; dataMax = -103; }
-      else                           { dataMin = 0;    dataMax = 100;  }
+      if      (areaMetric === 'snr') { dataMin = -30; dataMax = 60;  }
+      else if (areaMetric === 'pr')  { dataMin = 0;   dataMax = 10;  }
+      else                           { dataMin = 0;   dataMax = 100; }
 
       const nLa   = lats.length, nLo = lons.length;
       const resLa = (lats[nLa - 1] - lats[0]) / (nLa - 1);
@@ -369,12 +374,20 @@
           const la1 = la0 + 1, lo1 = lo0 + 1;
           const tla = gLa - la0, tlo = gLo - lo0;
 
-          const v00 = hourSlice[la0][lo0] ?? dataMin;
-          const v10 = hourSlice[la1][lo0] ?? dataMin;
-          const v01 = hourSlice[la0][lo1] ?? dataMin;
-          const v11 = hourSlice[la1][lo1] ?? dataMin;
-          const val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
-                    + v01*(1-tla)*tlo     + v11*tla*tlo;
+          // Null fallback: PR uses -999 dBW (→ S0 → transparent); others use dataMin
+          const rawFallback = areaMetric === 'pr' ? -999 : dataMin;
+          const v00 = hourSlice[la0][lo0] ?? rawFallback;
+          const v10 = hourSlice[la1][lo0] ?? rawFallback;
+          const v01 = hourSlice[la0][lo1] ?? rawFallback;
+          const v11 = hourSlice[la1][lo1] ?? rawFallback;
+          let val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
+                  + v01*(1-tla)*tlo     + v11*tla*tlo;
+
+          // Convert PR from dBW → continuous S-units (S9 = −103 dBW, 6 dB/S-unit)
+          // No Math.floor — keeps smooth gradient like BCR/SNR; floor only in hover tooltip
+          if (areaMetric === 'pr') {
+            val = Math.max(0, Math.min(9, 9 + (val + 103) / 6));
+          }
 
           valGrid[py * W + px] = val;
 
@@ -392,7 +405,7 @@
       if (areaMetric === 'bcr') {
         contourLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
       } else if (areaMetric === 'pr') {
-        contourLevels = [-157, -151, -145, -139, -133, -127, -121, -115, -109];
+        contourLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       } else {
         const step = (dataMax - dataMin) / 10;
         contourLevels = [];
@@ -477,8 +490,8 @@
         contourLevels = [];
         for (let i = 1; i <= 9; i++) contourLevels.push(-30 + 9 * i);
       } else if (areaMetric === 'pr') {
-        dataMin = -163; dataMax = -103; metricLabel = 'PR';
-        contourLevels = [-157, -151, -145, -139, -133, -127, -121, -115, -109];
+        dataMin = 0; dataMax = 10; metricLabel = 'PR';
+        contourLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       } else {
         dataMin = 0; dataMax = 100; metricLabel = 'BCR';
         contourLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
@@ -499,7 +512,7 @@
       for (const l of tickLevels) {
         const txt = areaMetric === 'bcr' ? l + '%'
                   : areaMetric === 'snr' ? l + ' dB'
-                  :                        l + ' dBW';
+                  :                        'S' + l;
         maxLW = Math.max(maxLW, tmpCtx.measureText(txt).width);
       }
 
@@ -561,7 +574,7 @@
         ctx.stroke();
         const txt = areaMetric === 'bcr' ? level + '%'
                   : areaMetric === 'snr' ? level + ' dB'
-                  :                        level + ' dBW';
+                  :                        'S' + level;
         ctx.fillText(txt, barW + gap, y);
       }
     }
@@ -665,6 +678,18 @@
           areaHour = Math.max(0, Math.min(23, parseInt(hourVal) || 0));
           document.getElementById('area-hour-display').textContent =
             String(areaHour).padStart(2, '0') + ' UTC';
+          // Reveal UI elements that only make sense with prediction data
+          document.getElementById('area-info-box').style.display = '';
+          document.getElementById('area-legend-wrapper').style.display = 'block';
+          // Map flex-width changes slightly when legend appears; re-size then re-lock
+          areaMap.invalidateSize();
+          lockWorldWidth();
+          // Center map on TX location at a regional zoom
+          const flyLat = parseFloat(txLat);
+          const flyLng = parseFloat(txLng);
+          if (!isNaN(flyLat) && !isNaN(flyLng)) {
+            areaMap.setView([flyLat, flyLng], 4, { animate: false });
+          }
           renderAreaOverlay();
           refreshGrayline();
         }
@@ -791,9 +816,9 @@
       const hourSlice = lastAreaData[areaMetric][areaHour];
 
       let dataMin, dataMax;
-      if      (areaMetric === 'snr') { dataMin = -30;  dataMax = 60;   }
-      else if (areaMetric === 'pr')  { dataMin = -163; dataMax = -103; }
-      else                           { dataMin = 0;    dataMax = 100;  }
+      if      (areaMetric === 'snr') { dataMin = -30; dataMax = 60;  }
+      else if (areaMetric === 'pr')  { dataMin = 0;   dataMax = 10;  }
+      else                           { dataMin = 0;   dataMax = 100; }
 
       const nLa   = lats.length, nLo = lons.length;
       const resLa = (lats[nLa - 1] - lats[0]) / (nLa - 1);
@@ -823,12 +848,20 @@
           const lo1 = lo0 + 1;
           const tlo = gLo - lo0;
 
-          const v00 = hourSlice[la0][lo0] ?? dataMin;
-          const v10 = hourSlice[la1][lo0] ?? dataMin;
-          const v01 = hourSlice[la0][lo1] ?? dataMin;
-          const v11 = hourSlice[la1][lo1] ?? dataMin;
-          const val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
-                    + v01*(1-tla)*tlo     + v11*tla*tlo;
+          // Null fallback: PR uses -999 dBW (→ S0 → transparent); others use dataMin
+          const rawFallback = areaMetric === 'pr' ? -999 : dataMin;
+          const v00 = hourSlice[la0][lo0] ?? rawFallback;
+          const v10 = hourSlice[la1][lo0] ?? rawFallback;
+          const v01 = hourSlice[la0][lo1] ?? rawFallback;
+          const v11 = hourSlice[la1][lo1] ?? rawFallback;
+          let val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
+                  + v01*(1-tla)*tlo     + v11*tla*tlo;
+
+          // Convert PR from dBW → continuous S-units (S9 = −103 dBW, 6 dB/S-unit)
+          // No Math.floor — keeps smooth gradient like BCR/SNR; floor only in hover tooltip
+          if (areaMetric === 'pr') {
+            val = Math.max(0, Math.min(9, 9 + (val + 103) / 6));
+          }
 
           valGrid[py * W + px] = val;
 
@@ -846,7 +879,7 @@
       if (areaMetric === 'bcr') {
         contourLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
       } else if (areaMetric === 'pr') {
-        contourLevels = [-157, -151, -145, -139, -133, -127, -121, -115, -109];
+        contourLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       } else {
         const step = (dataMax - dataMin) / 10;
         contourLevels = [];
@@ -1065,8 +1098,10 @@
         zoomControl: true,
         attributionControl: false,
         scrollWheelZoom: false,
-        maxBounds: [[-90, -180], [90, 180]]
-      }).setView([20, 0], 2);
+        zoomSnap: 0.1,
+        maxBounds: [[-90, -180], [90, 180]],
+        maxBoundsViscosity: 1.0,
+      }).setView([30, 0], 2);
 
       // Grayline pane: above basemap (400) but below heatmap and markers
       areaMap.createPane('graylinePane');
@@ -1085,6 +1120,7 @@
       areaInfoControl.onAdd = function() {
         const div = L.DomUtil.create('div', 'area-info-box');
         div.id = 'area-info-box';
+        div.style.display = 'none';
         div.innerHTML = '<span id="area-hover-value">—</span>';
         return div;
       };
@@ -1117,28 +1153,21 @@
         if (v00 === null || v10 === null || v01 === null || v11 === null) {
           el.textContent = '—'; return;
         }
-        const val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
-                  + v01*(1-tla)*tlo     + v11*tla*tlo;
+        let val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
+                + v01*(1-tla)*tlo     + v11*tla*tlo;
         if (areaMetric === 'bcr')
           el.textContent = 'BCR: ' + val.toFixed(0) + '%';
         else if (areaMetric === 'snr')
           el.textContent = 'SNR: ' + val.toFixed(1) + ' dB';
-        else
-          el.textContent = 'PR: '  + val.toFixed(1) + ' dBW';
+        else {
+          const s = Math.max(0, Math.min(9, Math.floor(9 + (val + 103) / 6)));
+          el.textContent = 'PR: S' + s + ' (' + val.toFixed(1) + ' dBW)';
+        }
       });
       areaMap.on('mouseout', function() {
         const el = document.getElementById('area-hover-value');
         if (el) el.textContent = '—';
       });
-
-      // Color-bar legend (top-right)
-      const areaLegendControl = L.control({ position: 'topright' });
-      areaLegendControl.onAdd = function() {
-        const div = L.DomUtil.create('div', 'area-legend-control');
-        div.innerHTML = '<canvas id="area-legend-canvas"></canvas>';
-        return div;
-      };
-      areaLegendControl.addTo(areaMap);
 
       // TX-only legend
       const legend = L.control({ position: 'bottomright' });
@@ -1168,6 +1197,8 @@
         console.error('Failed to load offline basemap', e);
       }
 
+      lockWorldWidth();
+
       // Initial grayline render + auto-refresh every 60 s
       refreshGrayline();
       graylineTimer = setInterval(refreshGrayline, 60000);
@@ -1179,7 +1210,23 @@
       document.getElementById(id).addEventListener('input', updateTxMarker);
     });
 
+    function lockWorldWidth() {
+      const w = document.getElementById('area-map').offsetWidth;
+      if (!w) return;
+      const fillZoom = Math.log2(w / 256);
+      areaMap.setMinZoom(fillZoom);
+      if (areaMap.getZoom() < fillZoom) {
+        areaMap.setZoom(fillZoom, { animate: false });
+      }
+    }
+
     loadAreaMap();
+
+    window.addEventListener('resize', function() {
+      if (!areaMap) return;
+      areaMap.invalidateSize();
+      lockWorldWidth();
+    });
   </script>
 
 </body>

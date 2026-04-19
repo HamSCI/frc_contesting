@@ -594,13 +594,11 @@ th, td {
 .legend-dot.tx-dot { background: #ef4444; }
 .legend-dot.rx-dot { background: #3b82f6; }
 
-/* =================== Section 13b: Area Map (full-width standalone) =================== */
-.area-legend-control {
-  background: rgba(0, 0, 0, 0.72);
-  border: 1px solid #333;
-  border-radius: 4px;
-  padding: 6px 8px;
-  pointer-events: none;
+/* =================== Section 13b: Area Map =================== */
+#area-map-row {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0 30px 0;
 }
 
 .area-info-box {
@@ -617,13 +615,21 @@ th, td {
 }
 
 #area-map {
-  height: 400px;
-  width: 100%;
+  flex: 1;
+  height: 500px;
   background-color: #a8d5e8;
   border: 1px solid #333;
   border-radius: 4px;
-  margin: 20px 0 30px 0;
-  box-sizing: border-box;
+}
+
+#area-legend-wrapper {
+  display: none;        /* shown by JS after first prediction */
+  flex-shrink: 0;
+  align-self: center;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 6px 8px;
 }
 
 /* =================== Section 14: BCR/MUF Chart Panel =================== */
@@ -763,3 +769,34 @@ th, td {
   outline: none;
   border-color: #00aaff;
 }
+
+/* =================== Section 16: Contester's Table Modal =================== */
+#table-modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+}
+#table-modal-overlay.open { display: block; }
+
+#table-modal {
+  display: none;
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: #1e1e2e;
+  border: 1px solid #4a90d9;
+  border-radius: 8px;
+  padding: 24px;
+  z-index: 1001;
+  min-width: 280px;
+}
+#table-modal.open { display: block; }
+#table-modal h3   { margin: 0 0 12px; color: #e0e0e0; }
+#table-modal p    { margin: 0 0 8px; color: #aaa; font-size: 13px; }
+
+.table-modal-bands       { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.table-modal-bands label { color: #ccc; font-size: 13px; cursor: pointer; }
+.table-modal-bands input[type="checkbox"] { margin-right: 6px; }
+
+.table-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }

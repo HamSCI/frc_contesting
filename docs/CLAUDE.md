@@ -46,6 +46,8 @@ This documentation serves to:
 | April 11, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Area prediction page: map + form scaffolding, `/api/predict/area` backend, Viridis heatmap overlay on Leaflet map, contour lines on dense sampled grid, transparent low band, time arrow controls, BCR/SNR/PR metric buttons, opacity/resolution controls, results export | Liam Miller |
 | April 11, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Area overlay polish: viewport-sized Mercator canvas (blur fix), lon wrap fix, boundary contour, hover info box, color-bar legend, "Very High" resolution 1°→2° | Liam Miller |
 | April 12, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Download image feature (P2P + Area), grayline overlay, contest band toggles, input validation audit, button placement fixes | Liam Miller |
+| April 13, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Merge recovery (missing imports, nav, routes, binary, data files), Contester's Table PDF export (band-selection modal, MUF/OPMUF + per-band BCR/SNR/PR tables, canvas line graphs), CLAUDE.md session order fix | Liam Miller |
+| April 17, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Area map PR S-unit fix, null fallback -999 fix, map layout overhaul (tooltip/legend hidden until prediction, legend dark-box sidebar), P2P-style windowed map (500px), lockWorldWidth() side-clip, PR column detection bug fix, contour alignment fix (dataMax 9→10), smooth rendering (removed Math.floor) | Liam Miller |
 
 ### Current Model
 
@@ -668,6 +670,38 @@ For questions about this project or the use of AI assistance, please refer to th
 - `static/css/style.css` — sections 10 (hamburger nav), 11 (prediction tabs), 12 (prediction form) appended
 - `docs/CLAUDE.md` — session record
 
+### Session 14: P2P Prediction Page — Mini Map, Draggable Markers, Geodesic Arc
+**Date**: April 9, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Add an interactive offline mini map to the P2P prediction page with TX/RX markers and a great circle path
+**Duration**: 45 minutes (10:15–11:00)
+**Status**: Complete
+
+**Activities**:
+- Added offline Leaflet basemap (land + country + state outlines, no tile server) to `/prediction/p2p` using absolute vendor paths (`/vendor/leaflet/`, `/vendor/basemap/`) — required because the page lives at a subpath (`/prediction/p2p`), where relative paths would resolve incorrectly
+- Placed map in a `.pred-map-row` flex layout: map on the left, "Coming Soon" placeholder box on the right, both 360 px tall — placeholder reserved for a future results panel
+- Added draggable TX (red `#ef4444`) and RX (blue `#3b82f6`) markers using `L.marker` + `L.divIcon` — `L.circleMarker` does not support dragging
+- Implemented `updateMarkers()` with a create-or-move pattern: markers are created once and repositioned via `setLatLng()` on subsequent calls, preventing drag handlers from being re-bound on every keystroke
+- Geodesic arc (orange dashed, `#f97316`) computed with a pure-JS spherical interpolation (`geodesicPoints()`, 100 waypoints) — no external library needed
+- Added `antimeridianFix()` to normalize longitudes as a continuous sequence, preventing the polyline from drawing a shortcut across the map on trans-Pacific paths
+- Drag events update the lat/lon input fields live and redraw the arc; input field changes reposition the markers and redraw the arc
+- Default path pre-populated on load: TX = Scranton PA (41.409, -75.6624), RX = London UK (51.5074, -0.1278); map centered at `[46, -37]` zoom 3 (mid-Atlantic) so both endpoints are visible
+- Added Leaflet `L.control` legend (bottom-right) showing TX/RX dot colors
+- Added CSS Section 13 to `static/css/style.css`: `.pred-map-row`, `#pred-map`, `.pred-coming-soon`, `.pred-map-legend`, `.legend-dot`
+
+**Key Decisions**:
+- `L.divIcon` chosen over `L.circleMarker` — only `L.marker` supports the `draggable` option
+- Geodesic math inlined (no turf.js dependency) — keeps the pred page self-contained
+- Absolute vendor paths (`/vendor/...`) required on all sub-route pages; relative paths only work on top-level routes
+
+**Files Modified**:
+- `templates/prediction_p2p.html` — Leaflet CSS link, map row HTML, full JS rewrite of second script block
+- `static/css/style.css` — Section 13 appended (map row, legend)
+- `docs/CLAUDE.md` — session record
+
+---
+
 ### Session 15: P2P Prediction Page — BCR/MUF Propagation Chart
 **Date**: April 9, 2026
 **Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
@@ -702,36 +736,6 @@ For questions about this project or the use of AI assistance, please refer to th
 - `static/css/style.css` — Section 14 appended
 
 ---
-
-### Session 14: P2P Prediction Page — Mini Map, Draggable Markers, Geodesic Arc
-**Date**: April 9, 2026
-**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
-**Contributor**: Liam Miller (KD3BVX)
-**Scope**: Add an interactive offline mini map to the P2P prediction page with TX/RX markers and a great circle path
-**Duration**: 45 minutes (10:15–11:00)
-**Status**: Complete
-
-**Activities**:
-- Added offline Leaflet basemap (land + country + state outlines, no tile server) to `/prediction/p2p` using absolute vendor paths (`/vendor/leaflet/`, `/vendor/basemap/`) — required because the page lives at a subpath (`/prediction/p2p`), where relative paths would resolve incorrectly
-- Placed map in a `.pred-map-row` flex layout: map on the left, "Coming Soon" placeholder box on the right, both 360 px tall — placeholder reserved for a future results panel
-- Added draggable TX (red `#ef4444`) and RX (blue `#3b82f6`) markers using `L.marker` + `L.divIcon` — `L.circleMarker` does not support dragging
-- Implemented `updateMarkers()` with a create-or-move pattern: markers are created once and repositioned via `setLatLng()` on subsequent calls, preventing drag handlers from being re-bound on every keystroke
-- Geodesic arc (orange dashed, `#f97316`) computed with a pure-JS spherical interpolation (`geodesicPoints()`, 100 waypoints) — no external library needed
-- Added `antimeridianFix()` to normalize longitudes as a continuous sequence, preventing the polyline from drawing a shortcut across the map on trans-Pacific paths
-- Drag events update the lat/lon input fields live and redraw the arc; input field changes reposition the markers and redraw the arc
-- Default path pre-populated on load: TX = Scranton PA (41.409, -75.6624), RX = London UK (51.5074, -0.1278); map centered at `[46, -37]` zoom 3 (mid-Atlantic) so both endpoints are visible
-- Added Leaflet `L.control` legend (bottom-right) showing TX/RX dot colors
-- Added CSS Section 13 to `static/css/style.css`: `.pred-map-row`, `#pred-map`, `.pred-coming-soon`, `.pred-map-legend`, `.legend-dot`
-
-**Key Decisions**:
-- `L.divIcon` chosen over `L.circleMarker` — only `L.marker` supports the `draggable` option
-- Geodesic math inlined (no turf.js dependency) — keeps the pred page self-contained
-- Absolute vendor paths (`/vendor/...`) required on all sub-route pages; relative paths only work on top-level routes
-
-**Files Modified**:
-- `templates/prediction_p2p.html` — Leaflet CSS link, map row HTML, full JS rewrite of second script block
-- `static/css/style.css` — Section 13 appended (map row, legend)
-- `docs/CLAUDE.md` — session record
 
 ### Session 16: P2P Chart Polish + Contest Frequency Output Filtering
 **Date**: April 10, 2026
@@ -892,6 +896,83 @@ For questions about this project or the use of AI assistance, please refer to th
 
 ---
 
+### Session 21: Merge Recovery + Contester's Table PDF Export
+**Date**: April 13, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Restore codebase after branch merge, add "Generate Contester's Table" PDF export to P2P page
+**Duration**: 0.75 hours (15:30–16:15)
+**Status**: Complete
+
+**Activities**:
+- Resolved post-merge damage: `routes/api.py` missing `import math, os, platform, re, subprocess, uuid` (file loaded but all prediction calls crashed); `templates/both.html` missing hamburger nav; `templates/prediction.html` missing entirely; `routes/views.py` missing `/prediction`, `/prediction/p2p`, `/prediction/area` routes; `itu_r_hf/ITURHFProp/Linux/ITURHFProp` binary missing; `itu_r_hf/ITURHFProp/Data/` directory missing — all restored from `feature/prediction-page-architecture+p2p-prediction` branch via `git checkout <branch> -- <path>`
+- Fixed Session 14/15 order in CLAUDE.md (BCR/MUF chart session was listed before the mini-map session; corrected so Session 14 = mini-map 10:15–11:00, Session 15 = chart 20:30–22:30)
+- Added "Generate Contester's Table" button to P2P results action row (alongside Copy to Clipboard and Download CSV)
+- Band-selection modal: six checkboxes (160m–10m, all pre-checked), Cancel closes without generating, overlay click also closes
+- Print window opens in new tab via `window.open()` — user triggers print manually (removed auto-`win.print()` so canvas graphs have time to render)
+- Page 1: MUF & OPMUF — two side-by-side 3×13 tables (hours 1–12 / 13–24)
+- Per-band pages: two side-by-side 4×13 tables (Hour, BCR, SNR, PR in S-units) + three stacked canvas line graphs (BCR blue, SNR orange, PR green) at 500×150px each
+- PR column and PR chart both use IARU HF S-meter scale: S9 = −103 dBW, 6 dB per S-unit, clamped S0–S9 via `dBWtoS()` helper
+- `freqToIdx(mhz)` maps contest band frequencies to `bcr/snr/pr` array indices using `Math.round(mhz) - 1`, matching backend's `parse_chart_data()` logic
+- All chart data serialized as JSON embedded in print window's `<script>` block; `window.onload` draws all canvases before user prints
+
+**Key Decisions**:
+- `window.open()` + `win.document.write()` for PDF: zero dependencies, fully offline, browser Print → Save as PDF handles formatting; no jsPDF or server-side PDF library needed
+- Removed `win.print()` auto-call: canvas `drawChart()` runs in `window.onload` of the new window, but the print dialog would fire before the load event completed — user now clicks Ctrl+P/⌘P at their discretion
+- Two side-by-side 13-row table halves: guarantees fit on portrait letter regardless of font size or browser zoom
+
+**Files Modified**:
+- `templates/prediction_p2p.html` — "Generate Contester's Table" button, band-selection modal HTML, `openTableModal()` / `closeTableModal()` / `makeTableHtml()` / `generateContestersTable()`, `BAND_NAMES` constant, `freqToIdx()`, `dBWtoS()`
+- `static/css/style.css` — Section 16: table modal overlay + panel styles
+- `routes/api.py` — missing standard library imports restored
+- `routes/views.py` — prediction routes restored
+- `templates/both.html` — hamburger nav restored
+- `templates/prediction.html` — recreated from branch history
+- `itu_r_hf/ITURHFProp/Linux/ITURHFProp` — binary restored from branch
+- `itu_r_hf/ITURHFProp/Data/` — data directory restored from branch
+- `docs/CLAUDE.md` — session order fix, this session record
+
+### Session 22: Area Map PR Fix + Map Layout Overhaul
+**Date**: April 17, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Fix PR heatmap display on area map; overhaul map layout (tooltip/legend visibility, map sizing, world-edge clipping); fix PR column detection bug and contour alignment
+**Duration**: 1.5 hours (09:45–11:15)
+**Status**: Complete
+
+**Activities**:
+- Investigated compute cost of P2P vs Area predictions: P2P runs 1–2 ITURHFProp subprocess calls (~720 grid points, 120s timeout); Area runs 1 call with a global grid up to 1.57M points at 1° resolution (300s timeout) — Area is substantially heavier
+- Fixed PR heatmap showing all yellow (original bug): switched from raw dBW scale (dataMin/dataMax = -163/-103 dBW) to S-unit scale (dataMin=0, dataMax=9); S-unit formula: `S = floor(9 + (dBW + 103) / 6)`, clamped 0–9 (IARU HF standard, S9 = −103 dBW, 6 dB per S-unit); contour levels updated to `[1,2,...,8]`; legend labels to `'S0'–'S9'`; hover tooltip shows `"PR: S5 (-133.2 dBW)"` (S-unit + raw dBW in parentheses)
+- Fixed PR heatmap still all yellow after S-unit fix: `parse_area_data()` initializes the `pr` grid with `None`; in JS `null ?? dataMin` where `dataMin=0` gave 0 dBW → S26 → clamped S9 → yellow for all grid cells with no mode; fix: added `rawFallback = areaMetric === 'pr' ? -999 : dataMin` so null cells resolve to −999 dBW → S = max(0, floor(9 + (−999+103)/6)) = 0 → norm=0% → transparent; applied in both the live overlay renderer and the download PNG renderer
+- Hidden tooltip before prediction: `area-info-box` div now has `style="display:none"` on the Leaflet control container at `onAdd` time; revealed via `document.getElementById('area-info-box').style.display = ''` in the prediction response handler
+- Hidden legend before prediction: removed Leaflet legend control; replaced with a plain `#area-legend-wrapper` DOM element (sibling of `#area-map` in a flex row); `display: none` until prediction runs; dark background matching P2P legend box (`rgba(0,0,0,0.72)`, `border: 1px solid #333`, `border-radius: 4px`, `padding: 6px 8px`)
+- Map layout: wrapped `#area-map` and `#area-legend-wrapper` in `#area-map-row` flex container (`gap: 12px`); `#area-map { flex: 1; height: 500px }` matches P2P style; `#area-legend-wrapper { flex-shrink: 0; align-self: center }`
+- Map centers on TX after prediction: `areaMap.setView([txLat, txLng], 4, { animate: false })` called in prediction response handler; zoom 4 gives useful regional view
+- `lockWorldWidth()`: added `zoomSnap: 0.1`, `maxBounds: [[-90,-180],[90,180]]`, `maxBoundsViscosity: 1.0` to map init; `lockWorldWidth()` computes `minZoom = log2(containerWidth / 256)` so Mercator world width exactly fills the container — eliminates empty ocean strips on left/right; called after basemap loads, on window resize, and after legend appears; re-locks on `areaMap.invalidateSize()` when legend sidebar shifts container width
+
+**Key Decisions**:
+- S-unit scale (not dBW): ITURHFProp PR values for strong signals exceed −103 dBW (e.g. −80 dBW), which is above the old dataMax and would clamp to 100% yellow; S-units put the full usable signal range on a 0–9 scale with natural breakpoints
+- `−999 dBW` sentinel (not `dataMin=0`): a null grid cell means "no propagation mode" — it should render transparent, not as an S0 signal; −999 gives S = max(0, −149) = 0 → norm=0% → transparent; −307 "no-mode" floats already stored by the backend also resolve to S=0 transparently
+- `lockWorldWidth()` instead of fixed aspect ratio: the container width changes when the legend sidebar appears; fractional `minZoom` via `log2()` guarantees a pixel-exact fill regardless of container width
+
+- Fixed PR column detection bug in `parse_area_data()`: the column description `"Receiver latitude (deg)"` contains the word "RECEIVER", so `col_pr` was being set to the latitude column index before the actual `"Pr - Median receiver power (dB)"` column was reached; every cell rendered S9 (yellow) because latitude values -90…90° all convert to S ≥ 11 → clamped S9; fix: added `and 'POWER' in desc` so the check requires both 'RECEIVER' and 'POWER' — matches the power column but not the lat/lon columns
+- Fixed PR contour lines appearing in the middle of color bands: with `dataMax=9`, each S-unit = 11.1% of the Viridis range but the legend uses 10 blocks of 10% each — contour lines at integer S-units landed at 11.1%, 22.2%… (inside blocks) instead of at 10%, 20%… (block boundaries); fix: changed `dataMax` to `10` so each S-unit = exactly 10% of the Viridis range, and added S9 to `contourLevels` (`[1,2,3,4,5,6,7,8,9]`); now matches BCR/SNR behavior
+- Fixed PR heatmap appearing banded/blocky instead of smooth: `Math.floor()` in the S-unit conversion quantized interpolated dBW values into only 10 discrete levels; removed `Math.floor()` (now `9 + (val + 103) / 6`, still clamped 0–9) for continuous S-unit values in both live and download renderers; hover tooltip retains `Math.floor()` for integer S-unit display
+
+**Key Decisions**:
+- S-unit scale (not dBW): ITURHFProp PR values for strong signals exceed −103 dBW (e.g. −80 dBW), which is above the old dataMax and would clamp to 100% yellow; S-units put the full usable signal range on a 0–9 scale with natural breakpoints
+- `−999 dBW` sentinel (not `dataMin=0`): a null grid cell means "no propagation mode" — it should render transparent, not as an S0 signal; −999 gives S = max(0, −149) = 0 → norm=0% → transparent; −307 "no-mode" floats already stored by the backend also resolve to S=0 transparently
+- `lockWorldWidth()` instead of fixed aspect ratio: the container width changes when the legend sidebar appears; fractional `minZoom` via `log2()` guarantees a pixel-exact fill regardless of container width
+- `'POWER' in desc` guard: prevents the lat/lon columns from being confused with the PR power column; both contain 'RECEIVER' but only the power column contains 'POWER'
+- `dataMax=10` (not 9): with 9 S-unit steps and 10 Viridis blocks, using dataMax=9 caused an 11.1%/10% mismatch; dataMax=10 makes each integer S-unit boundary coincide exactly with a Viridis block boundary
+
+**Files Modified**:
+- `routes/api.py` — `parse_area_data()` col_pr detection changed from `'RECEIVER' in desc` to `'RECEIVER' in desc and 'POWER' in desc`
+- `templates/prediction_area.html` — PR S-unit conversion in overlay and download renderers; `rawFallback` null sentinel; `area-info-box` hidden until prediction; `#area-legend-wrapper` DOM sidebar replacing Leaflet control; map init with `zoomSnap`/`maxBounds`/`maxBoundsViscosity`; `lockWorldWidth()` helper; post-prediction handler (`setView`, `invalidateSize`, `lockWorldWidth`); window resize listener; `Math.floor()` removed from S-unit conversion (continuous rendering); `dataMax` changed 9→10; `contourLevels` extended to include S9
+- `static/css/style.css` — Section 13b rewritten: `#area-map-row` flex row, `#area-map` (flex:1, 500px, ocean-blue bg), `#area-legend-wrapper` (flex-shrink:0, dark bg, hidden by default), `.area-info-box` (dark bg, courier font)
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -914,6 +995,8 @@ For questions about this project or the use of AI assistance, please refer to th
 | 2.5 | April 11, 2026 | Added Session 18: area prediction page — map, form, backend, Viridis heatmap overlay, contour lines (dense sampled grid), transparent low band, time/metric/opacity/resolution controls, results export | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 2.6 | April 11, 2026 | Added Session 19: area overlay polish — viewport canvas blur fix, lon wrap fix, boundary contour, hover info box, color-bar legend, Very High 1°→2° | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 2.7 | April 12, 2026 | Added Session 20: download image (P2P + Area), grayline overlay, contest band toggles, input validation audit (Year/SSN integer checks), button placement fixes | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 2.8 | April 13, 2026 | Added Session 21: merge recovery, Contester's Table PDF export (modal, MUF/OPMUF table, per-band BCR/SNR/PR tables + canvas graphs), CLAUDE.md fixes | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 2.9 | April 17, 2026 | Added Session 22: area map PR S-unit fix, null fallback -999 sentinel, tooltip/legend hidden until prediction, dark-box legend sidebar, P2P-style windowed map (500px), lockWorldWidth() side-clip, PR column detection bug (RECEIVER+POWER fix), contour alignment (dataMax 9→10), smooth rendering (removed Math.floor) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 
