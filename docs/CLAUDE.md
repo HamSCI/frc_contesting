@@ -48,6 +48,7 @@ This documentation serves to:
 | April 12, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Download image feature (P2P + Area), grayline overlay, contest band toggles, input validation audit, button placement fixes | Liam Miller |
 | April 13, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Merge recovery (missing imports, nav, routes, binary, data files), Contester's Table PDF export (band-selection modal, MUF/OPMUF + per-band BCR/SNR/PR tables, canvas line graphs), CLAUDE.md session order fix | Liam Miller |
 | April 17, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Area map PR S-unit fix, null fallback -999 fix, map layout overhaul (tooltip/legend hidden until prediction, legend dark-box sidebar), P2P-style windowed map (500px), lockWorldWidth() side-clip, PR column detection bug fix, contour alignment fix (dataMax 9→10), smooth rendering (removed Math.floor) | Liam Miller |
+| April 19, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Contest chart: JSZip vendored, PDF/ZIP export (canvas-based, landscape, timestamped filenames, onload guard), cell height fix, band toggle fix, legend black borders, UTC labels both sides, band labels top+bottom, bold region separators in export, bold legend text | Liam Miller |
 
 ### Current Model
 
@@ -971,6 +972,33 @@ For questions about this project or the use of AI assistance, please refer to th
 - `templates/prediction_area.html` — PR S-unit conversion in overlay and download renderers; `rawFallback` null sentinel; `area-info-box` hidden until prediction; `#area-legend-wrapper` DOM sidebar replacing Leaflet control; map init with `zoomSnap`/`maxBounds`/`maxBoundsViscosity`; `lockWorldWidth()` helper; post-prediction handler (`setView`, `invalidateSize`, `lockWorldWidth`); window resize listener; `Math.floor()` removed from S-unit conversion (continuous rendering); `dataMax` changed 9→10; `contourLevels` extended to include S9
 - `static/css/style.css` — Section 13b rewritten: `#area-map-row` flex row, `#area-map` (flex:1, 500px, ocean-blue bg), `#area-legend-wrapper` (flex-shrink:0, dark bg, hidden by default), `.area-info-box` (dark bg, courier font)
 
+### Session 23: Contest Chart Export Polish + Table Layout Improvements
+**Date**: April 19, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Polish the contest chart page — offline PDF/ZIP export, table readability, and mirrored UTC/band labels
+**Duration**: 4 hours (12:00–13:30, 14:30–17:00)
+**Status**: Complete
+
+**Activities**:
+- Vendored JSZip v3.10.1 (`static/js/jszip.min.js`, ~98KB) downloaded from cdnjs — replaces previous CDN reference; ZIP export now fully offline
+- Reduced table cell height from 14px to 10px so the full chart is more compact on screen
+- Fixed PDF export: replaced DOM-clone approach with canvas-based rendering (same `renderChunkToCanvas()` as ZIP); each chunk rendered to PNG and placed as `<img width:100%; height:auto>` in `#print-area`; `@page { size: landscape; margin: 6mm }` added; `Promise.all` + `img.onload` guard ensures print dialog only opens after all images are decoded — fixed "blank first click" bug
+- Added `exportTimestamp()` helper (`YYYY-MM-DD_HHmm`): PDF sets `document.title` to timestamp before `window.print()` (browser uses page title as default PDF filename); ZIP uses timestamp in `a.download`
+- Fixed band toggle buttons: `toggleBand()` was toggling `.active` class but CSS styled `.band-label.inactive` — changed to toggle `.inactive`; removed `active` from initial button HTML; `runContest()` now selects `.band-label:not(.inactive)`
+- Added black borders to legend color blocks: `.legend-block { border-right: 1px solid #000 }` + `.legend-block-row { border: 1px solid #000 }` on screen; `ctx.strokeRect` with `lineWidth: 0.75` in canvas export
+- Fixed canvas cell width for varying band counts: `cw = Math.floor((TARGET_W - 2*uw) / cols)` so canvas always fills `TARGET_W=1036px` regardless of how many bands are selected — prevents distorted exports with fewer bands
+- Fixed UTC column right border: changed `border-right: 1px solid #333` (light grey, visible) to `border-right: 2px solid #0d0d1a` (dark, matching region separators) on both `th.utc-hdr` and `td.utc-cell`
+- Added UTC labels on both sides: right UTC `th` (rowspan=2) appended to header row 1; right UTC `td` appended to every data row; `.utc-right` CSS class overrides `position: sticky; left: 0` to `position: static` with `border-left` instead of `border-right`; canvas draws right UTC column in header, data rows, and footer
+- Added band labels at bottom: footer `<tr>` with UTC + band `<th>` cells added after row 24 in HTML table; canvas draws a `hdr2H`-tall footer row after data rows; canvas height formula updated to include `+ hdr2H` for footer
+- Preserved bold region separators in canvas export: `bands.forEach((b, bi) => ...)` — when `bi === 0`, a 2px `#0d0d1a` fill rect is drawn over the left edge of the cell; applied in band header row, all 24 data rows, and footer row
+- Made legend text bold: `font-weight: bold` added to `.legend-label-row` and `.legend-metric-label` CSS; canvas legend uses `'bold 11px "Courier New"'` for tick labels and metric label
+
+**Files Modified**:
+- `static/js/jszip.min.js` — new file (vendored JSZip v3.10.1)
+- `templates/prediction_contest.html` — all changes above (CSS, `buildChart()`, `renderChunkToCanvas()`, `exportPdf()`, `exportZip()`, `exportTimestamp()`, band toggle fix)
+- `docs/CLAUDE.md` — session record
+
 ---
 
 ## Version History
@@ -997,6 +1025,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 2.7 | April 12, 2026 | Added Session 20: download image (P2P + Area), grayline overlay, contest band toggles, input validation audit (Year/SSN integer checks), button placement fixes | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 2.8 | April 13, 2026 | Added Session 21: merge recovery, Contester's Table PDF export (modal, MUF/OPMUF table, per-band BCR/SNR/PR tables + canvas graphs), CLAUDE.md fixes | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 2.9 | April 17, 2026 | Added Session 22: area map PR S-unit fix, null fallback -999 sentinel, tooltip/legend hidden until prediction, dark-box legend sidebar, P2P-style windowed map (500px), lockWorldWidth() side-clip, PR column detection bug (RECEIVER+POWER fix), contour alignment (dataMax 9→10), smooth rendering (removed Math.floor) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 3.0 | April 19, 2026 | Added Session 23: JSZip vendored, canvas-based PDF/ZIP export, timestamped filenames, onload print guard, cell height fix, band toggle fix, legend black borders, UTC both sides, band labels top+bottom, bold region separators in export, bold legend text | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 

@@ -11,6 +11,7 @@ import platform
 import re
 import subprocess
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -20,11 +21,100 @@ api_bp = Blueprint('api', __name__)
 
 CONTEST_FREQS = [1.9, 3.6, 7.125, 14.15, 21.2, 28.3]
 
+ALL_CONTEST_BANDS = [
+    {'name': '160m', 'freq': 1.9},
+    {'name': '80m',  'freq': 3.6},
+    {'name': '40m',  'freq': 7.125},
+    {'name': '20m',  'freq': 14.15},
+    {'name': '15m',  'freq': 21.2},
+    {'name': '10m',  'freq': 28.3},
+]
+
 
 def _to_wsl(win_path):
     """Convert a Windows absolute path to its WSL /mnt/... equivalent."""
     drive, rest = os.path.splitdrive(win_path)
     return '/mnt/' + drive[0].lower() + rest.replace('\\', '/')
+
+
+def maidenhead_to_latlon(grid):
+    """Convert a 4- or 6-character Maidenhead locator to (lat, lon) center."""
+    grid = grid.strip().upper()
+    if len(grid) < 4:
+        raise ValueError(f'Grid square must be at least 4 characters: {grid}')
+    lon = (ord(grid[0]) - ord('A')) * 20 - 180
+    lat = (ord(grid[1]) - ord('A')) * 10 - 90
+    lon += int(grid[2]) * 2
+    lat += int(grid[3])
+    if len(grid) >= 6:
+        lon += (ord(grid[4]) - ord('A')) * (2.0 / 24) + (1.0 / 24)
+        lat += (ord(grid[5]) - ord('A')) * (1.0 / 24) + (0.5 / 24)
+    else:
+        lon += 1.0
+        lat += 0.5
+    return round(lat, 4), round(lon, 4)
+
+
+def _iturhfprop_paths():
+    """Return platform-specific path info needed to invoke ITURHFProp."""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    data_path  = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Data') + os.sep
+    tmp_dir    = os.path.join(project_root, 'itu_r_hf', 'tmp')
+    linux_dir  = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Linux')
+    os.makedirs(tmp_dir, exist_ok=True)
+    if platform.system() == 'Windows':
+        return {
+            'on_windows':        True,
+            'tmp_dir':           tmp_dir,
+            'wsl_exe':           _to_wsl(os.path.join(linux_dir, 'ITURHFProp')),
+            'wsl_lib':           _to_wsl(linux_dir),
+            'in_file_data_path': _to_wsl(data_path.rstrip(os.sep)) + '/',
+            'in_file_rpt_path':  _to_wsl(tmp_dir) + '/',
+        }
+    return {
+        'on_windows':        False,
+        'tmp_dir':           tmp_dir,
+        'exe_path':          os.path.join(linux_dir, 'ITURHFProp'),
+        'lib_path':          linux_dir,
+        'in_file_data_path': data_path,
+        'in_file_rpt_path':  tmp_dir + '/',
+    }
+
+
+def _exec_iturhfprop(in_content, paths, timeout=120):
+    """Write in_content to a temp .in file, run ITURHFProp, return output text."""
+    tmp_dir  = paths['tmp_dir']
+    run_id   = str(uuid.uuid4())
+    in_path  = os.path.join(tmp_dir, f'{run_id}.in')
+    out_path = os.path.join(tmp_dir, f'{run_id}.out')
+    try:
+        with open(in_path, 'w') as f:
+            f.write(in_content)
+        if paths['on_windows']:
+            wsl_in  = _to_wsl(in_path)
+            wsl_out = _to_wsl(out_path)
+            cmd = f'LD_LIBRARY_PATH={paths["wsl_lib"]} {paths["wsl_exe"]} -s {wsl_in} {wsl_out}'
+            proc = subprocess.run(['wsl', 'bash', '-c', cmd],
+                                  capture_output=True, text=True, timeout=timeout)
+        else:
+            env = os.environ.copy()
+            env['LD_LIBRARY_PATH'] = paths['lib_path'] + ':' + env.get('LD_LIBRARY_PATH', '')
+            proc = subprocess.run([paths['exe_path'], '-s', in_path, out_path],
+                                  capture_output=True, text=True, timeout=timeout, env=env)
+        if proc.returncode != 0:
+            stderr = proc.stderr.strip() or proc.stdout.strip()
+            raise RuntimeError(f'ITURHFProp exited with code {proc.returncode}: {stderr}')
+        if not os.path.exists(out_path):
+            raise RuntimeError('Output file was not created. Check input parameters.')
+        with open(out_path, 'r', errors='replace') as f:
+            return f.read()
+    finally:
+        for path in (in_path, out_path):
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except OSError:
+                pass
 
 
 def parse_chart_data(text):
@@ -322,7 +412,7 @@ def predict_p2p():
             f'Path.year {int(data["year"])}\n'
             f'Path.month {int(data["month"])}\n'
             f'Path.hour 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24\n'
-            f'Path.SSN {int(data["ssn"])}\n'
+            f'Path.SSN {float(data["ssn"])}\n'
             f'Path.frequency {freq_string}\n'
             f'Path.txpower {tx_power_dbkw}\n'
             f'Path.BW {float(data["bw"])}\n'
@@ -481,7 +571,7 @@ def predict_area():
         f'Path.year {int(data["year"])}\n'
         f'Path.month {int(data["month"])}\n'
         f'Path.hour 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24\n'
-        f'Path.SSN {int(data["ssn"])}\n'
+        f'Path.SSN {float(data["ssn"])}\n'
         f'Path.frequency {float(data["freq"])}\n'
         f'Path.txpower {tx_power_dbkw}\n'
         f'Path.BW {float(data["bw"])}\n'
@@ -562,3 +652,143 @@ def predict_area():
                     os.remove(path)
             except OSError:
                 pass
+
+
+@api_bp.route('/api/predict/contest', methods=['POST'])
+def predict_contest():
+    """
+    Run batch HF propagation predictions for multiple contest target regions.
+
+    For each target region (defined by a Maidenhead grid square), runs
+    ITURHFProp for both short and long paths at the 5 contest bands
+    (80/40/20/15/10m) and returns BCR, SNR, and PR for all 24 UTC hours.
+
+    Returns:
+        JSON: {"short": {region: {band: {bcr,snr,pr}}}, "long": {...}}
+    """
+    data = request.get_json(force=True)
+
+    required = ['tx_grid', 'targets', 'month', 'year', 'ssn', 'tx_power_w']
+    missing = [f for f in required if data.get(f) is None]
+    if missing:
+        return jsonify({'error': 'Missing fields: ' + ', '.join(missing)}), 400
+
+    targets = data['targets']
+    if not targets:
+        return jsonify({'error': 'At least one target required'}), 400
+
+    try:
+        tx_lat, tx_lng = maidenhead_to_latlon(data['tx_grid'])
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    watts = float(data['tx_power_w'])
+    if watts <= 0:
+        return jsonify({'error': 'TX Power must be greater than 0'}), 400
+    tx_power_dbkw = round(10 * math.log10(watts / 1000.0), 3)
+
+    year     = int(data['year'])
+    month    = int(data['month'])
+    ssn      = float(data['ssn'])
+    bw       = float(data.get('bw', 3000))
+    snr_req  = float(data.get('snr', 73))
+    noise    = data.get('noise_env', 'RURAL')
+    tx_gain  = float(data.get('tx_gain', 0))
+    rx_gain  = float(data.get('rx_gain', 0))
+
+    requested_bands = data.get('bands')
+    active_bands = (
+        [b for b in ALL_CONTEST_BANDS if b['name'] in requested_bands]
+        if requested_bands else ALL_CONTEST_BANDS
+    )
+    if not active_bands:
+        return jsonify({'error': 'No valid bands selected'}), 400
+
+    freq_str   = ','.join(str(b['freq']) for b in active_bands)
+    rpt_format = 'RPT_BMUF | RPT_OPMUF | RPT_BCR | RPT_SNR | RPT_PR'
+    paths      = _iturhfprop_paths()
+
+    def build_in(rx_lat, rx_lng, path_type):
+        return (
+            f'PathName "Contest Prediction"\n'
+            f'PathTXName "Transmitter"\n'
+            f'Path.L_tx.lat {tx_lat}\n'
+            f'Path.L_tx.lng {tx_lng}\n'
+            f'TXAntFilePath "ISOTROPIC"\n'
+            f'TXGOS {tx_gain}\n'
+            f'PathRXName "Receiver"\n'
+            f'Path.L_rx.lat {rx_lat}\n'
+            f'Path.L_rx.lng {rx_lng}\n'
+            f'RXAntFilePath "ISOTROPIC"\n'
+            f'RXGOS {rx_gain}\n'
+            f'AntennaOrientation "TX2RX"\n'
+            f'Path.year {year}\n'
+            f'Path.month {month}\n'
+            f'Path.hour 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24\n'
+            f'Path.SSN {ssn}\n'
+            f'Path.frequency {freq_str}\n'
+            f'Path.txpower {tx_power_dbkw}\n'
+            f'Path.BW {bw}\n'
+            f'Path.SNRr {snr_req}\n'
+            f'Path.SNRXXp 50\n'
+            f'Path.ManMadeNoise "{noise}"\n'
+            f'Path.Modulation "ANALOG"\n'
+            f'Path.SIRr 0.0\n'
+            f'Path.A 0.0\n'
+            f'Path.TW 0.0\n'
+            f'Path.FW 0.0\n'
+            f'Path.T0 0.0\n'
+            f'Path.F0 0.0\n'
+            f'Path.SorL "{path_type}"\n'
+            f'RptFileFormat "{rpt_format}"\n'
+            f'LL.lat {rx_lat}\n'
+            f'LL.lng {rx_lng}\n'
+            f'LR.lat {rx_lat}\n'
+            f'LR.lng {rx_lng}\n'
+            f'UL.lat {rx_lat}\n'
+            f'UL.lng {rx_lng}\n'
+            f'UR.lat {rx_lat}\n'
+            f'UR.lng {rx_lng}\n'
+            f'latinc 1.0\n'
+            f'lnginc 1.0\n'
+            f'DataFilePath "{paths["in_file_data_path"]}"\n'
+            f'RptFilePath "{paths["in_file_rpt_path"]}"\n'
+        )
+
+    def extract_bands(chart_data):
+        result = {}
+        for band in active_bands:
+            fi = round(band['freq']) - 1
+            result[band['name']] = {
+                'bcr': chart_data['bcr'][fi],
+                'snr': chart_data['snr'][fi],
+                'pr':  chart_data['pr'][fi],
+            }
+        return result
+
+    def run_one(target, path_type):
+        rx_lat, rx_lng = maidenhead_to_latlon(target['grid'])
+        output = _exec_iturhfprop(build_in(rx_lat, rx_lng, path_type), paths)
+        cd = parse_chart_data(output)
+        return target['name'], path_type, (extract_bands(cd) if cd else None)
+
+    short_results, long_results, warnings = {}, {}, []
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {}
+        for t in targets:
+            futures[executor.submit(run_one, t, 'SHORTPATH')] = (t['name'], 'short')
+            futures[executor.submit(run_one, t, 'LONGPATH')]  = (t['name'], 'long')
+        for future in as_completed(futures):
+            try:
+                name, path_type, band_data = future.result()
+                key = 'short' if path_type == 'SHORTPATH' else 'long'
+                (short_results if key == 'short' else long_results)[name] = band_data
+            except Exception as e:
+                tname, ptype = futures[future]
+                warnings.append(f'{tname} ({ptype.lower()}): {e}')
+
+    resp = {'short': short_results, 'long': long_results}
+    if warnings:
+        resp['warnings'] = warnings
+    return jsonify(resp)

@@ -96,3 +96,14 @@ def prediction_area():
         HTML: Rendered prediction_area.html template
     """
     return render_template("prediction_area.html")
+
+
+@views_bp.route('/prediction/contest')
+def prediction_contest():
+    """
+    Contest chart sub-page: VOACAP-style propagation grid for multiple regions.
+
+    Returns:
+        HTML: Rendered prediction_contest.html template
+    """
+    return render_template("prediction_contest.html")

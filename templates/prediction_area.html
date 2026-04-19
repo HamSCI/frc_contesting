@@ -20,6 +20,7 @@
     <a class="pred-tab-btn" href="/prediction">How To</a>
     <a class="pred-tab-btn" href="/prediction/p2p">Point to Point</a>
     <a class="pred-tab-btn active" href="/prediction/area">Area</a>
+    <a class="pred-tab-btn" href="/prediction/contest">Contest</a>
   </div>
 
   <h1 style="text-align:center; margin-top: 30px; margin-bottom: 10px;">Area</h1>
@@ -129,7 +130,7 @@
       </div>
       <div class="pred-field">
         <label>SSN / R12 (smoothed sunspot number)</label>
-        <input type="number" id="ssn" min="0" max="400" placeholder="e.g. 50">
+        <input type="number" id="ssn" min="0" max="400" step="any" placeholder="e.g. 50">
       </div>
     </div>
 
@@ -615,8 +616,8 @@
       if (txLng    && (isNaN(txLngN) || txLngN < -180 || txLngN > 180))  errors.push('TX Longitude must be \u2212180 to 180\u00b0');
       if (year     && (isNaN(Number(year)) || Number(year) % 1 !== 0 || Number(year) < 1900 || Number(year) > 2100))
         errors.push('Year must be a whole number 1900\u20132100');
-      if (ssn      && (isNaN(Number(ssn))  || Number(ssn)  % 1 !== 0 || Number(ssn)  < 0   || Number(ssn)  > 400))
-        errors.push('SSN / R12 must be a whole number 0\u2013400');
+      if (ssn      && (isNaN(Number(ssn))  || Number(ssn)  < 0   || Number(ssn)  > 400))
+        errors.push('SSN / R12 must be a number 0\u2013400');
       if (hourVal  && (isNaN(Number(hourVal)) || Number(hourVal) % 1 !== 0 || Number(hourVal) < 0 || Number(hourVal) > 23))
         errors.push('Initial Display Hour must be a whole number 0\u201323');
       if (txPow    && (isNaN(txPowN) || txPowN <= 0  || txPowN > 50000)) errors.push('TX Power must be > 0 and \u2264 50\u202f000 W');

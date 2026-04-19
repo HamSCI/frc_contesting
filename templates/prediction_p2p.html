@@ -20,6 +20,7 @@
     <a class="pred-tab-btn" href="/prediction">How To</a>
     <a class="pred-tab-btn active" href="/prediction/p2p">Point to Point</a>
     <a class="pred-tab-btn" href="/prediction/area">Area</a>
+    <a class="pred-tab-btn" href="/prediction/contest">Contest</a>
   </div>
 
   <h1 style="text-align:center; margin-top: 30px; margin-bottom: 10px;">Point to Point</h1>
@@ -117,7 +118,7 @@
       </div>
       <div class="pred-field">
         <label>SSN / R12 (smoothed sunspot number)</label>
-        <input type="number" id="ssn" min="0" max="400" placeholder="e.g. 50">
+        <input type="number" id="ssn" min="0" max="400" step="any" placeholder="e.g. 50">
       </div>
     </div>
 
@@ -210,27 +211,8 @@
       <div class="results-actions">
         <button class="run-btn" onclick="copyResults(event)">Copy to Clipboard</button>
         <button class="run-btn" onclick="downloadCsv()">Download CSV</button>
-        <button class="run-btn" onclick="openTableModal()">Generate Contester's Table</button>
       </div>
       <pre id="results-pre"></pre>
-    </div>
-  </div>
-
-  <div id="table-modal-overlay" onclick="closeTableModal()"></div>
-  <div id="table-modal">
-    <h3>Generate Contester's Table</h3>
-    <p>Select bands to include:</p>
-    <div class="table-modal-bands">
-      <label><input type="checkbox" class="table-band-cb" value="1.9"   checked> 160m (1.9 MHz)</label>
-      <label><input type="checkbox" class="table-band-cb" value="3.6"   checked> 80m (3.6 MHz)</label>
-      <label><input type="checkbox" class="table-band-cb" value="7.125" checked> 40m (7.125 MHz)</label>
-      <label><input type="checkbox" class="table-band-cb" value="14.15" checked> 20m (14.15 MHz)</label>
-      <label><input type="checkbox" class="table-band-cb" value="21.2"  checked> 15m (21.2 MHz)</label>
-      <label><input type="checkbox" class="table-band-cb" value="28.3"  checked> 10m (28.3 MHz)</label>
-    </div>
-    <div class="table-modal-actions">
-      <button class="run-btn" onclick="generateContestersTable()">Generate</button>
-      <button class="run-btn" onclick="closeTableModal()">Cancel</button>
     </div>
   </div>
 
@@ -309,8 +291,8 @@
       if (rxLng && (isNaN(rxLngN) || rxLngN < -180 || rxLngN > 180))  errors.push('RX Longitude must be \u2212180 to 180\u00b0');
       if (year  && (isNaN(Number(year)) || Number(year) % 1 !== 0 || Number(year) < 1900 || Number(year) > 2100))
         errors.push('Year must be a whole number 1900\u20132100');
-      if (ssn   && (isNaN(Number(ssn))  || Number(ssn)  % 1 !== 0 || Number(ssn)  < 0   || Number(ssn)  > 400))
-        errors.push('SSN / R12 must be a whole number 0\u2013400');
+      if (ssn   && (isNaN(Number(ssn))  || Number(ssn)  < 0   || Number(ssn)  > 400))
+        errors.push('SSN / R12 must be a number 0\u2013400');
       if (txPow && (isNaN(txPowN) || txPowN <= 0  || txPowN > 50000)) errors.push('TX Power must be > 0 and \u2264 50\u202f000 W');
       if (freqMode === 'single' && singleFreq) {
         const sfN = parseFloat(singleFreq);
@@ -1079,163 +1061,6 @@
       document.getElementById(id).addEventListener('input', updateMarkers);
     });
 
-    // =====================================================================
-    // Contester's Table
-    // =====================================================================
-    function openTableModal() {
-      if (!lastChartData) return;
-      document.getElementById('table-modal-overlay').classList.add('open');
-      document.getElementById('table-modal').classList.add('open');
-    }
-    function closeTableModal() {
-      document.getElementById('table-modal-overlay').classList.remove('open');
-      document.getElementById('table-modal').classList.remove('open');
-    }
-
-    function makeTableHtml(title, cols) {
-      function half(start, end) {
-        let h = `<table><thead><tr>${cols.map(c => `<th>${c.head}</th>`).join('')}</tr></thead><tbody>`;
-        for (let i = start; i < end; i++) {
-          h += `<tr>${cols.map(c => `<td>${c.vals[i] ?? '\u2014'}</td>`).join('')}</tr>`;
-        }
-        return h + '</tbody></table>';
-      }
-      return `<div class="ct-page">
-        <h2>${title}</h2>
-        <div class="ct-tables">${half(0, 12)}${half(12, 24)}</div>
-      </div>`;
-    }
-
-    function generateContestersTable() {
-      closeTableModal();
-      const cd     = lastChartData;
-      const fmt1   = v => v == null ? '\u2014' : v.toFixed(1);
-      const fmtPct = v => v == null ? '\u2014' : v.toFixed(1) + '%';
-      const fmtSnr = v => v == null ? '\u2014' : v.toFixed(1) + ' dB';
-      const fmtPr  = v => dBWtoS(v);
-      const hours  = Array.from({length: 24}, (_, i) => String(i + 1));
-
-      // Page 1: MUF / OPMUF (table only, no charts)
-      let html = makeTableHtml('MUF &amp; OPMUF', [
-        { head: 'Hour (UTC)',  vals: hours },
-        { head: 'MUF (MHz)',   vals: cd.bmuf.map(fmt1) },
-        { head: 'OPMUF (MHz)', vals: cd.opmuf.map(fmt1) },
-      ]);
-
-      // Band pages: table + 3 canvas charts each
-      const selected = [...document.querySelectorAll('.table-band-cb:checked')]
-        .map(cb => parseFloat(cb.value));
-      const allChartData = {};
-
-      for (const freq of selected) {
-        const fi   = freqToIdx(freq);
-        const name = BAND_NAMES[String(freq)] || (freq + ' MHz');
-
-        // Build table halves inline (same logic as makeTableHtml)
-        const cols = [
-          { head: 'Hour (UTC)', vals: hours },
-          { head: 'BCR',        vals: cd.bcr[fi].map(fmtPct) },
-          { head: 'SNR',        vals: cd.snr[fi].map(fmtSnr) },
-          { head: 'PR (S)',     vals: cd.pr[fi].map(fmtPr)  },
-        ];
-        const half = (s, e) => {
-          let h = `<table><thead><tr>${cols.map(c => `<th>${c.head}</th>`).join('')}</tr></thead><tbody>`;
-          for (let i = s; i < e; i++)
-            h += `<tr>${cols.map(c => `<td>${c.vals[i] ?? '\u2014'}</td>`).join('')}</tr>`;
-          return h + '</tbody></table>';
-        };
-
-        html += `<div class="ct-page">
-          <h2>${name} \u2014 ${freq} MHz</h2>
-          <div class="ct-tables">${half(0, 12)}${half(12, 24)}</div>
-          <div class="ct-charts">
-            <canvas id="c-bcr-${fi}" width="500" height="150"></canvas>
-            <canvas id="c-snr-${fi}" width="500" height="150"></canvas>
-            <canvas id="c-pr-${fi}"  width="500" height="150"></canvas>
-          </div>
-        </div>`;
-
-        // Raw data for chart script (PR converted to S-units 0–9)
-        allChartData[fi] = {
-          bcr: cd.bcr[fi],
-          snr: cd.snr[fi],
-          pr:  cd.pr[fi].map(v => v == null ? null : Math.max(0, Math.min(9, Math.floor(9 + (v + 103) / 6)))),
-        };
-      }
-
-      // Chart drawing script embedded in the print window
-      const chartScript = `<script>
-window.onload = function() {
-  var data = ${JSON.stringify(allChartData)};
-  function drawChart(id, vals, color, title, yMin, yMax, yFmt) {
-    var c = document.getElementById(id);
-    if (!c) return;
-    var ctx = c.getContext('2d');
-    var W = c.width, H = c.height;
-    var ML = 44, MR = 14, MT = 22, MB = 28;
-    var pw = W - ML - MR, ph = H - MT - MB;
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#333'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
-    ctx.fillText(title, W / 2, 13);
-    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 0.5;
-    for (var i = 0; i <= 4; i++) {
-      var y = MT + (i / 4) * ph;
-      ctx.beginPath(); ctx.moveTo(ML, y); ctx.lineTo(ML + pw, y); ctx.stroke();
-    }
-    ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(ML, MT); ctx.lineTo(ML, MT + ph); ctx.lineTo(ML + pw, MT + ph); ctx.stroke();
-    ctx.fillStyle = '#555'; ctx.font = '8px Arial'; ctx.textAlign = 'right';
-    for (var i = 0; i <= 4; i++) {
-      var val = yMax - (i / 4) * (yMax - yMin);
-      ctx.fillText(yFmt(val), ML - 3, MT + (i / 4) * ph + 3);
-    }
-    ctx.fillStyle = '#555'; ctx.textAlign = 'center';
-    [1, 7, 13, 19, 24].forEach(function(h) {
-      var x = ML + ((h - 1) / 23) * pw;
-      ctx.fillText(h, x, MT + ph + 14);
-    });
-    ctx.fillStyle = '#888'; ctx.font = '7px Arial';
-    ctx.fillText('Hour UTC', ML + pw / 2, MT + ph + 23);
-    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
-    var started = false;
-    for (var i = 0; i < 24; i++) {
-      if (vals[i] == null) { started = false; continue; }
-      var x = ML + (i / 23) * pw;
-      var y = MT + ph - Math.max(0, Math.min(1, (vals[i] - yMin) / (yMax - yMin))) * ph;
-      if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
-    }
-    ctx.stroke();
-  }
-  Object.keys(data).forEach(function(fi) {
-    var d = data[fi];
-    drawChart('c-bcr-' + fi, d.bcr, '#2196F3', 'BCR',        0,   100, function(v) { return Math.round(v) + '%'; });
-    drawChart('c-snr-' + fi, d.snr, '#FF9800', 'SNR',       -30,   60, function(v) { return Math.round(v); });
-    drawChart('c-pr-'  + fi, d.pr,  '#4CAF50', 'PR (S-Units)', 0,    9, function(v) { return 'S' + Math.round(v); });
-  });
-};
-</` + `script>`;
-
-      const win = window.open('', '_blank');
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Contester's Table</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; }
-  h2   { font-size: 13px; margin: 0 0 6px; text-align: center; }
-  .ct-page            { page-break-after: always; padding: 20px; box-sizing: border-box; }
-  .ct-page:last-child { page-break-after: auto; }
-  .ct-tables          { display: flex; gap: 24px; justify-content: center; }
-  .ct-charts          { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 12px; }
-  .ct-charts canvas   { border: 1px solid #ccc; }
-  table               { border-collapse: collapse; }
-  th, td              { border: 1px solid #555; padding: 3px 8px; text-align: center; white-space: nowrap; }
-  th                  { background: #222; color: #fff; }
-  tr:nth-child(even) td { background: #f5f5f5; }
-  @page               { size: letter portrait; margin: 0.5in; }
-</style>
-${chartScript}</head><body>${html}</body></html>`);
-      win.document.close();
-      win.focus();
-    }
   </script>
 
 </body>

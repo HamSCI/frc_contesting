@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prediction — Contest Chart</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/jszip.min.js"></script>
+  <style>
+    /* ===== Contest Chart page styles ===== */
+    .contest-section      { max-width: 900px; margin: 0 auto 24px; padding: 0 16px; }
+    .contest-section h2   { color: #000; font-size: 15px; margin: 0 0 10px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+    #contest-results      { max-width: none; }
+    #contest-results > h2 { text-align: center; }
+
+    /* Metric toggle */
+    .contest-metric-row   { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+    .contest-metric-row span { color: #000; font-size: 12px; }
+
+    /* Band toggle row */
+    .contest-band-row     { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+    /* Target table */
+    .target-table         { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .target-table th      { background: #1e1e2e; color: #aaa; font-size: 11px; font-weight: normal;
+                            text-align: left; padding: 5px 8px; border-bottom: 1px solid #333; }
+    .target-table td      { padding: 4px 6px; border-bottom: 1px solid #2a2a3a; vertical-align: middle; }
+    .target-table td.cb-cell { text-align: center; width: 28px; }
+    .target-table input[type="text"]   { background: #fff; border: 1px solid #ccc; color: #333;
+                            border-radius: 3px; padding: 3px 6px; font-size: 12px; width: 72px;
+                            text-transform: uppercase; font-family: courier; }
+    .target-table input[type="text"]:focus { outline: none; border-color: #00aaff; }
+    .target-table .name-input { width: 120px !important; }
+    .btn-remove           { background: none; border: none; color: #c44; cursor: pointer; font-size: 14px; padding: 0 4px; }
+    .btn-remove:hover     { color: #f66; }
+    .btn-add-target       { background: #1e1e2e; border: 1px solid #444; color: #aaa;
+                            border-radius: 4px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+                            margin-top: 8px; }
+    .btn-add-target:hover { border-color: #4a90d9; color: #e0e0e0; }
+
+    /* Run button row */
+    .contest-run-row      { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    #contest-error        { color: #f66; font-size: 13px; }
+    #contest-loading      { color: #000; font-size: 13px; display: none; }
+
+    /* Chart tables */
+    .contest-chart-wrap   { overflow-x: auto; margin-top: 8px; }
+    .contest-chart-title  { color: #000; font-size: 18px; font-weight: bold; margin: 16px 0 6px; text-align: center; }
+    table.cg              { border-collapse: collapse; font-size: 9px; white-space: nowrap; }
+    table.cg th.utc-hdr   { background: #1a1a2a; color: #fff; font-size: 9px; font-weight: normal;
+                            padding: 2px 3px; position: sticky; left: 0; z-index: 2;
+                            border-right: 2px solid #0d0d1a; width: 26px; max-width: 26px; }
+    table.cg th.rgn-hdr   { background: #1a1a2a; color: #fff; font-size: 10px; padding: 3px 4px;
+                            border-left: 2px solid #0d0d1a; border-bottom: 1px solid #444;
+                            text-align: center; }
+    table.cg th.band-hdr  { background: #131320; color: #fff; font-size: 8px; font-weight: normal;
+                            padding: 2px 3px; text-align: center; border-left: 1px solid #222;
+                            min-width: 22px; }
+    table.cg td.utc-cell  { background: #1a1a2a; color: #fff; font-size: 9px; text-align: center;
+                            padding: 1px 2px; position: sticky; left: 0; z-index: 1;
+                            border-right: 2px solid #0d0d1a; width: 26px; max-width: 26px; }
+    table.cg th.utc-hdr.utc-right,
+    table.cg td.utc-cell.utc-right { position: static; border-right: none; border-left: 2px solid #0d0d1a; }
+    table.cg td.data-cell { width: 28px; height: 10px; border-left: 1px solid rgba(0,0,0,0.3);
+                            cursor: default; }
+    table.cg td.data-cell.rgn-start { border-left: 2px solid #0d0d1a; }
+    .chart-container > .chart-chunk:not(:first-child) { margin-top: 20px; }
+
+    /* Cell tooltip */
+    #cell-tip {
+      position: fixed; background: #1e1e2e; color: #fff; font-size: 11px;
+      font-family: courier; padding: 4px 8px; border-radius: 3px;
+      border: 1px solid #444; pointer-events: none; display: none;
+      white-space: nowrap; z-index: 9999;
+    }
+
+    /* Legend */
+    .contest-legend-wrap  { margin: 12px auto 0; max-width: 460px; }
+    .legend-block-row     { display: flex; height: 26px; border: 1px solid #000; border-radius: 3px; overflow: hidden; }
+    .legend-block         { flex: 1; border-right: 1px solid #000; }
+    .legend-block:last-child { border-right: none; }
+    .legend-label-row     { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: #000; font-weight: bold; }
+    .legend-metric-label  { font-size: 11px; color: #000; margin-top: 6px; text-align: center; font-weight: bold; }
+
+    /* Print / PDF export */
+    #print-area { display: none; }
+    @media print {
+      @page { size: landscape; margin: 6mm; }
+      html, body                { margin: 0 !important; padding: 0 !important; height: auto !important; }
+      body > *:not(#print-area) { display: none !important; height: 0 !important; overflow: hidden !important; }
+      #print-area               { display: block !important; margin: 0; padding: 0; }
+      #print-area img           { display: block; width: 100%; height: auto;
+                                  page-break-after: always; break-after: page; }
+      #print-area img:last-child{ page-break-after: avoid; break-after: avoid; }
+    }
+  </style>
+</head>
+
+<body class="pred-page">
+
+  <button id="hamburger-btn" onclick="toggleNav()">&#9776;</button>
+  <div id="nav-overlay" onclick="closeNav()"></div>
+  <nav id="nav-panel">
+    <a href="/">Spots</a>
+    <a href="/prediction">Prediction</a>
+  </nav>
+
+  <div class="pred-tabs">
+    <a class="pred-tab-btn" href="/prediction">How To</a>
+    <a class="pred-tab-btn" href="/prediction/p2p">Point to Point</a>
+    <a class="pred-tab-btn" href="/prediction/area">Area</a>
+    <a class="pred-tab-btn active" href="/prediction/contest">Contest</a>
+  </div>
+
+  <h1 style="text-align:center; margin-top:30px; margin-bottom:20px;">Contest Chart</h1>
+
+  <!-- ===== Configuration + Targets ===== -->
+  <div class="pred-form">
+
+    <h2>Configuration</h2>
+    <div class="pred-form-grid">
+      <div class="pred-field">
+        <label>TX Grid Square (Maidenhead)</label>
+        <input type="text" id="tx_grid" maxlength="6" placeholder="e.g. FN21" style="text-transform:uppercase;">
+      </div>
+      <div class="pred-field">
+        <label>TX Power (Watts)</label>
+        <input type="number" id="tx_power" min="0.001" step="any" value="100" placeholder="100">
+      </div>
+      <div class="pred-field">
+        <label>Month</label>
+        <select id="month">
+          <option value="">— select —</option>
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
+      <div class="pred-field">
+        <label>Year</label>
+        <input type="number" id="year" min="1900" max="2100" placeholder="e.g. 2026">
+      </div>
+      <div class="pred-field">
+        <label>SSN / R12 (smoothed sunspot number)</label>
+        <input type="number" id="ssn" min="0" max="400" step="any" placeholder="e.g. 50">
+      </div>
+      <div class="pred-field">
+        <label>Signal Type</label>
+        <select id="signal_type">
+          <option value="rtty" data-bw="300"  data-snr="10" selected>RTTY (BW: 300 Hz / SNR: 10 dB)</option>
+          <option value="cw"   data-bw="500"  data-snr="0">CW (BW: 500 Hz / SNR: 0 dB)</option>
+          <option value="ssbu" data-bw="3000" data-snr="6">SSB Usable (BW: 3000 Hz / SNR: 6 dB)</option>
+          <option value="ssbm" data-bw="3000" data-snr="15">SSB Marginal (BW: 3000 Hz / SNR: 15 dB)</option>
+          <option value="ft8"  data-bw="50"   data-snr="-3">FT8 (BW: 50 Hz / SNR: -3 dB)</option>
+        </select>
+      </div>
+      <div class="pred-field">
+        <label>Noise Environment</label>
+        <select id="noise_env">
+          <option value="CITY">City (~73 dB)</option>
+          <option value="RESIDENTIAL">Residential (~62 dB)</option>
+          <option value="RURAL" selected>Rural (~53 dB)</option>
+          <option value="QUIETRURAL">Quiet Rural (~43 dB)</option>
+          <option value="QUIET">Quiet (galactic noise only)</option>
+          <option value="NOISY">Noisy</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Band selection -->
+    <div style="margin-top:16px;">
+      <div class="pred-field" style="flex-direction:row; align-items:center; gap:12px; flex-wrap:wrap;">
+        <label style="white-space:nowrap;">Bands:</label>
+        <div class="contest-band-row" id="band-toggle-row">
+          <button class="band-label" data-band="160m" onclick="toggleBand(this)">160m</button>
+          <button class="band-label" data-band="80m"  onclick="toggleBand(this)">80m</button>
+          <button class="band-label" data-band="40m"  onclick="toggleBand(this)">40m</button>
+          <button class="band-label" data-band="20m"  onclick="toggleBand(this)">20m</button>
+          <button class="band-label" data-band="15m"  onclick="toggleBand(this)">15m</button>
+          <button class="band-label" data-band="10m"  onclick="toggleBand(this)">10m</button>
+        </div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:24px;">Target Regions</h2>
+    <table class="target-table" id="target-table">
+      <thead>
+        <tr>
+          <th style="width:28px;"></th>
+          <th>Region Name</th>
+          <th>Grid Square</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="target-tbody"></tbody>
+    </table>
+    <button class="btn-add-target" onclick="addTarget()">+ Add Region</button>
+
+  </div>
+
+  <!-- ===== Run ===== -->
+  <div class="contest-section">
+    <div class="contest-run-row">
+      <button class="run-btn" id="run-btn" onclick="runContest()">Generate Contest Chart</button>
+      <button class="run-btn" id="btn-pdf" onclick="exportPdf()" style="display:none;">Download PDF</button>
+      <button class="run-btn" id="btn-zip" onclick="exportZip()" style="display:none;">Download Images</button>
+      <span id="contest-loading">Running predictions&hellip;</span>
+      <span id="contest-error"></span>
+    </div>
+  </div>
+
+  <!-- ===== Results ===== -->
+  <div class="contest-section" id="contest-results" style="display:none;">
+    <h2>Results</h2>
+
+    <div class="contest-metric-row" style="margin-bottom:16px;">
+      <span>Display metric:</span>
+      <button class="muf-toggle-btn active" id="btn-bcr" onclick="setMetric('bcr')">BCR %</button>
+      <button class="muf-toggle-btn"        id="btn-snr" onclick="setMetric('snr')">SNR dB</button>
+      <button class="muf-toggle-btn"        id="btn-pr"  onclick="setMetric('pr')">PR S-unit</button>
+    </div>
+
+    <div class="chart-container" id="chart-short"></div>
+    <div class="chart-container" id="chart-long" style="margin-top:32px;"></div>
+  </div>
+
+  <script>
+    // --- Nav ---
+    function toggleNav() {
+      document.getElementById('nav-panel').classList.toggle('open');
+      document.getElementById('nav-overlay').classList.toggle('open');
+    }
+    function closeNav() {
+      document.getElementById('nav-panel').classList.remove('open');
+      document.getElementById('nav-overlay').classList.remove('open');
+    }
+
+    // =====================================================================
+    // Default targets (from AA3B WPX RTTY 2026 Operating Aids)
+    // =====================================================================
+    let targets = [
+      { name: 'Europe',       grid: 'JO62rp', checked: true, isDefault: true },
+      { name: 'Caribbean',    grid: 'FK96bw', checked: true, isDefault: true },
+      { name: 'S. America',   grid: 'GG66rj', checked: true, isDefault: true },
+      { name: 'Africa',       grid: 'JG87nm', checked: true, isDefault: true },
+      { name: 'Australia',    grid: 'PG74uo', checked: true, isDefault: true },
+      { name: 'Indonesia',    grid: 'OI33ho', checked: true, isDefault: true },
+      { name: 'Japan',        grid: 'PM95uq', checked: true, isDefault: true },
+      { name: 'China',        grid: 'OM14tc', checked: true, isDefault: true },
+      { name: 'Asia. Russia', grid: 'MO05td', checked: true, isDefault: true },
+      { name: 'India',        grid: 'ML88po', checked: true, isDefault: true },
+      { name: 'Middle East',  grid: 'LL55og', checked: true, isDefault: true },
+      { name: 'Thailand',     grid: 'OK03ht', checked: true, isDefault: true },
+    ];
+
+    const ALL_BAND_ORDER = ['160m', '80m', '40m', '20m', '15m', '10m'];
+
+    // Canvas rendering constants (used by exportZip)
+    const CELL_W = 28, CELL_H = 10, UTC_W = 26;
+    const TITLE_H = 28, HDR1_H = 18, HDR2_H = 14, PAD = 8, LEG_H = 50;
+
+    let lastContestData = null;
+    let currentMetric   = 'bcr';
+
+    // =====================================================================
+    // Band toggle
+    // =====================================================================
+    function toggleBand(btn) {
+      btn.classList.toggle('inactive');
+    }
+
+    // =====================================================================
+    // Target list UI
+    // =====================================================================
+    function renderTargetList() {
+      const tbody = document.getElementById('target-tbody');
+      tbody.innerHTML = '';
+      targets.forEach((t, i) => {
+        const tr = document.createElement('tr');
+        const removeBtn = t.isDefault
+          ? ''
+          : `<button class="btn-remove" onclick="removeTarget(${i})" title="Remove">&#10005;</button>`;
+        tr.innerHTML = `
+          <td class="cb-cell">
+            <input type="checkbox" ${t.checked ? 'checked' : ''}
+                   onchange="toggleTarget(${i}, this.checked)">
+          </td>
+          <td><input class="name-input" type="text" value="${t.name}"
+                     oninput="targets[${i}].name = this.value"></td>
+          <td><input type="text" maxlength="6" value="${t.grid}" style="text-transform:uppercase"
+                     oninput="targets[${i}].grid = this.value.toUpperCase()"></td>
+          <td>${removeBtn}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function toggleTarget(idx, checked) {
+      targets[idx].checked = checked;
+      if (lastContestData) renderCharts();
+    }
+
+    function addTarget() {
+      targets.push({ name: 'New Region', grid: '', checked: true, isDefault: false });
+      renderTargetList();
+    }
+
+    function removeTarget(idx) {
+      targets.splice(idx, 1);
+      renderTargetList();
+      if (lastContestData) renderCharts();
+    }
+
+    // =====================================================================
+    // Viridis colormap (stop 0 = white for lowest values)
+    // =====================================================================
+    const VIRIDIS_STOPS = [
+      [  0, [255, 255, 255]],
+      [ 10, [ 72,  36, 116]],
+      [ 20, [ 64,  66, 134]],
+      [ 30, [ 53,  95, 141]],
+      [ 40, [ 42, 120, 142]],
+      [ 50, [ 35, 144, 140]],
+      [ 60, [ 40, 168, 131]],
+      [ 70, [ 70, 190, 111]],
+      [ 80, [124, 209,  79]],
+      [ 90, [188, 223,  42]],
+      [100, [253, 231,  37]],
+    ];
+
+    function viridisRgb(pct) {
+      pct = Math.max(0, Math.min(100, pct));
+      let lo = VIRIDIS_STOPS[0], hi = VIRIDIS_STOPS[VIRIDIS_STOPS.length - 1];
+      for (let i = 0; i < VIRIDIS_STOPS.length - 1; i++) {
+        if (pct >= VIRIDIS_STOPS[i][0] && pct <= VIRIDIS_STOPS[i + 1][0]) {
+          lo = VIRIDIS_STOPS[i]; hi = VIRIDIS_STOPS[i + 1]; break;
+        }
+      }
+      const t = lo[0] === hi[0] ? 0 : (pct - lo[0]) / (hi[0] - lo[0]);
+      return [
+        Math.round(lo[1][0] + t * (hi[1][0] - lo[1][0])),
+        Math.round(lo[1][1] + t * (hi[1][1] - lo[1][1])),
+        Math.round(lo[1][2] + t * (hi[1][2] - lo[1][2])),
+      ];
+    }
+
+    function viridisColor(pct) {
+      const [r, g, b] = viridisRgb(pct);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    // =====================================================================
+    // Metric normalization (→ 0–100 for viridis)
+    // =====================================================================
+    const METRIC_CONFIG = {
+      bcr: { min: 0,   max: 100, unit: '%',
+             fmt: v => v == null ? null : v.toFixed(0) + '%',
+             norm: v => v == null ? null : Math.max(0, Math.min(100, v)) },
+      snr: { min: -30, max: 60,  unit: 'dB',
+             fmt: v => v == null ? null : v.toFixed(1) + ' dB',
+             norm: v => v == null ? null : Math.max(0, Math.min(100, (v + 30) / 90 * 100)) },
+      pr:  { min: 0,   max: 9,   unit: 'S',
+             fmt: v => {
+               if (v == null) return null;
+               const s = Math.max(0, Math.min(9, Math.floor(9 + (v + 103) / 6)));
+               return 'S' + s + ' (' + v.toFixed(1) + ' dBW)';
+             },
+             norm: v => {
+               if (v == null) return null;
+               const s = Math.max(0, Math.min(9, 9 + (v + 103) / 6));
+               return s / 10 * 100;
+             }},
+    };
+
+    // =====================================================================
+    // Chart rendering
+    // =====================================================================
+    function buildChart(containerEl, pathData, pathLabel) {
+      containerEl.innerHTML = '';
+      const mc = METRIC_CONFIG[currentMetric];
+
+      // Derive band list from response data in canonical order
+      const firstChecked = targets.find(t => t.checked && pathData[t.name]);
+      const bands = firstChecked
+        ? ALL_BAND_ORDER.filter(b => pathData[firstChecked.name][b] !== undefined)
+        : [];
+
+      const tgts = targets.filter(t => t.checked && pathData[t.name]);
+
+      if (!tgts.length || !bands.length) {
+        containerEl.innerHTML = '<p style="color:#666;padding:8px;">No data</p>';
+        return;
+      }
+
+      // Split into chunks of up to 6 regions per table
+      for (let ci = 0; ci < tgts.length; ci += 6) {
+        const chunk = tgts.slice(ci, ci + 6);
+        const tableEl = document.createElement('table');
+        tableEl.className = 'cg';
+
+        // Header row 1: region names spanning band columns
+        const hdr1 = document.createElement('tr');
+        const utcTh = document.createElement('th');
+        utcTh.className   = 'utc-hdr';
+        utcTh.rowSpan     = 2;
+        utcTh.textContent = 'UTC';
+        hdr1.appendChild(utcTh);
+        chunk.forEach(t => {
+          const th = document.createElement('th');
+          th.className   = 'rgn-hdr';
+          th.colSpan     = bands.length;
+          th.textContent = t.name;
+          hdr1.appendChild(th);
+        });
+        const utcThRight = document.createElement('th');
+        utcThRight.className   = 'utc-hdr utc-right';
+        utcThRight.rowSpan     = 2;
+        utcThRight.textContent = 'UTC';
+        hdr1.appendChild(utcThRight);
+        tableEl.appendChild(hdr1);
+
+        // Header row 2: band names
+        const hdr2 = document.createElement('tr');
+        chunk.forEach(() => {
+          bands.forEach(b => {
+            const th = document.createElement('th');
+            th.className   = 'band-hdr';
+            th.textContent = b.replace('m', '');
+            hdr2.appendChild(th);
+          });
+        });
+        tableEl.appendChild(hdr2);
+
+        // Data rows: UTC 01–24
+        for (let hi = 0; hi < 24; hi++) {
+          const tr = document.createElement('tr');
+          const utcTd = document.createElement('td');
+          utcTd.className   = 'utc-cell';
+          utcTd.textContent = String(hi + 1).padStart(2, '0');
+          tr.appendChild(utcTd);
+
+          chunk.forEach(t => {
+            const tData = pathData[t.name];
+            bands.forEach((b, bi) => {
+              const td = document.createElement('td');
+              td.className = 'data-cell' + (bi === 0 ? ' rgn-start' : '');
+
+              const bandData = tData ? tData[b] : null;
+              const raw  = bandData ? bandData[currentMetric][hi] : null;
+              const norm = mc.norm(raw);
+
+              if (norm == null) {
+                td.style.background = '#0a0a14';
+                td.dataset.tip = `${t.name} \u00b7 ${b} \u00b7 ${String(hi+1).padStart(2,'0')} UTC: \u2014`;
+              } else {
+                td.style.background = viridisColor(Math.min(9, Math.floor(Math.round(norm) / 10)) * (100 / 9));
+                td.dataset.tip = `${t.name} \u00b7 ${b} \u00b7 ${String(hi+1).padStart(2,'0')} UTC: ${mc.fmt(raw)}`;
+              }
+              tr.appendChild(td);
+            });
+          });
+          const utcTdRight = document.createElement('td');
+          utcTdRight.className   = 'utc-cell utc-right';
+          utcTdRight.textContent = String(hi + 1).padStart(2, '0');
+          tr.appendChild(utcTdRight);
+          tableEl.appendChild(tr);
+        }
+
+        // Footer row: band labels mirroring header + UTC on both sides
+        const footRow = document.createElement('tr');
+        const utcFootLeft = document.createElement('th');
+        utcFootLeft.className   = 'utc-hdr';
+        utcFootLeft.textContent = 'UTC';
+        footRow.appendChild(utcFootLeft);
+        chunk.forEach(() => {
+          bands.forEach(b => {
+            const th = document.createElement('th');
+            th.className   = 'band-hdr';
+            th.textContent = b.replace('m', '');
+            footRow.appendChild(th);
+          });
+        });
+        const utcFootRight = document.createElement('th');
+        utcFootRight.className   = 'utc-hdr utc-right';
+        utcFootRight.textContent = 'UTC';
+        footRow.appendChild(utcFootRight);
+        tableEl.appendChild(footRow);
+
+        const chunkDiv = document.createElement('div');
+        chunkDiv.className = 'chart-chunk';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'contest-chart-title';
+        titleEl.textContent = pathLabel;
+        chunkDiv.appendChild(titleEl);
+
+        const wrapEl = document.createElement('div');
+        wrapEl.className = 'contest-chart-wrap';
+        wrapEl.appendChild(tableEl);
+        chunkDiv.appendChild(wrapEl);
+
+        chunkDiv.appendChild(buildLegendEl());
+        containerEl.appendChild(chunkDiv);
+      }
+    }
+
+    function renderCharts() {
+      if (!lastContestData) return;
+      buildChart(document.getElementById('chart-short'), lastContestData.short, 'Short Path');
+      buildChart(document.getElementById('chart-long'),  lastContestData.long,  'Long Path');
+    }
+
+    // =====================================================================
+    // Legend — returns a populated .contest-legend-wrap element
+    // =====================================================================
+    function buildLegendEl() {
+      const mc = METRIC_CONFIG[currentMetric];
+      const wrap = document.createElement('div');
+      wrap.className = 'contest-legend-wrap';
+
+      const blocksEl = document.createElement('div');
+      blocksEl.className = 'legend-block-row';
+      for (let i = 0; i < 10; i++) {
+        const block = document.createElement('div');
+        block.className = 'legend-block';
+        block.style.background = viridisColor(i * (100 / 9));
+        blocksEl.appendChild(block);
+      }
+      wrap.appendChild(blocksEl);
+
+      const labelsEl = document.createElement('div');
+      labelsEl.className = 'legend-label-row';
+      for (let i = 0; i <= 10; i++) {
+        const pct = i * 10;
+        const val = mc.min + (pct / 100) * (mc.max - mc.min);
+        const span = document.createElement('span');
+        if (currentMetric === 'bcr')      span.textContent = Math.round(val) + '%';
+        else if (currentMetric === 'snr') span.textContent = (val > 0 ? '+' : '') + Math.round(val);
+        else                              span.textContent = 'S' + Math.max(0, Math.min(9, Math.round(val)));
+        labelsEl.appendChild(span);
+      }
+      wrap.appendChild(labelsEl);
+
+      const metricLbl = document.createElement('div');
+      metricLbl.className = 'legend-metric-label';
+      metricLbl.textContent = currentMetric === 'bcr' ? 'Circuit Reliability (BCR)' :
+                              currentMetric === 'snr' ? 'Signal-to-Noise Ratio (SNR, dB)' :
+                                                        'Received Power (PR, S-units)';
+      wrap.appendChild(metricLbl);
+      return wrap;
+    }
+
+    // =====================================================================
+    // Metric toggle
+    // =====================================================================
+    function setMetric(m) {
+      currentMetric = m;
+      ['bcr', 'snr', 'pr'].forEach(id => {
+        document.getElementById('btn-' + id).classList.toggle('active', id === m);
+      });
+      if (lastContestData) renderCharts();
+    }
+
+    // =====================================================================
+    // Run contest prediction
+    // =====================================================================
+    async function runContest() {
+      const errEl  = document.getElementById('contest-error');
+      const loadEl = document.getElementById('contest-loading');
+      errEl.innerHTML = '';
+
+      const errors = [];
+
+      const txGrid = document.getElementById('tx_grid').value.trim().toUpperCase();
+      if (!txGrid) {
+        errors.push('TX Grid Square is required.');
+      } else if (!/^[A-R]{2}[0-9]{2}([A-X]{2})?$/i.test(txGrid)) {
+        errors.push('TX Grid Square must be a valid 4 or 6-character Maidenhead locator (e.g. FN21 or FN21aa).');
+      }
+
+      const month = parseInt(document.getElementById('month').value);
+      if (!month) errors.push('Month is required.');
+
+      const yearRaw = document.getElementById('year').value.trim();
+      const yearN   = Number(yearRaw);
+      if (!yearRaw) {
+        errors.push('Year is required.');
+      } else if (isNaN(yearN) || yearN % 1 !== 0 || yearN < 1900 || yearN > 2100) {
+        errors.push('Year must be a whole number 1900\u20132100.');
+      }
+
+      const ssnRaw = document.getElementById('ssn').value.trim();
+      if (ssnRaw) {
+        const ssnN = Number(ssnRaw);
+        if (isNaN(ssnN) || ssnN < 0 || ssnN > 400)
+          errors.push('SSN / R12 must be a number between 0 and 400.');
+      }
+
+      const txPowRaw = document.getElementById('tx_power').value.trim();
+      const txPowN   = parseFloat(txPowRaw);
+      if (!txPowRaw || isNaN(txPowN) || txPowN <= 0 || txPowN > 50000)
+        errors.push('TX Power must be greater than 0 and at most 50,000 W.');
+
+      const selectedBands = [...document.querySelectorAll('#band-toggle-row .band-label:not(.inactive)')]
+                              .map(b => b.dataset.band);
+      if (!selectedBands.length) errors.push('At least one band must be selected.');
+
+      const validTargets = targets.filter(t => t.checked && t.grid.trim().length >= 4);
+      if (!validTargets.length) errors.push('At least one checked target with a valid grid square (4+ characters) is required.');
+
+      if (errors.length > 0) {
+        errEl.innerHTML = errors.map(e => '&bull; ' + e).join('<br>');
+        return;
+      }
+
+      const sigEl  = document.getElementById('signal_type');
+      const sigOpt = sigEl.options[sigEl.selectedIndex];
+
+      document.getElementById('run-btn').disabled  = true;
+      loadEl.style.display = 'inline';
+      document.getElementById('contest-results').style.display = 'none';
+      document.getElementById('btn-pdf').style.display = 'none';
+      document.getElementById('btn-zip').style.display = 'none';
+
+      try {
+        const resp = await fetch('/api/predict/contest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tx_grid:    txGrid,
+            targets:    validTargets,
+            bands:      selectedBands,
+            month:      month,
+            year:       parseInt(yearRaw),
+            ssn:        ssnRaw ? parseFloat(ssnRaw) : 50,
+            tx_power_w: txPowN,
+            bw:         parseFloat(sigOpt.dataset.bw),
+            snr:        parseFloat(sigOpt.dataset.snr),
+            noise_env:  document.getElementById('noise_env').value,
+          }),
+        });
+
+        const data = await resp.json();
+        if (data.error) { errEl.innerHTML = '&bull; ' + data.error; return; }
+        if (data.warnings && data.warnings.length) {
+          console.warn('Contest chart warnings:', data.warnings);
+        }
+
+        lastContestData = data;
+        renderCharts();
+        document.getElementById('contest-results').style.display = 'block';
+        document.getElementById('btn-pdf').style.display = 'inline-block';
+        document.getElementById('btn-zip').style.display = 'inline-block';
+
+      } catch (e) {
+        errEl.innerHTML = '&bull; Request failed: ' + e.message;
+      } finally {
+        document.getElementById('run-btn').disabled = false;
+        loadEl.style.display = 'none';
+      }
+    }
+
+    // =====================================================================
+    // Export helpers
+    // =====================================================================
+    function buildChunkList() {
+      const chunks = [];
+      ['short', 'long'].forEach(pathKey => {
+        const pathLabel = pathKey === 'short' ? 'Short Path' : 'Long Path';
+        const pathData  = lastContestData[pathKey];
+        const firstChecked = targets.find(t => t.checked && pathData[t.name]);
+        const bands = firstChecked
+          ? ALL_BAND_ORDER.filter(b => pathData[firstChecked.name][b] !== undefined)
+          : [];
+        const tgts = targets.filter(t => t.checked && pathData[t.name]);
+        for (let ci = 0; ci < tgts.length; ci += 6) {
+          chunks.push({ pathLabel, pathData, bands, tgts: tgts.slice(ci, ci + 6) });
+        }
+      });
+      return chunks;
+    }
+
+    function renderChunkToCanvas(chunk) {
+      const { pathLabel, pathData, bands, tgts } = chunk;
+      const mc   = METRIC_CONFIG[currentMetric];
+
+      // Print-optimised dimensions — cw scales so canvas always fills landscape A4 width
+      const TARGET_W = 1036, uw = 28, ch = 22;
+      const titleH = 44, hdr1H = 30, hdr2H = 22, pad = 14, legH = 68;
+
+      const cols = tgts.length * bands.length;
+      const cw   = Math.max(20, Math.floor((TARGET_W - 2 * uw) / cols));
+      const W    = 2 * uw + cols * cw;
+      const H    = titleH + hdr1H + hdr2H + 24 * ch + hdr2H + pad + legH;
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      // Title
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 18px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pathLabel, W / 2, titleH / 2);
+
+      let y = titleH;
+
+      // UTC header (spans both header rows)
+      ctx.fillStyle = '#1a1a2a';
+      ctx.fillRect(0, y, uw, hdr1H + hdr2H);
+      ctx.fillStyle = '#fff';
+      ctx.font = '11px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('UTC', uw / 2, y + (hdr1H + hdr2H) / 2);
+
+      // Region headers
+      let x = uw;
+      tgts.forEach(t => {
+        const w = bands.length * cw;
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(x, y, w, hdr1H);
+        ctx.fillStyle = '#fff';
+        ctx.font = '13px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.name, x + w / 2, y + hdr1H / 2);
+        x += w;
+      });
+
+      // Right UTC header (spans both header rows)
+      ctx.fillStyle = '#1a1a2a';
+      ctx.fillRect(W - uw, y, uw, hdr1H + hdr2H);
+      ctx.fillStyle = '#fff';
+      ctx.font = '11px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('UTC', W - uw / 2, y + (hdr1H + hdr2H) / 2);
+
+      // Band headers
+      y += hdr1H;
+      x  = uw;
+      tgts.forEach(() => {
+        bands.forEach((b, bi) => {
+          ctx.fillStyle = '#131320';
+          ctx.fillRect(x, y, cw, hdr2H);
+          if (bi === 0) {
+            ctx.fillStyle = '#0d0d1a';
+            ctx.fillRect(x, y, 2, hdr2H);
+          }
+          ctx.fillStyle = '#fff';
+          ctx.font = '11px "Courier New"';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(b.replace('m', ''), x + cw / 2, y + hdr2H / 2);
+          x += cw;
+        });
+      });
+
+      // Data rows
+      y += hdr2H;
+      for (let hi = 0; hi < 24; hi++) {
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(0, y, uw, ch);
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(hi + 1).padStart(2, '0'), uw / 2, y + ch / 2);
+
+        x = uw;
+        tgts.forEach(t => {
+          const tData = pathData[t.name];
+          bands.forEach((b, bi) => {
+            const bandData = tData ? tData[b] : null;
+            const raw  = bandData ? bandData[currentMetric][hi] : null;
+            const norm = mc.norm(raw);
+            ctx.fillStyle = norm == null
+              ? '#0a0a14'
+              : viridisColor(Math.min(9, Math.floor(Math.round(norm) / 10)) * (100 / 9));
+            ctx.fillRect(x, y, cw, ch);
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1);
+            if (bi === 0) {
+              ctx.fillStyle = '#0d0d1a';
+              ctx.fillRect(x, y, 2, ch);
+            }
+            x += cw;
+          });
+        });
+        // Right UTC cell
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(W - uw, y, uw, ch);
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(hi + 1).padStart(2, '0'), W - uw / 2, y + ch / 2);
+        y += ch;
+      }
+
+      // Footer row — band labels mirroring header row 2
+      ctx.fillStyle = '#1a1a2a';
+      ctx.fillRect(0, y, uw, hdr2H);
+      ctx.fillStyle = '#fff';
+      ctx.font = '11px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('UTC', uw / 2, y + hdr2H / 2);
+      x = uw;
+      tgts.forEach(() => {
+        bands.forEach((b, bi) => {
+          ctx.fillStyle = '#131320';
+          ctx.fillRect(x, y, cw, hdr2H);
+          if (bi === 0) {
+            ctx.fillStyle = '#0d0d1a';
+            ctx.fillRect(x, y, 2, hdr2H);
+          }
+          ctx.fillStyle = '#fff';
+          ctx.font = '11px "Courier New"';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(b.replace('m', ''), x + cw / 2, y + hdr2H / 2);
+          x += cw;
+        });
+      });
+      ctx.fillStyle = '#1a1a2a';
+      ctx.fillRect(W - uw, y, uw, hdr2H);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText('UTC', W - uw / 2, y + hdr2H / 2);
+      y += hdr2H;
+
+      // Legend
+      y += pad;
+      const blockW = Math.floor((W - 2 * pad) / 10);
+      const blockH = 26;
+      for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = viridisColor(i * (100 / 9));
+        ctx.fillRect(pad + i * blockW, y, blockW, blockH);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.75;
+        ctx.strokeRect(pad + i * blockW + 0.5, y + 0.5, blockW - 1, blockH - 1);
+      }
+      y += blockH + 5;
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 11px "Courier New"';
+      ctx.textBaseline = 'top';
+      for (let i = 0; i <= 10; i++) {
+        const val = mc.min + (i * 10 / 100) * (mc.max - mc.min);
+        let lbl;
+        if (currentMetric === 'bcr')      lbl = Math.round(val) + '%';
+        else if (currentMetric === 'snr') lbl = (val > 0 ? '+' : '') + Math.round(val);
+        else                              lbl = 'S' + Math.max(0, Math.min(9, Math.round(val)));
+        ctx.textAlign = i === 0 ? 'left' : i === 10 ? 'right' : 'center';
+        ctx.fillText(lbl, pad + i * blockW, y);
+      }
+      y += 16;
+      ctx.font = 'bold 11px "Courier New"';
+      ctx.textAlign = 'left';
+      ctx.fillText(
+        currentMetric === 'bcr' ? 'Circuit Reliability (BCR)' :
+        currentMetric === 'snr' ? 'Signal-to-Noise Ratio (SNR, dB)' :
+                                  'Received Power (PR, S-units)',
+        pad, y
+      );
+
+      return canvas;
+    }
+
+    function exportTimestamp() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+
+    function exportPdf() {
+      const printArea = document.getElementById('print-area');
+      printArea.innerHTML = '';
+      const imgs = buildChunkList().map(chunk => {
+        const img = document.createElement('img');
+        img.src = renderChunkToCanvas(chunk).toDataURL('image/png');
+        printArea.appendChild(img);
+        return img;
+      });
+      Promise.all(imgs.map(img => new Promise(resolve => {
+        if (img.complete) resolve();
+        else img.onload = resolve;
+      }))).then(() => {
+        const prev = document.title;
+        document.title = exportTimestamp() + '_contest_charts';
+        window.print();
+        document.title = prev;
+        printArea.innerHTML = '';
+      });
+    }
+
+    async function exportZip() {
+      const btn = document.getElementById('btn-zip');
+      btn.disabled = true;
+      btn.textContent = 'Generating ZIP\u2026';
+      try {
+        const zip = new JSZip();
+        const labelCount = {};
+        for (const chunk of buildChunkList()) {
+          const label = chunk.pathLabel;
+          labelCount[label] = (labelCount[label] || 0) + 1;
+          const filename = label.replace(/\s+/g, '_') + '_' + labelCount[label] + '.png';
+          const canvas = renderChunkToCanvas(chunk);
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+          zip.file(filename, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(zipBlob);
+        a.download = exportTimestamp() + '_contest_charts.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Download Images';
+      }
+    }
+
+    // =====================================================================
+    // Init
+    // =====================================================================
+    renderTargetList();
+
+    // =====================================================================
+    // Cell tooltip (event delegation — one listener for all tables)
+    // =====================================================================
+    document.addEventListener('mousemove', function(e) {
+      const tip = document.getElementById('cell-tip');
+      if (!tip) return;
+      const td = e.target.closest('td[data-tip]');
+      if (td) {
+        tip.textContent = td.dataset.tip;
+        tip.style.display = 'block';
+        tip.style.left = (e.clientX + 14) + 'px';
+        tip.style.top  = (e.clientY - 32) + 'px';
+      } else {
+        tip.style.display = 'none';
+      }
+    });
+  </script>
+
+  <div id="cell-tip"></div>
+  <div id="print-area"></div>
+
+</body>
+</html>
