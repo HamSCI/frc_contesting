@@ -49,6 +49,7 @@ This documentation serves to:
 | April 13, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Merge recovery (missing imports, nav, routes, binary, data files), Contester's Table PDF export (band-selection modal, MUF/OPMUF + per-band BCR/SNR/PR tables, canvas line graphs), CLAUDE.md session order fix | Liam Miller |
 | April 17, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Area map PR S-unit fix, null fallback -999 fix, map layout overhaul (tooltip/legend hidden until prediction, legend dark-box sidebar), P2P-style windowed map (500px), lockWorldWidth() side-clip, PR column detection bug fix, contour alignment fix (dataMax 9→10), smooth rendering (removed Math.floor) | Liam Miller |
 | April 19, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Contest chart: JSZip vendored, PDF/ZIP export (canvas-based, landscape, timestamped filenames, onload guard), cell height fix, band toggle fix, legend black borders, UTC labels both sides, band labels top+bottom, bold region separators in export, bold legend text | Liam Miller |
+| April 20, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Contest chart: antenna type dropdown + gain field (isotropic, 2.15 dBi default), tx_gain wired into POST body; trace color for near-zero values (cellColor helper, 11-block legend with white/trace/viridis) | Liam Miller |
 
 ### Current Model
 
@@ -972,12 +973,12 @@ For questions about this project or the use of AI assistance, please refer to th
 - `templates/prediction_area.html` — PR S-unit conversion in overlay and download renderers; `rawFallback` null sentinel; `area-info-box` hidden until prediction; `#area-legend-wrapper` DOM sidebar replacing Leaflet control; map init with `zoomSnap`/`maxBounds`/`maxBoundsViscosity`; `lockWorldWidth()` helper; post-prediction handler (`setView`, `invalidateSize`, `lockWorldWidth`); window resize listener; `Math.floor()` removed from S-unit conversion (continuous rendering); `dataMax` changed 9→10; `contourLevels` extended to include S9
 - `static/css/style.css` — Section 13b rewritten: `#area-map-row` flex row, `#area-map` (flex:1, 500px, ocean-blue bg), `#area-legend-wrapper` (flex-shrink:0, dark bg, hidden by default), `.area-info-box` (dark bg, courier font)
 
-### Session 23: Contest Chart Export Polish + Table Layout Improvements
-**Date**: April 19, 2026
+### Session 23: Contest Chart Export Polish + Table Layout Improvements + Antenna Fields + Trace Color
+**Date**: April 19–20, 2026
 **Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
 **Contributor**: Liam Miller (KD3BVX)
-**Scope**: Polish the contest chart page — offline PDF/ZIP export, table readability, and mirrored UTC/band labels
-**Duration**: 4 hours (12:00–13:30, 14:30–17:00)
+**Scope**: Polish the contest chart page — offline PDF/ZIP export, table readability, mirrored UTC/band labels, antenna configuration fields, and trace color tier
+**Duration**: ~4.5 hours (April 19: 12:00–13:30, 14:30–17:00; April 20: continuation)
 **Status**: Complete
 
 **Activities**:
@@ -993,10 +994,12 @@ For questions about this project or the use of AI assistance, please refer to th
 - Added band labels at bottom: footer `<tr>` with UTC + band `<th>` cells added after row 24 in HTML table; canvas draws a `hdr2H`-tall footer row after data rows; canvas height formula updated to include `+ hdr2H` for footer
 - Preserved bold region separators in canvas export: `bands.forEach((b, bi) => ...)` — when `bi === 0`, a 2px `#0d0d1a` fill rect is drawn over the left edge of the cell; applied in band header row, all 24 data rows, and footer row
 - Made legend text bold: `font-weight: bold` added to `.legend-label-row` and `.legend-metric-label` CSS; canvas legend uses `'bold 11px "Courier New"'` for tick labels and metric label
+- Added antenna type dropdown (Isotropic only for now, `data-needs-gain="true"`) and antenna gain number input (default 2.15 dBi) to the Configuration form section; `updateAntennaGainVisibility()` helper shows/hides the gain field based on the selected antenna type (for future non-manual-gain types); `tx_gain` wired into the `runContest()` POST body — no backend changes needed as the route already accepted `tx_gain`
+- Added `TRACE_COLOR = 'rgb(185,170,210)'` (medium lavender) and `cellColor(norm)` helper: `norm===0` → white, `0 < norm < 10` → trace color, `norm ≥ 10` → existing viridis bucketing; applied in both HTML table renderer and canvas renderer; legend expanded from 10 to 11 blocks (white + trace + 9 viridis steps) with updated labels (`0%`, `>0`, `10%`, …, `100%` for BCR; equivalents for SNR and PR); trace color tuned from initial near-white `rgb(218,205,232)` to `rgb(185,170,210)` for better visibility between 0% white and first purple bucket
 
 **Files Modified**:
 - `static/js/jszip.min.js` — new file (vendored JSZip v3.10.1)
-- `templates/prediction_contest.html` — all changes above (CSS, `buildChart()`, `renderChunkToCanvas()`, `exportPdf()`, `exportZip()`, `exportTimestamp()`, band toggle fix)
+- `templates/prediction_contest.html` — all changes above (CSS, `buildChart()`, `renderChunkToCanvas()`, `exportPdf()`, `exportZip()`, `exportTimestamp()`, band toggle fix, antenna fields, `updateAntennaGainVisibility()`, `TRACE_COLOR`, `cellColor()`, legend 11-block update)
 - `docs/CLAUDE.md` — session record
 
 ---
@@ -1026,6 +1029,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 2.8 | April 13, 2026 | Added Session 21: merge recovery, Contester's Table PDF export (modal, MUF/OPMUF table, per-band BCR/SNR/PR tables + canvas graphs), CLAUDE.md fixes | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 2.9 | April 17, 2026 | Added Session 22: area map PR S-unit fix, null fallback -999 sentinel, tooltip/legend hidden until prediction, dark-box legend sidebar, P2P-style windowed map (500px), lockWorldWidth() side-clip, PR column detection bug (RECEIVER+POWER fix), contour alignment (dataMax 9→10), smooth rendering (removed Math.floor) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 3.0 | April 19, 2026 | Added Session 23: JSZip vendored, canvas-based PDF/ZIP export, timestamped filenames, onload print guard, cell height fix, band toggle fix, legend black borders, UTC both sides, band labels top+bottom, bold region separators in export, bold legend text | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 3.1 | April 20, 2026 | Updated Session 23: antenna type dropdown + gain field, tx_gain POST wiring, TRACE_COLOR + cellColor() helper, 11-block legend with trace tier | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 

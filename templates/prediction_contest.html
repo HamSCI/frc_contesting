@@ -173,6 +173,16 @@
           <option value="NOISY">Noisy</option>
         </select>
       </div>
+      <div class="pred-field">
+        <label>Antenna Type</label>
+        <select id="antenna_type" onchange="updateAntennaGainVisibility()">
+          <option value="isotropic" data-needs-gain="true">Isotropic</option>
+        </select>
+      </div>
+      <div class="pred-field" id="antenna_gain_group">
+        <label>Antenna Gain (dBi)</label>
+        <input type="number" id="antenna_gain" value="2.15" step="0.01" min="-30" max="30">
+      </div>
     </div>
 
     <!-- Band selection -->
@@ -273,6 +283,12 @@
     // =====================================================================
     // Band toggle
     // =====================================================================
+    function updateAntennaGainVisibility() {
+      const sel = document.getElementById('antenna_type');
+      const needsGain = sel.options[sel.selectedIndex].dataset.needsGain === 'true';
+      document.getElementById('antenna_gain_group').style.display = needsGain ? '' : 'none';
+    }
+
     function toggleBand(btn) {
       btn.classList.toggle('inactive');
     }
@@ -354,6 +370,14 @@
     function viridisColor(pct) {
       const [r, g, b] = viridisRgb(pct);
       return `rgb(${r},${g},${b})`;
+    }
+
+    const TRACE_COLOR = 'rgb(185,170,210)';
+
+    function cellColor(norm) {
+      if (norm === 0) return 'rgb(255,255,255)';
+      if (norm < 10)  return TRACE_COLOR;
+      return viridisColor(Math.min(9, Math.floor(Math.round(norm) / 10)) * (100 / 9));
     }
 
     // =====================================================================
@@ -460,7 +484,7 @@
                 td.style.background = '#0a0a14';
                 td.dataset.tip = `${t.name} \u00b7 ${b} \u00b7 ${String(hi+1).padStart(2,'0')} UTC: \u2014`;
               } else {
-                td.style.background = viridisColor(Math.min(9, Math.floor(Math.round(norm) / 10)) * (100 / 9));
+                td.style.background = cellColor(norm);
                 td.dataset.tip = `${t.name} \u00b7 ${b} \u00b7 ${String(hi+1).padStart(2,'0')} UTC: ${mc.fmt(raw)}`;
               }
               tr.appendChild(td);
@@ -527,23 +551,32 @@
 
       const blocksEl = document.createElement('div');
       blocksEl.className = 'legend-block-row';
-      for (let i = 0; i < 10; i++) {
-        const block = document.createElement('div');
-        block.className = 'legend-block';
-        block.style.background = viridisColor(i * (100 / 9));
-        blocksEl.appendChild(block);
-      }
+      // Block 0: white (exactly 0), Block 1: trace (>0 but <10%), Blocks 2-10: viridis
+      [['rgb(255,255,255)', TRACE_COLOR], ...Array.from({length: 9}, (_, i) => [viridisColor((i + 1) * (100 / 9))])]
+        .flat().forEach(color => {
+          const block = document.createElement('div');
+          block.className = 'legend-block';
+          block.style.background = color;
+          blocksEl.appendChild(block);
+        });
       wrap.appendChild(blocksEl);
 
       const labelsEl = document.createElement('div');
       labelsEl.className = 'legend-label-row';
-      for (let i = 0; i <= 10; i++) {
-        const pct = i * 10;
-        const val = mc.min + (pct / 100) * (mc.max - mc.min);
+      const traceLabel = currentMetric === 'bcr' ? '>0' : currentMetric === 'snr' ? '>-30' : '>S0';
+      for (let i = 0; i <= 11; i++) {
         const span = document.createElement('span');
-        if (currentMetric === 'bcr')      span.textContent = Math.round(val) + '%';
-        else if (currentMetric === 'snr') span.textContent = (val > 0 ? '+' : '') + Math.round(val);
-        else                              span.textContent = 'S' + Math.max(0, Math.min(9, Math.round(val)));
+        if (i === 0) {
+          span.textContent = currentMetric === 'bcr' ? '0%' : currentMetric === 'snr' ? '-30' : 'S0';
+        } else if (i === 1) {
+          span.textContent = traceLabel;
+        } else {
+          const pct = (i - 1) * 10;
+          const val = mc.min + (pct / 100) * (mc.max - mc.min);
+          if (currentMetric === 'bcr')      span.textContent = Math.round(val) + '%';
+          else if (currentMetric === 'snr') span.textContent = (val > 0 ? '+' : '') + Math.round(val);
+          else                              span.textContent = 'S' + Math.max(0, Math.min(9, Math.round(val)));
+        }
         labelsEl.appendChild(span);
       }
       wrap.appendChild(labelsEl);
@@ -644,6 +677,7 @@
             bw:         parseFloat(sigOpt.dataset.bw),
             snr:        parseFloat(sigOpt.dataset.snr),
             noise_env:  document.getElementById('noise_env').value,
+            tx_gain:    parseFloat(document.getElementById('antenna_gain').value) || 0,
           }),
         });
 
@@ -787,9 +821,7 @@
             const bandData = tData ? tData[b] : null;
             const raw  = bandData ? bandData[currentMetric][hi] : null;
             const norm = mc.norm(raw);
-            ctx.fillStyle = norm == null
-              ? '#0a0a14'
-              : viridisColor(Math.min(9, Math.floor(Math.round(norm) / 10)) * (100 / 9));
+            ctx.fillStyle = norm == null ? '#0a0a14' : cellColor(norm);
             ctx.fillRect(x, y, cw, ch);
             ctx.strokeStyle = 'rgba(0,0,0,0.3)';
             ctx.lineWidth = 0.5;
@@ -846,10 +878,12 @@
 
       // Legend
       y += pad;
-      const blockW = Math.floor((W - 2 * pad) / 10);
+      const blockW = Math.floor((W - 2 * pad) / 11);
       const blockH = 26;
-      for (let i = 0; i < 10; i++) {
-        ctx.fillStyle = viridisColor(i * (100 / 9));
+      const legColors = ['rgb(255,255,255)', TRACE_COLOR,
+        ...Array.from({length: 9}, (_, i) => viridisColor((i + 1) * (100 / 9)))];
+      for (let i = 0; i < 11; i++) {
+        ctx.fillStyle = legColors[i];
         ctx.fillRect(pad + i * blockW, y, blockW, blockH);
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 0.75;
@@ -859,13 +893,20 @@
       ctx.fillStyle = '#000';
       ctx.font = 'bold 11px "Courier New"';
       ctx.textBaseline = 'top';
-      for (let i = 0; i <= 10; i++) {
-        const val = mc.min + (i * 10 / 100) * (mc.max - mc.min);
+      const traceLabel = currentMetric === 'bcr' ? '>0' : currentMetric === 'snr' ? '>-30' : '>S0';
+      for (let i = 0; i <= 11; i++) {
         let lbl;
-        if (currentMetric === 'bcr')      lbl = Math.round(val) + '%';
-        else if (currentMetric === 'snr') lbl = (val > 0 ? '+' : '') + Math.round(val);
-        else                              lbl = 'S' + Math.max(0, Math.min(9, Math.round(val)));
-        ctx.textAlign = i === 0 ? 'left' : i === 10 ? 'right' : 'center';
+        if (i === 0) {
+          lbl = currentMetric === 'bcr' ? '0%' : currentMetric === 'snr' ? '-30' : 'S0';
+        } else if (i === 1) {
+          lbl = traceLabel;
+        } else {
+          const val = mc.min + ((i - 1) * 10 / 100) * (mc.max - mc.min);
+          if (currentMetric === 'bcr')      lbl = Math.round(val) + '%';
+          else if (currentMetric === 'snr') lbl = (val > 0 ? '+' : '') + Math.round(val);
+          else                              lbl = 'S' + Math.max(0, Math.min(9, Math.round(val)));
+        }
+        ctx.textAlign = i === 0 ? 'left' : i === 11 ? 'right' : 'center';
         ctx.fillText(lbl, pad + i * blockW, y);
       }
       y += 16;
