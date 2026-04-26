@@ -79,7 +79,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 
 ```
 ┌─────────────────────────────────────────────┐
-│         PSWS Receiver (KD3ALD)              │
+│         Your PSWS Receiver                  │
 │  RX-888 SDR + KA9Q-radio + WSPRDaemon      │
 │  Decodes WSPR/FT8/FT4 on all HF bands      │
 └─────────────────┬───────────────────────────┘
@@ -113,7 +113,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 │         Frontend JavaScript                 │
 │  ┌──────────────┐  ┌───────────────┐       │
 │  │  map_ft.js   │  │  table_ft.js  │       │
-│  │  (730 lines) │  │  (183 lines)  │       │
+│  │  (735 lines) │  │  (223 lines)  │       │
 │  │  - Leaflet   │  │  - Regional   │       │
 │  │  - Filtering │  │    aggregation│       │
 │  │  - Markers   │  │  - Band matrix│       │
@@ -131,7 +131,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 ### Data Flow
 
 1. **Data Collection:** PSWS receiver decodes WSPR/FT8/FT4 spots continuously
-2. **Storage:** Spots written to MongoDB with metadata (callsign, grid, frequency, SNR, time, mode)
+2. **Ingestion:** WSPRDaemon calls `storedb/storedb.sh` after each decode cycle, which upserts spots into MongoDB
 3. **API Request:** Frontend requests spots via `/spots?lastInterval=15`
 4. **Processing:** Backend queries MongoDB for spots in time window, converts grids to coordinates
 5. **Client Filtering:** JavaScript applies band/country/zone/mode filters
@@ -156,7 +156,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 ### Prerequisites
 
 - Python 3.8 or higher
-- MongoDB 4.x or higher (with WSPRDaemon database)
+- MongoDB 4.x or higher
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - PSWS receiver system (RX-888 + KA9Q-radio + WSPRDaemon)
 
@@ -189,46 +189,13 @@ See [requirements.txt](requirements.txt) for the complete list:
 - geopy>=2.2.0 - Geocoding
 - python-dotenv>=0.19.0 - Environment variable management
 
-### GeoJSON Data Files
+### Static Data Files
 
-The following GeoJSON files must be present in `static/js/` (used for point-in-polygon filtering):
+All required static data files are included in the repository — no separate downloads needed:
 
-- `countries.geojson` (14MB) - Country boundaries
-- `continents.geojson` (4KB) - Continent boundaries
-- `cqzones.geojson` (2.7MB) - CQ zone polygons (40 zones)
-- `ituzones.geojson` (1.5MB) - ITU zone polygons (90 zones)
-
-These files are included in the repository.
-
-### Offline Basemap Files
-
-The following files provide the offline map background and **must be downloaded separately** — they are not tracked by git due to their size. Run the setup commands below to download them to `static/vendor/basemap/`:
-
-```bash
-mkdir -p static/vendor/basemap
-curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/physical/ne_50m_land.json -o static/vendor/basemap/ne_50m_land.json
-curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/cultural/ne_50m_admin_0_countries.json -o static/vendor/basemap/ne_50m_admin_0_countries.json
-curl -sL https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/cultural/ne_50m_admin_1_states_provinces.json -o static/vendor/basemap/states-50m.json
-```
-
-- `ne_50m_land.json` (2.7MB) - Land mass polygons (ocean/land fill)
-- `ne_50m_admin_0_countries.json` (4.5MB) - Country border outlines
-- `states-50m.json` (1.6MB) - State/province border outlines
-
-### Leaflet Vendor Files
-
-Leaflet 1.9.4 is vendored locally and must also be downloaded separately:
-
-```bash
-mkdir -p static/vendor/leaflet/images
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/leaflet.js -o static/vendor/leaflet/leaflet.js
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/leaflet.css -o static/vendor/leaflet/leaflet.css
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png -o static/vendor/leaflet/images/marker-icon.png
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png -o static/vendor/leaflet/images/marker-icon-2x.png
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png -o static/vendor/leaflet/images/marker-shadow.png
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers.png -o static/vendor/leaflet/images/layers.png
-curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png -o static/vendor/leaflet/images/layers-2x.png
-```
+- **GeoJSON boundary files** (`static/js/`) — country, continent, CQ zone, and ITU zone polygons used for client-side filtering
+- **Offline basemap** (`static/vendor/basemap/`) — Natural Earth land, country border, and state/province GeoJSON files for the offline map background
+- **Leaflet 1.9.4** (`static/vendor/leaflet/`) — map library and marker images, vendored locally so no CDN is required
 
 ---
 
@@ -254,16 +221,42 @@ The application uses environment variables for secure credential management.
 
 **IMPORTANT:** Never commit the `.env` file to git! It's already in `.gitignore`.
 
+### MongoDB Authentication Setup
+
+If your MongoDB instance does not yet have a user configured, create one before running the app:
+
+```bash
+mongosh
+```
+
+```js
+use wspr_db
+db.createUser({
+  user: "wspr_user",
+  pwd: "choose_a_strong_password",
+  roles: [{ role: "readWrite", db: "wspr_db" }]
+})
+```
+
+Then set the matching credentials in your `.env` file:
+
+```bash
+MONGODB_USERNAME=wspr_user
+MONGODB_PASSWORD=choose_a_strong_password
+```
+
+> **Note:** By default, MongoDB on a fresh install has no authentication enabled. It is strongly recommended to enable authentication, especially if the machine is network-accessible. See the [MongoDB security checklist](https://www.mongodb.com/docs/manual/administration/security-checklist/) for details.
+
 ### Receiver Station Configuration
 
 Set the receiver callsign and Maidenhead grid square in your `.env` file:
 
 ```bash
-RECEIVER_CALLSIGN=KD3ALD
-RECEIVER_GRIDSQUARE=FN21ni
+RECEIVER_CALLSIGN=W1ABC
+RECEIVER_GRIDSQUARE=FN42hx
 ```
 
-The backend reads these values at startup and serves them to the frontend via the `/config` API endpoint. The grid square can be 4-character (e.g., `FN21`) or 6-character (e.g., `FN21ni`).
+Replace `W1ABC` with your station callsign and `FN42hx` with your Maidenhead grid square. The grid square can be 4-character (e.g., `FN42`) or 6-character (e.g., `FN42hx`). The backend reads these values at startup and serves them to the frontend via the `/config` API endpoint.
 
 ### Band Color Configuration
 
@@ -301,7 +294,7 @@ Fetch spots for map display with full propagation details.
     "tx_sign": "W1ABC",
     "tx_lat": 42.3601,
     "tx_lon": -71.0589,
-    "rx_sign": "KD3ALD",
+    "rx_sign": "W3USR",
     "rx_lat": 40.7589,
     "rx_lon": -74.2215,
     "frequency": 14.097,
@@ -347,8 +340,8 @@ Serve receiver station configuration to the frontend.
 **Response Format:**
 ```json
 {
-  "receiver_callsign": "KD3ALD",
-  "receiver_grid": "FN21ni"
+  "receiver_callsign": "W3USR",
+  "receiver_grid": "FN21ej"
 }
 ```
 
@@ -440,7 +433,7 @@ Each document represents one decoded WSPR/FT8/FT4 spot.
 {
   _id: ObjectId("..."),
   callsign: "W1ABC",           // Transmitter callsign
-  rx_callsign: "KD3ALD",       // Receiver callsign
+  rx_callsign: "W3USR",        // Receiver callsign
   grid: "FN42hx",              // 6-character Maidenhead grid square
   frequency: 14.097062,        // Frequency in MHz
   band: "20m",                 // Band designation
@@ -495,7 +488,7 @@ frc_contesting/
 │   │   ├── cqzones.geojson    # CQ zones (2.7MB)
 │   │   ├── ituzones.geojson   # ITU zones (1.5MB)
 │   │   └── turf.min.js        # Geospatial library (591KB)
-│   └── vendor/                # Third-party libraries (not git-tracked, download separately)
+│   └── vendor/                # Third-party libraries (git-tracked)
 │       ├── leaflet/           # Leaflet 1.9.4
 │       │   ├── leaflet.js
 │       │   ├── leaflet.css
@@ -504,6 +497,9 @@ frc_contesting/
 │           ├── ne_50m_land.json           # Land mass fill (2.7MB)
 │           ├── ne_50m_admin_0_countries.json  # Country borders (4.5MB)
 │           └── states-50m.json            # State/province borders (1.6MB)
+├── storedb/                   # WSPRDaemon → MongoDB ingestion
+│   ├── storedb.sh             # Shell wrapper called by WSPR_LOGGING_CMD
+│   └── storedb.py             # Reads decoded spots and upserts into MongoDB
 ├── templates/                 # Flask HTML templates
 │   ├── both.html              # Combined map + table view
 │   ├── index_ft.html          # Map view
@@ -515,6 +511,44 @@ frc_contesting/
 ├── CONTRIBUTING.md            # Contribution guidelines
 ├── OPERATOR_GUIDE.md          # User guide for operators
 └── README.md                  # This file
+```
+
+### WSPRDaemon Integration
+
+The dashboard receives spot data via a script called by WSPRDaemon after each decode cycle. This is configured with the `WSPR_LOGGING_CMD` variable in `wsprdaemon.conf`.
+
+#### Setup
+
+1. Add the following line to `~/wsprdaemon/wsprdaemon.conf` (in the site-specific section near the top), replacing the path with the actual location of your cloned repo:
+
+   ```bash
+   WSPR_LOGGING_CMD="/path/to/frc_contesting/storedb/storedb.sh"
+   ```
+
+   For example, if the repo is cloned to `/home/w3usr/frc_contesting`:
+   ```bash
+   WSPR_LOGGING_CMD="/home/w3usr/frc_contesting/storedb/storedb.sh"
+   ```
+
+2. Restart WSPRDaemon to pick up the change:
+
+   ```bash
+   wsprdaemon -z && wsprdaemon -A
+   ```
+
+#### How it works
+
+After each decode cycle, WSPRDaemon calls [storedb/storedb.sh](storedb/storedb.sh), which activates the virtual environment and runs [storedb/storedb.py](storedb/storedb.py). The Python script reads the decoded spots from `/dev/shm/wsprdaemon/uploads/wsprnet/spots.txt` and upserts them into the `wspr_db.spots` MongoDB collection. Upsert is used to avoid duplicates if the script is called more than once for the same cycle.
+
+Credentials and receiver configuration are read from `.env` — no hardcoded values.
+
+#### Manual test
+
+To verify the integration before restarting WSPRDaemon:
+
+```bash
+/path/to/frc_contesting/storedb/storedb.sh
+mongosh "mongodb://YOUR_USER:YOUR_PASSWORD@localhost:27017/admin" --eval "db.getSiblingDB('wspr_db').spots.countDocuments()" --quiet
 ```
 
 ### Running the Development Server
@@ -551,7 +585,7 @@ python web-ft.py
 - Use browser DevTools Console to debug JavaScript
 
 **Database Changes:**
-- Connect to MongoDB: `mongo --host $MONGODB_HOST --port $MONGODB_PORT -u $MONGODB_USERNAME -p`
+- Connect to MongoDB: `mongosh "mongodb://$MONGODB_USERNAME:$MONGODB_PASSWORD@$MONGODB_HOST:$MONGODB_PORT"`
 - Query spots: `db.spots.find().sort({date: -1, time: -1}).limit(10)`
 
 ### Adding New Filters
@@ -590,43 +624,54 @@ To add a new client-side filter:
 
 ### Production Deployment with Gunicorn
 
+Install gunicorn into the virtual environment and run with 4 worker processes, binding to all interfaces:
+
 ```bash
-# Install gunicorn
+source venv/bin/activate
 pip install gunicorn
-
-# Run with 4 worker processes
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
-
-# Or with systemd service
-sudo systemctl start hamsci-dashboard
+gunicorn -w 4 -b 0.0.0.0:5000 "app:create_app()"
 ```
 
-### Systemd Service File
+The dashboard will be accessible at `http://YOUR_IP:5000` from any machine on the network.
 
-Create `/etc/systemd/system/hamsci-dashboard.service`:
+### Systemd Service File (autostart on boot)
+
+Create `/etc/systemd/system/frc-dashboard.service`, replacing `YOUR_USER` and `/path/to/frc_contesting` with your actual username and repo path:
 
 ```ini
 [Unit]
-Description=HamSCI Contesting Dashboard
-After=network.target
+Description=FRC Contesting Dashboard
+After=network.target mongod.service
 
 [Service]
-User=hamsci
-Group=hamsci
-WorkingDirectory=/opt/hamsci-dashboard
-Environment="PATH=/opt/hamsci-dashboard/venv/bin"
-ExecStart=/opt/hamsci-dashboard/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 app:app
+User=YOUR_USER
+Group=YOUR_USER
+WorkingDirectory=/path/to/frc_contesting
+Environment="PATH=/path/to/frc_contesting/venv/bin"
+ExecStart=/path/to/frc_contesting/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 "app:create_app()"
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 ```
 
+Then enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable frc-dashboard
+sudo systemctl start frc-dashboard
+sudo systemctl status frc-dashboard
+```
+
 ### Nginx Reverse Proxy
+
+If you want to serve the dashboard on port 80 (or with HTTPS), use nginx as a reverse proxy. Replace `your.hostname.com` with your actual hostname or IP:
 
 ```nginx
 server {
     listen 80;
-    server_name dash.kd3ald.com;
+    server_name your.hostname.com;
 
     location / {
         proxy_pass http://127.0.0.1:5000;
@@ -635,7 +680,7 @@ server {
     }
 
     location /static {
-        alias /opt/hamsci-dashboard/static;
+        alias /path/to/frc_contesting/static;
         expires 1h;
     }
 }
@@ -764,7 +809,7 @@ server {
 ### Related Documentation
 
 - [Requirements Document](docs/REQUIREMENTS.md) - Formal requirements specification
-- [Claude AI Assistance Documentation](docs/CLAUDE.md) - AI contribution history and guidelines
+- [Claude AI Assistance Documentation](CLAUDE.md) - AI contribution history and guidelines
 - [Operator Guide](OPERATOR_GUIDE.md) - User guide for radio operators
 - [Contributing Guide](CONTRIBUTING.md) - Developer contribution guidelines
 - [Archive Documentation](_archive/README.md) - Legacy code reference
@@ -831,9 +876,6 @@ Special thanks to:
 **Faculty Advisor:**
 Dr. Nathaniel Frissell (W2NAF)
 University of Scranton, Department of Physics/Engineering
-
-**Dashboard URL:**
-http://dash.kd3ald.com (when operational)
 
 ---
 
