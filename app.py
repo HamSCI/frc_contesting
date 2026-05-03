@@ -9,11 +9,23 @@ Organization: University of Scranton (W3USR), Frankford Radio Club
 Project: HamSCI Personal Space Weather Station Dashboard Development
 """
 
+import glob
 import os
 
 from flask import Flask
 from pymongo import MongoClient
 from dotenv import load_dotenv
+
+
+def _cleanup_tmp_files():
+    """Delete any stale .in/.out files left in itu_r_hf/tmp from a prior crashed run."""
+    tmp_dir = os.path.join(os.path.dirname(__file__), 'itu_r_hf', 'tmp')
+    for pattern in ('*.in', '*.out'):
+        for path in glob.glob(os.path.join(tmp_dir, pattern)):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
 
 def create_app():
@@ -78,5 +90,8 @@ def create_app():
     # --- Register Blueprints ---
     from routes import register_blueprints
     register_blueprints(app)
+
+    # --- Clean up stale ITU-R HF tmp files from any prior crashed runs ---
+    _cleanup_tmp_files()
 
     return app

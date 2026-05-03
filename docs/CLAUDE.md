@@ -50,6 +50,7 @@ This documentation serves to:
 | April 17, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Area map PR S-unit fix, null fallback -999 fix, map layout overhaul (tooltip/legend hidden until prediction, legend dark-box sidebar), P2P-style windowed map (500px), lockWorldWidth() side-clip, PR column detection bug fix, contour alignment fix (dataMax 9→10), smooth rendering (removed Math.floor) | Liam Miller |
 | April 19, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Contest chart: JSZip vendored, PDF/ZIP export (canvas-based, landscape, timestamped filenames, onload guard), cell height fix, band toggle fix, legend black borders, UTC labels both sides, band labels top+bottom, bold region separators in export, bold legend text | Liam Miller |
 | April 20, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Contest chart: antenna type dropdown + gain field (isotropic, 2.15 dBi default), tx_gain wired into POST body; trace color for near-zero values (cellColor helper, 11-block legend with white/trace/viridis) | Liam Miller |
+| May 3, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | How To page: populated prediction.html with input/output/data-extraction documentation for Point to Point, Area, and Contest Chart | Liam Miller |
 
 ### Current Model
 
@@ -1004,6 +1005,28 @@ For questions about this project or the use of AI assistance, please refer to th
 
 ---
 
+### Session 24: How To Page — Prediction Documentation
+**Date**: May 3, 2026
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Populate the previously empty How To tab (`templates/prediction.html`) with user-facing documentation for all three prediction modes
+**Duration**: ~0.25 hours
+**Status**: Complete
+
+**Activities**:
+- Added full page content to `templates/prediction.html` (previously contained only the heading and nav skeleton)
+- Wrote three documentation sections — Point to Point, Area, and Contest — each covering: inputs, visual outputs, and data extraction (CSV, image, PDF, ZIP, copy to clipboard)
+- Added inline CSS for the documentation layout (`.howto-body`, `.howto-section`, `.howto-tag` colour-coded badges for Input / Output / Download)
+- Corrected engine reference in the intro: "VOACAP engine" → "ITU-R-HF engine"
+- Removed the map from P2P "Outputs" (map is more of an input aid than a prediction output)
+- Removed Grayline as a standalone output in Area; folded the grayline description into the Heatmap Overlay paragraph as a single sentence
+
+**Files Modified**:
+- `templates/prediction.html` — full page content added; intro, three sections, badges, inline styles
+- `docs/CLAUDE.md` — session record
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -1030,6 +1053,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 2.9 | April 17, 2026 | Added Session 22: area map PR S-unit fix, null fallback -999 sentinel, tooltip/legend hidden until prediction, dark-box legend sidebar, P2P-style windowed map (500px), lockWorldWidth() side-clip, PR column detection bug (RECEIVER+POWER fix), contour alignment (dataMax 9→10), smooth rendering (removed Math.floor) | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 3.0 | April 19, 2026 | Added Session 23: JSZip vendored, canvas-based PDF/ZIP export, timestamped filenames, onload print guard, cell height fix, band toggle fix, legend black borders, UTC both sides, band labels top+bottom, bold region separators in export, bold legend text | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 3.1 | April 20, 2026 | Updated Session 23: antenna type dropdown + gain field, tx_gain POST wiring, TRACE_COLOR + cellColor() helper, 11-block legend with trace tier | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 3.2 | May 3, 2026 | Added Session 24: How To page content — P2P, Area, Contest documentation; engine reference fix; map/grayline output corrections | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 
 ---
 
