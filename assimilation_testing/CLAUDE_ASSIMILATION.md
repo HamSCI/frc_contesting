@@ -26,6 +26,7 @@ This documentation serves to:
 |------|------------|----------|----------|------------------|
 | April 28, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Project setup, SQL query design, TX filter, cycle tuning, heatmap viewer (server + HTML), ITURHFProp integration + error 113 debugging, bilinear interpolation, marching-squares contours, on-demand per-band spot fetch, CSV params output | Liam Miller |
 | May 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Bidirectional WSPR fetch, PSK Reporter removal, ocean masking on spot canvas, dynamic log-base spot scaling, unified 10-chunk discrete viridis color scale | Liam Miller |
+| May 3, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Heatmap viewer UI reskin (dark blue/orange theme), legend tick lines, spot legend log-base subscript title, opacity dropdown, spot file cleanup fix, viridis top-chunk yellow fix | Liam Miller |
 
 ### Current Model
 
@@ -214,6 +215,46 @@ Used via `http://db1.wspr.live/?query=<URL-encoded SQL>`. See `fetch_spots.py` f
 **Files modified**:
 - `assimilation_testing/server.py` (bidirectional fetch, PSK disabled)
 - `assimilation_testing/templates/heatmap_viewer.html` (ocean masking, log scaling, color scale)
+- `assimilation_testing/CLAUDE_ASSIMILATION.md` (this file)
+
+---
+
+### Session 3: Heatmap Viewer UI Reskin, Legend Improvements, Opacity, Spot Cleanup Fix, Viridis Correction
+**Date**: May 3, 2026
+**Time**: 12:45 PM – 1:45 PM (1 hour)
+**Model**: Claude Sonnet 4.6 (claude-sonnet-4-6)
+**Contributor**: Liam Miller
+**Scope**: Full dark-theme UI reskin of the heatmap comparison viewer, legend and title polish, client-side opacity control, spot file cleanup bugfix, and viridis color scale correction
+
+---
+
+**Activities**:
+- **UI reskin** (`heatmap_viewer.html`): Replaced the light grey/white theme with a dark blue/orange scheme matching the contest chart aesthetic:
+  - Body/page background: `#1a1a2a` (dark navy)
+  - Control panels: `#1e1e30` with `#2e2e45` borders
+  - Section headers (h2): `#c8b560` (dull yellow)
+  - Inactive buttons: `#222` background, `#c0c0c0` text
+  - Active mode/freq buttons: `#fb923c` (light orange) background, `#1a1a2a` text
+  - Compute button: `#60a5fa` (light blue); disabled state `#1e2a3e`; loading state `#d4622a`
+  - Map legends: `rgba(15,15,25,0.93)` background, `#2e2e45` border
+  - Params CSV display: `#111` background, `#c8d8e8` monospace text
+- **Legend tick lines**: Changed `.legend-tick-seg` border from white to `1px solid rgba(0,0,0,0.7)` — solid black dividers between each color chunk on both map legends
+- **Spot legend log-base title**: `updateLegends()` now dynamically sets the spot legend title to `log<sub>B</sub>` where B is `spot_count^(1/10)` formatted to 3 decimal places; falls back to the static param title when no spot count is available
+- **Opacity dropdown**: Added `#opacity-bar` div (between status bar and maps) with a `<select>` offering 0.0–1.0 in 0.1 steps, default 0.8. Purely client-side — `change` event calls `predOverlay.setOpacity()` and `spotOverlayHolder.overlay.setOpacity()` without triggering a recompute. `getOpacity()` helper reads the value and is called when overlays are first created after each Compute.
+- **Spot file cleanup fix** (`server.py`): `cleanup_old_spots()` was silently failing on bidirectional filenames (`spots_YYYYMMDD_HHMM_<band>_tx.json`) because `datetime.strptime(stem, 'spots_%Y%m%d_%H%M')` requires an exact full-string match. Fixed with `re.match(r'spots_(\d{8}_\d{4})', stem)` to extract just the timestamp prefix. Also moved the `cleanup_old_spots()` call to the top of `api_compute` so cleanup runs on every compute, not only at server startup.
+- **Viridis top-chunk fix** (`heatmap_viewer.html`): Both canvas renderers used `VIRIDIS[Math.min(9, Math.floor(norm / 10))]`, capping the index at 9 (`[188,223,42]`, chartreuse). Changed to `VIRIDIS[Math.min(10, Math.floor(norm / 10) + 1)]` so norm 90–100 maps to `VIRIDIS[10]` (`[253,231,37]`, true yellow). The `+1` shift means `VIRIDIS[0]` is skipped for painted pixels since `paintThreshold=10` keeps norm 0–9 transparent.
+- **PSK Reporter spot file deletion**: All 18 stale PSK Reporter files (`psk_reporter_*.json/csv`) manually deleted from `assimilation_testing/Spot Files/`.
+
+---
+
+**Key Decisions**:
+- Opacity is a display-only concern — it does not affect prediction or spot data, so it must not trigger a recompute. Placed in its own `#opacity-bar` outside `#controls` to make this visually clear to the user.
+- `re.match` timestamp extraction in `cleanup_old_spots()` is intentionally lenient — any future filename variant that starts with `spots_YYYYMMDD_HHMM` will be handled without code changes.
+- `+1` in viridis indexing means the effective visible painted range is `VIRIDIS[2]`–`VIRIDIS[10]`; `VIRIDIS[1]` is only reachable for norm 0–9 which is below `paintThreshold` and never rendered.
+
+**Files modified**:
+- `assimilation_testing/templates/heatmap_viewer.html` (UI reskin, legend tick lines, log-base title, opacity dropdown, viridis fix)
+- `assimilation_testing/server.py` (cleanup_old_spots regex fix, cleanup called on every compute)
 - `assimilation_testing/CLAUDE_ASSIMILATION.md` (this file)
 
 ---
