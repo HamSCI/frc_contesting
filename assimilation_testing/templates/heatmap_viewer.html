@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WSPR Prediction vs Observed Spots</title>
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 1rem;
+            background: #1a1a2a;
+            color: #e0e0e0;
+        }
+        h1 { font-size: 1.3rem; margin: 0 0 1rem; }
+        h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #c8b560; margin: 0 0 0.25rem; }
+
+        #controls {
+            background: #1e1e30;
+            border: 1px solid #2e2e45;
+            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.5rem 1rem;
+            align-items: center;
+        }
+        #controls label { font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+        #controls .field { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        #controls input[type="number"] {
+            width: 80px; padding: 0.3rem 0.4rem;
+            border: 1px solid #2e2e45; border-radius: 3px; font-size: 0.85rem;
+            background: #15151f; color: #e0e0e0;
+        }
+        #controls input.error { border-color: #ef4444; }
+        .field small { color: #8888a8; font-size: 0.75rem; }
+        .inline-error { color: #ef4444; font-size: 0.75rem; display: none; }
+
+        .btn-group { display: flex; gap: 0.25rem; }
+        .mode-btn, .freq-btn {
+            padding: 0.3rem 0.7rem; font-size: 0.82rem;
+            border: 1px solid #3a3a55; border-radius: 3px;
+            background: #1e1e30; color: #a0a0c0; cursor: pointer; transition: background 0.15s;
+        }
+        .mode-btn.active, .freq-btn.active {
+            background: #fb923c; color: #1a1a2a; border-color: #fb923c;
+        }
+        #compute-btn {
+            padding: 0.4rem 1.2rem; font-size: 0.85rem; font-weight: 600;
+            background: #60a5fa; color: #1a1a2a; border: none; border-radius: 3px;
+            cursor: pointer;
+        }
+        #compute-btn:disabled { background: #1e2a3e; color: #4a5a70; cursor: default; }
+        #compute-btn.loading { background: #d4622a; color: #fff; }
+
+        #status-bar {
+            font-size: 0.78rem; color: #8888a8; margin-bottom: 0.5rem;
+            min-height: 1.2em;
+        }
+        #status-bar.err { color: #ef4444; }
+
+        .map-section { margin-bottom: 1.5rem; }
+        .map-container {
+            height: 450px;
+            background: #a8d5e8;
+            border: 1px solid #2e2e45;
+        }
+
+        .map-legend {
+            background: rgba(15,15,25,0.93);
+            border: 1px solid #2e2e45;
+            border-radius: 3px;
+            padding: 0.4rem 0.5rem;
+            font-size: 0.75rem;
+            min-width: 140px;
+        }
+        .map-legend .legend-title { font-weight: 600; margin-bottom: 0.3rem; }
+        .legend-gradient-wrap {
+            position: relative;
+            width: 130px;
+            height: 10px;
+            margin-bottom: 2px;
+        }
+        .legend-gradient {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right,
+                rgb(68,1,84), rgb(72,36,116), rgb(64,66,134), rgb(53,95,141),
+                rgb(42,120,142), rgb(35,144,140), rgb(40,168,131), rgb(70,190,111),
+                rgb(124,209,79), rgb(188,223,42), rgb(253,231,37));
+        }
+        .legend-ticks {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            pointer-events: none;
+        }
+        .legend-tick-seg {
+            flex: 1;
+            border-right: 1px solid rgba(0,0,0,0.7);
+        }
+        .legend-tick-seg:last-child { border-right: none; }
+        .legend-labels { display: flex; justify-content: space-between; color: #c0c0d8; }
+
+        #params-section {
+            display: none;
+            background: #1e1e30;
+            border: 1px solid #2e2e45;
+            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            margin-top: 1rem;
+        }
+        #params-csv-display {
+            background: #15151f;
+            border: 1px solid #2e2e45;
+            border-radius: 3px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            font-family: monospace;
+            color: #b8cce4;
+            overflow-x: auto;
+            margin: 0.4rem 0 0.6rem;
+        }
+        #download-csv-btn {
+            padding: 0.3rem 0.9rem; font-size: 0.82rem;
+            border: 1px solid #3a3a55; border-radius: 3px;
+            background: #1e1e30; color: #a0a0c0; cursor: pointer;
+        }
+        #opacity-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.82rem;
+            color: #a0a0c0;
+        }
+        #overlay-opacity {
+            padding: 0.25rem 0.4rem; font-size: 0.82rem;
+            border: 1px solid #3a3a55; border-radius: 3px;
+            background: #1e1e30; color: #a0a0c0; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>WSPR Prediction vs Observed Spots — W3USR (FN21)</h1>
+
+    <div id="controls">
+        <label>Mode</label>
+        <div class="field">
+            <div class="btn-group">
+                <button class="mode-btn active" data-mode="bcr">BCR</button>
+                <button class="mode-btn" data-mode="snr">SNR</button>
+            </div>
+        </div>
+
+        <label>SSN</label>
+        <div class="field">
+            <input type="number" id="ssn-input" min="0" max="400" step="1" placeholder="e.g. 80">
+            <small>Required &nbsp;|&nbsp; Valid range: 0–400</small>
+            <span class="inline-error" id="ssn-error">SSN is required (0–400)</span>
+        </div>
+
+        <label>TX Power (dBm)</label>
+        <div class="field">
+            <input type="number" id="power-input" min="30" max="60" step="0.1" placeholder="30">
+            <small>Minimum 30 dBm (1 W) — ITURHFProp lower limit</small>
+            <span class="inline-error" id="power-error">TX power must be ≥ 30 dBm (1 W)</span>
+        </div>
+
+        <label>Frequency</label>
+        <div class="field" id="freq-btns"></div>
+
+        <label></label>
+        <div class="field">
+            <button id="compute-btn">Compute Prediction</button>
+        </div>
+    </div>
+
+    <div id="status-bar">Select a frequency band and click Compute Prediction.</div>
+
+    <div id="opacity-bar">
+        <label for="overlay-opacity">Overlay Opacity</label>
+        <select id="overlay-opacity">
+            <option value="0.0">0.0</option>
+            <option value="0.1">0.1</option>
+            <option value="0.2">0.2</option>
+            <option value="0.3">0.3</option>
+            <option value="0.4">0.4</option>
+            <option value="0.5">0.5</option>
+            <option value="0.6">0.6</option>
+            <option value="0.7">0.7</option>
+            <option value="0.8" selected>0.8</option>
+            <option value="0.9">0.9</option>
+            <option value="1.0">1.0</option>
+        </select>
+    </div>
+
+    <div class="map-section">
+        <h2>Prediction</h2>
+        <div id="map-prediction" class="map-container"></div>
+    </div>
+
+    <div class="map-section">
+        <h2>Observed Spots</h2>
+        <div id="map-spots" class="map-container"></div>
+    </div>
+
+    <div id="params-section">
+        <h2>Run Parameters</h2>
+        <pre id="params-csv-display"></pre>
+        <button id="download-csv-btn">Download CSV</button>
+    </div>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script>
+    /* ── WSPR bands (hard-coded) ──────────────────────────────────── */
+    const WSPR_BANDS = [
+        { band: '160m', band_code:  1, mhz:  1.8366 },
+        { band: '80m',  band_code:  3, mhz:  3.5926 },
+        { band: '40m',  band_code:  7, mhz:  7.0386 },
+        { band: '20m',  band_code: 14, mhz: 14.0956 },
+        { band: '15m',  band_code: 21, mhz: 21.0946 },
+        { band: '10m',  band_code: 28, mhz: 28.1246 },
+    ];
+
+    /* ── Viridis color tables (matches prediction_area.html) ─────── */
+    const VIRIDIS_STOPS = [
+        [  0, [ 68,   1,  84]],
+        [ 10, [ 72,  36, 116]],
+        [ 20, [ 64,  66, 134]],
+        [ 30, [ 53,  95, 141]],
+        [ 40, [ 42, 120, 142]],
+        [ 50, [ 35, 144, 140]],
+        [ 60, [ 40, 168, 131]],
+        [ 70, [ 70, 190, 111]],
+        [ 80, [124, 209,  79]],
+        [ 90, [188, 223,  42]],
+        [100, [253, 231,  37]],
+    ];
+    function bcrColorRGB(pct) {
+        pct = Math.max(0, Math.min(100, pct));
+        let lo = VIRIDIS_STOPS[0], hi = VIRIDIS_STOPS[VIRIDIS_STOPS.length - 1];
+        for (let i = 0; i < VIRIDIS_STOPS.length - 1; i++) {
+            if (pct >= VIRIDIS_STOPS[i][0] && pct <= VIRIDIS_STOPS[i + 1][0]) {
+                lo = VIRIDIS_STOPS[i]; hi = VIRIDIS_STOPS[i + 1]; break;
+            }
+        }
+        const t = (lo[0] === hi[0]) ? 0 : (pct - lo[0]) / (hi[0] - lo[0]);
+        return [
+            Math.round(lo[1][0] + t * (hi[1][0] - lo[1][0])),
+            Math.round(lo[1][1] + t * (hi[1][1] - lo[1][1])),
+            Math.round(lo[1][2] + t * (hi[1][2] - lo[1][2])),
+        ];
+    }
+    const BCR_COLOR_LUT = (function() {
+        const lut = new Array(1001);
+        for (let i = 0; i <= 1000; i++) {
+            const raw = i / 10;
+            let sum = 0;
+            for (let b = 10; b <= 90; b += 10)
+                sum += 1 / (1 + Math.exp(-2.5 * (raw - b)));
+            lut[i] = bcrColorRGB((sum / 9) * 100);
+        }
+        return lut;
+    }());
+
+    const VIRIDIS = [
+        [68,1,84],[72,36,116],[64,66,134],[53,95,141],[42,120,142],
+        [35,144,140],[40,168,131],[70,190,111],[124,209,79],[188,223,42],[253,231,37]
+    ];
+    function viridisColor(t, alpha = 0.75) {
+        t = Math.max(0, Math.min(1, t));
+        const i = Math.min(Math.floor(t * 10), 9);
+        const f = t * 10 - i;
+        const [r1,g1,b1] = VIRIDIS[i], [r2,g2,b2] = VIRIDIS[i + 1];
+        return `rgba(${Math.round(r1+(r2-r1)*f)},${Math.round(g1+(g2-g1)*f)},${Math.round(b1+(b2-b1)*f)},${alpha})`;
+    }
+
+    /* ── Map setup ───────────────────────────────────────────────── */
+    const W3USR = [41.5, -75.0];
+    const mapPred  = L.map('map-prediction', { zoomControl: true }).setView(W3USR, 3);
+    const mapSpots = L.map('map-spots',      { zoomControl: true }).setView(W3USR, 3);
+
+    for (const m of [mapPred, mapSpots]) {
+        m.createPane('basemapPane').style.zIndex = 200;
+        m.createPane('heatmapPane').style.zIndex = 300;
+    }
+
+    async function initBasemaps() {
+        try {
+            const [lr, cr, sr] = await Promise.all([
+                fetch('vendor/basemap/ne_50m_land.json'),
+                fetch('vendor/basemap/ne_50m_admin_0_countries.json'),
+                fetch('vendor/basemap/states-50m.json'),
+            ]);
+            const [land, countries, states] = await Promise.all([lr.json(), cr.json(), sr.json()]);
+            for (const map of [mapPred, mapSpots]) {
+                L.geoJSON(land,      { pane:'basemapPane', style: { color:'#aaa', weight:0.5, fillColor:'#e8e0d8', fillOpacity:1 } }).addTo(map);
+                L.geoJSON(countries, { pane:'basemapPane', style: { color:'#888', weight:0.5, fill:false } }).addTo(map);
+                L.geoJSON(states,    { pane:'basemapPane', style: { color:'#bbb', weight:0.3, fill:false } }).addTo(map);
+            }
+            LAND_MASK_PX = buildLandMask(land);
+        } catch(e) { console.error('Basemap load failed', e); }
+    }
+    initBasemaps();
+    L.marker(W3USR).addTo(mapPred).bindPopup('W3USR — FN21');
+    L.marker(W3USR).addTo(mapSpots).bindPopup('W3USR — FN21');
+
+    /* ── Legends ─────────────────────────────────────────────────── */
+    function makeLegend(map, titleId, minId, maxId) {
+        const ticks = Array.from({length: 10}, () => '<div class="legend-tick-seg"></div>').join('');
+        const ctrl = L.control({ position: 'bottomright' });
+        ctrl.onAdd = () => {
+            const div = L.DomUtil.create('div', 'map-legend');
+            div.innerHTML = `
+                <div class="legend-title" id="${titleId}">—</div>
+                <div class="legend-gradient-wrap">
+                    <div class="legend-gradient"></div>
+                    <div class="legend-ticks">${ticks}</div>
+                </div>
+                <div class="legend-labels">
+                    <span id="${minId}">0</span>
+                    <span id="${maxId}">100</span>
+                </div>`;
+            return div;
+        };
+        ctrl.addTo(map);
+    }
+    makeLegend(mapPred,  'pred-legend-title', 'pred-legend-min', 'pred-legend-max');
+    makeLegend(mapSpots, 'spot-legend-title', 'spot-legend-min', 'spot-legend-max');
+
+    const LEGEND_META = {
+        bcr: {
+            pred:  { title: 'BCR (%)',              fmtMin: () => '0%',              fmtMax: () => '100%' },
+            spots: { title: 'Spot density (log scale)', fmtMin: () => '0',               fmtMax: () => '10' },
+        },
+        snr: {
+            pred:  { title: 'Predicted SNR (dB)',   fmtMin: v => v.toFixed(0)+'dB',  fmtMax: v => v.toFixed(0)+'dB' },
+            spots: { title: 'Median Rcvd SNR (dB)', fmtMin: v => v.toFixed(0)+'dB',  fmtMax: v => v.toFixed(0)+'dB' },
+        },
+    };
+
+    function updateLegends(mode, spotMeta, predMeta) {
+        const pm = LEGEND_META[mode];
+        document.getElementById('pred-legend-title').textContent = pm.pred.title;
+        if (mode === 'bcr') {
+            document.getElementById('pred-legend-min').textContent = '0%';
+            document.getElementById('pred-legend-max').textContent = '100%';
+        } else if (predMeta) {
+            document.getElementById('pred-legend-min').textContent = pm.pred.fmtMin(predMeta.snr_min);
+            document.getElementById('pred-legend-max').textContent = pm.pred.fmtMax(predMeta.snr_max);
+        }
+        if (mode === 'bcr' && state.spotCount) {
+            document.getElementById('spot-legend-title').innerHTML =
+                `log<sub>${Math.pow(state.spotCount, 0.1).toFixed(3)}</sub>`;
+        } else {
+            document.getElementById('spot-legend-title').textContent = pm.spots.title;
+        }
+        if (spotMeta) {
+            if (mode === 'bcr') {
+                document.getElementById('spot-legend-min').textContent = '0';
+                document.getElementById('spot-legend-max').textContent = pm.spots.fmtMax(spotMeta.bcr_max);
+            } else {
+                document.getElementById('spot-legend-min').textContent = pm.spots.fmtMin(spotMeta.snr_min);
+                document.getElementById('spot-legend-max').textContent = pm.spots.fmtMax(spotMeta.snr_max);
+            }
+        }
+    }
+
+    /* ── Land mask (built once from ne_50m_land.json at page load) ── */
+    let LAND_MASK_PX = null;
+
+    /* ── Application state ───────────────────────────────────────── */
+    const state = {
+        mode:                'bcr',
+        spotGridsByBand:     null,
+        // pskSpotGridsByBand:  null,   // PSK Reporter disabled
+        predGrid:            null,
+        predLats:            null,
+        predLons:            null,
+        predMeta:            null,
+        utcHour:             null,
+        year:                null,
+        month:               null,
+        freqMhz:             null,
+        bandCode:            null,
+        bandName:            null,
+        ssn:                 null,
+        txPowerDbm:          null,
+        txPowerW:            null,
+        spotCount:           null,
+        cycleTime:           null,
+        // pskSpotCount:        0,     // PSK Reporter disabled
+        // pskCycleTime:        null,
+    };
+
+    /* ── GeoJSON canvas helper (same as prediction_area.html) ──────── */
+    function drawGeoJSONFeature(ctx, feature, lonToX, latToY, fill) {
+        const geom = feature.geometry;
+        if (!geom) return;
+        function drawRings(coords) {
+            ctx.beginPath();
+            for (const ring of coords) {
+                let first = true;
+                for (const [lon, lat] of ring) {
+                    const x = lonToX(lon), y = latToY(lat);
+                    if (first) { ctx.moveTo(x, y); first = false; }
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+            }
+            if (fill) ctx.fill();
+            ctx.stroke();
+        }
+        if (geom.type === 'Polygon') drawRings(geom.coordinates);
+        else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(p => drawRings(p));
+    }
+
+    /* ── Land mask — single-channel 2880×1440 Uint8Array (0.125°/px) ── */
+    function buildLandMask(landGeoJSON) {
+        const cw = 2880, ch = 1440;  // 0.125° per pixel (~14 km)
+        const oc = document.createElement('canvas');
+        oc.width = cw; oc.height = ch;
+        const ctx = oc.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 0.5;
+        const lonToX = lon => (lon + 180) / 360 * cw;
+        const latToY = lat => (90 - lat) / 180 * ch;
+        for (const f of landGeoJSON.features) drawGeoJSONFeature(ctx, f, lonToX, latToY, true);
+
+        const raw = ctx.getImageData(0, 0, cw, ch).data;
+        const ch1 = new Uint8Array(cw * ch);
+        for (let i = 0; i < cw * ch; i++) ch1[i] = raw[i * 4] > 128 ? 255 : 0;
+        return { data: ch1, width: cw, height: ch };
+    }
+
+    /* ── Marching-squares contour lines (same as prediction_area.html) ── */
+    function drawAreaContours(ctx, valGrid, W, H, levels, strokeStyle, lineWidth) {
+        ctx.save();
+        ctx.strokeStyle = strokeStyle || 'rgba(0,0,0,0.45)';
+        ctx.lineWidth   = lineWidth   || 1;
+        ctx.lineJoin    = 'round';
+        ctx.lineCap     = 'round';
+
+        for (const level of levels) {
+            ctx.beginPath();
+            for (let gy = 0; gy < H - 1; gy++) {
+                for (let gx = 0; gx < W - 1; gx++) {
+                    const v00 = valGrid[ gy      * W + gx    ];
+                    const v01 = valGrid[ gy      * W + gx + 1];
+                    const v10 = valGrid[(gy + 1) * W + gx    ];
+                    const v11 = valGrid[(gy + 1) * W + gx + 1];
+
+                    const crosses = [];
+                    function crossT(a, b) { return (level - a) / (b - a); }
+
+                    if ((v00 < level) !== (v01 < level)) {
+                        const t = crossT(v00, v01);
+                        crosses.push({ x: gx + t, y: gy });
+                    }
+                    if ((v10 < level) !== (v11 < level)) {
+                        const t = crossT(v10, v11);
+                        crosses.push({ x: gx + t, y: gy + 1 });
+                    }
+                    if ((v00 < level) !== (v10 < level)) {
+                        const t = crossT(v00, v10);
+                        crosses.push({ x: gx, y: gy + t });
+                    }
+                    if ((v01 < level) !== (v11 < level)) {
+                        const t = crossT(v01, v11);
+                        crosses.push({ x: gx + 1, y: gy + t });
+                    }
+                    if (crosses.length === 2) {
+                        ctx.moveTo(crosses[0].x, crosses[0].y);
+                        ctx.lineTo(crosses[1].x, crosses[1].y);
+                    }
+                }
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function getOpacity() {
+        return parseFloat(document.getElementById('overlay-opacity').value) || 0.8;
+    }
+
+    /* ── Prediction canvas (bilinear + contours, no world-wrap repeat) ── */
+    let predOverlay = null;
+
+    function renderPredCanvas() {
+        if (!state.predGrid || !state.predLats) return;
+
+        const lats = state.predLats, lons = state.predLons;
+        const hourSlice = state.predGrid[state.mode];
+        if (!hourSlice) return;
+
+        const nLa = lats.length, nLo = lons.length;
+        const resLa = (lats[nLa - 1] - lats[0]) / (nLa - 1);
+        const resLo = (lons[nLo - 1] - lons[0]) / (nLo - 1);
+
+        let dataMin, dataMax;
+        if (state.mode === 'snr') { dataMin = -30; dataMax = 60;  }
+        else                      { dataMin = 0;   dataMax = 100; }
+        const range = dataMax - dataMin;
+
+        const sz = mapPred.getSize();
+        const W = sz.x || 720, H = sz.y || 450;
+
+        const pixLats = new Float64Array(H);
+        const pixLons = new Float64Array(W);
+        for (let py = 0; py < H; py++)
+            pixLats[py] = mapPred.containerPointToLatLng([0, py]).lat;
+        for (let px = 0; px < W; px++)
+            pixLons[px] = mapPred.containerPointToLatLng([px, 0]).lng;
+
+        // Intermediate canvas: land prediction colors only (ocean stays transparent)
+        const predCanvas = document.createElement('canvas');
+        predCanvas.width = W; predCanvas.height = H;
+        const pctx = predCanvas.getContext('2d');
+        const imgData = pctx.createImageData(W, H);
+        const d = imgData.data;
+
+        // valGrid populated for ALL pixels (land + ocean) so no discrete step at coastline.
+        // Marching-squares never sees a coast boundary; source-atop compositing clips
+        // contours to the non-transparent land pixels on the final canvas.
+        const valGrid = new Float32Array(W * H);
+        valGrid.fill(dataMin - 1);
+
+        for (let py = 0; py < H; py++) {
+            for (let px = 0; px < W; px++) {
+                const lat    = pixLats[py];
+                const rawLon = pixLons[px];
+
+                // Skip pixels outside [-180, 180] — prevents world-repeat
+                if (rawLon < -180 || rawLon > 180) continue;
+
+                const gLa = (lat - lats[0]) / resLa;
+                const gLo = (rawLon - lons[0]) / resLo;
+                const la0 = Math.max(0, Math.min(nLa - 2, Math.floor(gLa)));
+                const lo0 = Math.max(0, Math.min(nLo - 2, Math.floor(gLo)));
+                const la1 = la0 + 1, lo1 = lo0 + 1;
+                const tla = gLa - la0, tlo = gLo - lo0;
+
+                const v00 = hourSlice[la0]?.[lo0] ?? dataMin;
+                const v10 = hourSlice[la1]?.[lo0] ?? dataMin;
+                const v01 = hourSlice[la0]?.[lo1] ?? dataMin;
+                const v11 = hourSlice[la1]?.[lo1] ?? dataMin;
+                const val = v00*(1-tla)*(1-tlo) + v10*tla*(1-tlo)
+                          + v01*(1-tla)*tlo     + v11*tla*tlo;
+
+                // Always write valGrid — keeps coast boundary out of marching-squares
+                valGrid[py * W + px] = val;
+
+                // Per-pixel land check — only land pixels get color
+                const cpx = Math.min(2879, Math.max(0, Math.round((rawLon + 180) / 360 * 2880)));
+                const cpy = Math.min(1439, Math.max(0, Math.round((90 - lat) / 180 * 1440)));
+                if (LAND_MASK_PX && !LAND_MASK_PX.data[cpy * 2880 + cpx]) continue;
+
+                const norm = (val - dataMin) / range * 100;
+                if (norm < 10) continue;
+
+                const [r, g, b] = VIRIDIS[Math.min(10, Math.floor(norm / 10) + 1)];
+                const idx = (py * W + px) * 4;
+                d[idx] = r; d[idx+1] = g; d[idx+2] = b; d[idx+3] = 220;
+            }
+        }
+        pctx.putImageData(imgData, 0, 0);
+
+        // Final canvas: hard-edged prediction, contours clipped to land via source-atop
+        const offscreen = document.createElement('canvas');
+        offscreen.width = W; offscreen.height = H;
+        const ctx = offscreen.getContext('2d');
+        ctx.drawImage(predCanvas, 0, 0);
+
+        let contourLevels;
+        if (state.mode === 'bcr') {
+            contourLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+        } else {
+            const step = (dataMax - dataMin) / 10;
+            contourLevels = [];
+            for (let i = 1; i <= 9; i++) contourLevels.push(dataMin + step * i);
+        }
+        // source-atop clips contour strokes to non-transparent (land) pixels only
+        ctx.globalCompositeOperation = 'source-atop';
+        drawAreaContours(ctx, valGrid, W, H, contourLevels, 'rgba(0,0,0,0.45)', 1);
+        ctx.globalCompositeOperation = 'source-over';
+
+        if (predOverlay) { mapPred.removeLayer(predOverlay); predOverlay = null; }
+        predOverlay = L.imageOverlay(offscreen.toDataURL('image/png'), mapPred.getBounds(), {
+            opacity: getOpacity(), pane: 'heatmapPane', interactive: false,
+        }).addTo(mapPred);
+    }
+
+    mapPred.on('zoomend moveend resize', renderPredCanvas);
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    /* ── Spot canvas overlay (single combined WSPR + PSK render) ─── */
+    const spotOverlayHolder = { overlay: null };
+
+    // PSK Reporter disabled — returns WSPR grids only.
+    // PSK gives only ~400 unique TX-RX pairs per 65-min window vs WSPR's 16k
+    // raw decodes; extending the window misaligns PSK with the ITURHFProp
+    // UTC-hour prediction.  The PSK merge logic below is preserved but inactive.
+    function mergedSpotGrids() {
+        return state.spotGridsByBand;
+        /* PSK merge — re-enable together with server.py PSK section when reviving:
+        const result = {};
+        for (const b of [1, 3, 7, 14, 21, 28]) {
+            const key = String(b);
+            const wb  = state.spotGridsByBand?.[key];
+            const pb  = state.pskSpotGridsByBand?.[key];
+            if (!wb && !pb) continue;
+            result[key] = {
+                bcr:  [...(wb?.bcr  || []), ...(pb?.bcr  || [])],
+                snr:  [...(wb?.snr  || []), ...(pb?.snr  || [])],
+                meta: {
+                    bcr_max: Math.max(wb?.meta?.bcr_max || 0, pb?.meta?.bcr_max || 0) || 1,
+                    snr_min: Math.min(wb?.meta?.snr_min ?? 0,  pb?.meta?.snr_min ?? 0),
+                    snr_max: Math.max(wb?.meta?.snr_max ?? 0,  pb?.meta?.snr_max ?? 0),
+                },
+            };
+        }
+        return Object.keys(result).length ? result : null;
+        */
+    }
+
+    // Renderer — Gaussian KDE from sparse 5°×5° spot cell centres.
+    // Replaces bilinear interpolation which produced sharp rectangular edges
+    // wherever an entire row/column of the 5° grid was empty.
+    // gridsByBand: the spot_grids_by_band object (WSPR or PSK)
+    // holder: { overlay } — updated in-place
+    // pixelAlpha: 0–255 canvas alpha for filled pixels
+    function renderSpotCanvasLayer(mode, gridsByBand, holder, pixelAlpha) {
+        if (holder.overlay) { mapSpots.removeLayer(holder.overlay); holder.overlay = null; }
+        if (!gridsByBand || state.bandCode === null) return;
+
+        const bandData = gridsByBand[String(state.bandCode)];
+        if (!bandData) return;
+
+        const meta  = bandData.meta;
+        const cells = mode === 'bcr' ? bandData.bcr : bandData.snr;
+        if (!cells || cells.length === 0) return;
+
+        // Convert bottom-left cell corners → centres for Gaussian KDE
+        const nC   = cells.length;
+        const cLat = new Float64Array(nC);
+        const cLon = new Float64Array(nC);
+        const cVal = new Float64Array(nC);
+        for (let ci = 0; ci < nC; ci++) {
+            cLat[ci] = cells[ci].lat + 2.5;
+            cLon[ci] = cells[ci].lon + 2.5;
+            cVal[ci] = cells[ci].value;
+        }
+
+        // Per-mode normalisation parameters
+        let lnMax, snrMin, snrRange, paintThreshold;
+        if (mode === 'bcr') {
+            lnMax          = Math.log(Math.max(2, state.spotCount || 1));
+            paintThreshold = 10;
+        } else {
+            snrMin         = meta.snr_min;
+            snrRange       = (meta.snr_max - meta.snr_min) || 1;
+            paintThreshold = 0;
+        }
+
+        const sz = mapSpots.getSize();
+        const W = sz.x || 720, H = sz.y || 450;
+
+        const pixLats = new Float64Array(H);
+        const pixLons = new Float64Array(W);
+        for (let py = 0; py < H; py++)
+            pixLats[py] = mapSpots.containerPointToLatLng([0, py]).lat;
+        for (let px = 0; px < W; px++)
+            pixLons[px] = mapSpots.containerPointToLatLng([px, 0]).lng;
+
+        const offscreen = document.createElement('canvas');
+        offscreen.width = W; offscreen.height = H;
+        const ctx      = offscreen.getContext('2d');
+        const imgData  = ctx.createImageData(W, H);
+        const d        = imgData.data;
+
+        // valGrid stores 0–100 normalised value; -1 = no data
+        const valGrid = new Float32Array(W * H).fill(-1);
+
+        // Gaussian KDE: sigma=4° smooths transitions at 5° cell boundaries
+        // without spreading data more than ~12° (3σ) from any actual spot cluster.
+        const sigma   = 4;
+        const sigma2  = sigma * sigma;
+        const cutoff2 = (3 * sigma) ** 2;  // 144
+
+        for (let py = 0; py < H; py++) {
+            const lat = pixLats[py];
+            for (let px = 0; px < W; px++) {
+                const rawLon = pixLons[px];
+                if (rawLon < -180 || rawLon > 180) continue;
+
+                let sumW = 0, sumWV = 0;
+                for (let ci = 0; ci < nC; ci++) {
+                    const dLa = lat - cLat[ci];
+                    // Fast lat-band reject before the more expensive lon check
+                    if (dLa * dLa > cutoff2) continue;
+                    let dLo = rawLon - cLon[ci];
+                    if (dLo >  180) dLo -= 360;
+                    if (dLo < -180) dLo += 360;
+                    const d2 = dLa*dLa + dLo*dLo;
+                    if (d2 > cutoff2) continue;
+                    const w = Math.exp(-0.5 * d2 / sigma2);
+                    sumWV += w * cVal[ci];
+                    sumW  += w;
+                }
+
+                // BCR: kernel density (unnormalised sum) — fades to transparent
+                //      naturally as distance from clusters increases.
+                // SNR: Gaussian-weighted average — transparent if no cells nearby.
+                let val;
+                if (mode === 'bcr') {
+                    if (sumWV < 0.5) continue;
+                    val = sumWV;
+                } else {
+                    if (sumW < 0.05) continue;
+                    val = sumWV / sumW;
+                }
+
+                const norm = mode === 'bcr'
+                    ? Math.log(Math.max(1, val)) / lnMax * 100
+                    : (val - snrMin) / snrRange * 100;
+
+                valGrid[py * W + px] = norm;
+
+                // Ocean masking — same approach as prediction canvas:
+                // valGrid is already written above so marching-squares doesn't
+                // see a discontinuity at the coastline; only painting is skipped.
+                const cpx = Math.min(2879, Math.max(0, Math.round((rawLon + 180) / 360 * 2880)));
+                const cpy = Math.min(1439, Math.max(0, Math.round((90 - lat) / 180 * 1440)));
+                if (LAND_MASK_PX && !LAND_MASK_PX.data[cpy * 2880 + cpx]) continue;
+
+                if (norm < paintThreshold) continue;
+
+                const [r, g, b] = VIRIDIS[Math.min(10, Math.floor(norm / 10) + 1)];
+                const idx = (py * W + px) * 4;
+                d[idx] = r; d[idx+1] = g; d[idx+2] = b; d[idx+3] = pixelAlpha;
+            }
+        }
+        ctx.putImageData(imgData, 0, 0);
+
+        // Contour lines clipped to painted pixels via source-atop
+        ctx.globalCompositeOperation = 'source-atop';
+        drawAreaContours(ctx, valGrid, W, H, [10,20,30,40,50,60,70,80,90], 'rgba(0,0,0,0.45)', 1);
+        ctx.globalCompositeOperation = 'source-over';
+
+        holder.overlay = L.imageOverlay(offscreen.toDataURL('image/png'), mapSpots.getBounds(), {
+            opacity: getOpacity(), pane: 'heatmapPane', interactive: false,
+        }).addTo(mapSpots);
+    }
+
+    function renderSpotCanvas(mode) {
+        renderSpotCanvasLayer(mode, mergedSpotGrids(), spotOverlayHolder, 191);
+    }
+
+    mapSpots.on('zoomend moveend resize', () => { renderSpotCanvas(state.mode); });
+
+    /* ── Combined render ─────────────────────────────────────────── */
+    function renderBothMaps(mode) {
+        renderPredCanvas();
+        renderSpotCanvas(mode);
+        const spotMeta = (state.bandCode !== null && state.spotGridsByBand)
+            ? (state.spotGridsByBand[String(state.bandCode)]?.meta ?? null)
+            : null;
+        updateLegends(mode, spotMeta, state.predMeta);
+    }
+
+    /* ── Status bar ──────────────────────────────────────────────── */
+    function setStatus(msg, isError = false) {
+        const el = document.getElementById('status-bar');
+        el.textContent = msg;
+        el.className = isError ? 'err' : '';
+    }
+
+    /* ── Mode buttons ────────────────────────────────────────────── */
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.mode = btn.dataset.mode;
+            renderBothMaps(state.mode);
+        });
+    });
+
+    /* ── Input validation ────────────────────────────────────────── */
+    function getSSN() {
+        const val = document.getElementById('ssn-input').value.trim();
+        if (val === '') return null;
+        const n = parseFloat(val);
+        return (isFinite(n) && n >= 0 && n <= 400) ? n : null;
+    }
+    function getPowerDbm() {
+        const val = document.getElementById('power-input').value.trim();
+        return val === '' ? 30 : parseFloat(val);
+    }
+    function getPowerW() {
+        const dBm = getPowerDbm();
+        if (!isFinite(dBm) || dBm < 30) return null;
+        return Math.pow(10, (dBm - 30) / 10);
+    }
+
+    document.getElementById('ssn-input').addEventListener('input', () => {
+        const blank = document.getElementById('ssn-input').value.trim() === '';
+        const ok = !blank && getSSN() !== null;
+        document.getElementById('ssn-input').classList.toggle('error', !blank && !ok);
+        if (!blank) document.getElementById('ssn-error').style.display = 'none';
+    });
+    document.getElementById('power-input').addEventListener('input', () => {
+        const blank = document.getElementById('power-input').value.trim() === '';
+        const ok = blank || getPowerW() !== null;
+        document.getElementById('power-input').classList.toggle('error', !ok);
+        if (ok) document.getElementById('power-error').style.display = 'none';
+    });
+
+    /* ── Params CSV output ───────────────────────────────────────── */
+    function showParamsCSV() {
+        const headers = ['band','freq_mhz','ssn','tx_power_dbm','tx_power_w','utc_hour','year','month','wspr_spot_count','wspr_cycle_time'];  // psk_spot_count removed (PSK disabled)
+        const values  = [
+            state.bandName,
+            state.freqMhz,
+            state.ssn,
+            state.txPowerDbm,
+            state.txPowerW.toFixed(4),
+            state.utcHour,
+            state.year,
+            state.month,
+            state.spotCount,
+            state.cycleTime || '',
+            // state.pskSpotCount,       // PSK Reporter disabled
+            // state.pskCycleTime || '',
+        ];
+        const csv = headers.join(',') + '\n' + values.join(',');
+        document.getElementById('params-csv-display').textContent = csv;
+        document.getElementById('params-section').style.display = 'block';
+        document.getElementById('download-csv-btn').onclick = () => {
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `wspr_params_${state.bandName}_${state.utcHour}utc.csv`;
+            a.click();
+        };
+    }
+
+    /* ── Compute button ──────────────────────────────────────────── */
+    document.getElementById('compute-btn').addEventListener('click', async () => {
+        const ssn  = getSSN();
+        const pw   = getPowerW();
+        const pwDbm = getPowerDbm();
+        const freq = state.freqMhz;
+
+        if (ssn === null) {
+            document.getElementById('ssn-error').style.display = 'inline';
+            document.getElementById('ssn-input').classList.add('error');
+            return;
+        }
+        if (pw === null) {
+            document.getElementById('power-error').style.display = 'inline';
+            document.getElementById('power-input').classList.add('error');
+            return;
+        }
+        if (!freq) { setStatus('Select a frequency band first.', true); return; }
+
+        const btn = document.getElementById('compute-btn');
+        btn.disabled = true;
+        btn.classList.add('loading');
+        btn.textContent = 'Fetching & Computing…';
+        setStatus(`Fetching ~1 hr of ${state.bandName} spots and running prediction…`);
+
+        try {
+            const resp = await fetch('/api/compute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ssn,
+                    freq_mhz:   freq,
+                    tx_power_w: pw,
+                    band_code:  state.bandCode,
+                }),
+            });
+            const result = await resp.json();
+            if (!resp.ok) { setStatus(`Error: ${result.error}`, true); return; }
+
+            state.spotGridsByBand    = result.spot_grids_by_band;
+            // state.pskSpotGridsByBand = result.psk_spot_grids_by_band;  // PSK Reporter disabled
+            state.predGrid           = result.pred_grid;
+            state.predLats           = result.lats;
+            state.predLons           = result.lons;
+            state.predMeta           = result.pred_grid_meta;
+            state.utcHour            = result.utc_hour;
+            state.year               = result.year;
+            state.month              = result.month;
+            state.ssn                = ssn;
+            state.txPowerDbm         = pwDbm;
+            state.txPowerW           = pw;
+            state.spotCount          = result.spot_count;
+            state.cycleTime          = result.cycle_time;
+            // state.pskSpotCount       = result.psk_spot_count || 0;   // PSK Reporter disabled
+            // state.pskCycleTime       = result.psk_cycle_time || null;
+
+            renderBothMaps(state.mode);
+            showParamsCSV();
+            setStatus(
+                `Complete — ${freq} MHz, SSN=${ssn}, UTC ${result.utc_hour}:00, ` +
+                `${result.spot_count.toLocaleString()} WSPR spots`
+            );
+        } catch(e) {
+            setStatus(`Network error: ${e.message}`, true);
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('loading');
+            btn.textContent = 'Compute Prediction';
+        }
+    });
+
+    /* ── Frequency buttons (hard-coded) ─────────────────────────── */
+    function buildFreqButtons() {
+        const container = document.getElementById('freq-btns');
+        container.innerHTML = '';
+        WSPR_BANDS.forEach((f, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'freq-btn';
+            btn.textContent = `${f.band}  ${f.mhz} MHz`;
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.freqMhz  = f.mhz;
+                state.bandCode = f.band_code;
+                state.bandName = f.band;
+            });
+            container.appendChild(btn);
+            if (idx === 0) {
+                btn.classList.add('active');
+                state.freqMhz  = f.mhz;
+                state.bandCode = f.band_code;
+                state.bandName = f.band;
+            }
+        });
+    }
+
+    /* ── Opacity control ─────────────────────────────────────────── */
+    document.getElementById('overlay-opacity').addEventListener('change', () => {
+        const op = getOpacity();
+        if (predOverlay) predOverlay.setOpacity(op);
+        if (spotOverlayHolder.overlay) spotOverlayHolder.overlay.setOpacity(op);
+    });
+
+    /* ── Init ────────────────────────────────────────────────────── */
+    buildFreqButtons();
+    updateLegends(state.mode, null, null);
+    </script>
+</body>
+</html>
