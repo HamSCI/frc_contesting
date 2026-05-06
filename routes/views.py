@@ -63,3 +63,23 @@ def table():
         HTML: Rendered table_ft.html template
     """
     return render_template("table_ft.html")
+
+
+@views_bp.route('/prediction')
+def prediction():
+    return render_template("prediction.html")
+
+
+@views_bp.route('/prediction/p2p')
+def prediction_p2p():
+    return render_template("prediction_p2p.html")
+
+
+@views_bp.route('/prediction/area')
+def prediction_area():
+    return render_template("prediction_area.html")
+
+
+@views_bp.route('/prediction/contest')
+def prediction_contest():
+    return render_template("prediction_contest.html")

@@ -17,20 +17,20 @@
  * Project: HamSCI PSWS Dashboard Development
  */
 
-// Auto-reload timer reference
-let reloadTimer = null;
+// Auto-reload timer reference (standalone table page only)
+let tableReloadTimer = null;
 
 /**
- * Configure automatic spot reloading interval.
+ * Configure automatic spot reloading interval for standalone table page.
  *
  * @param {number} seconds - Reload interval in seconds (0 to disable)
  */
-function setReloadInterval(seconds) {
-  if (reloadTimer) clearInterval(reloadTimer);
+function setTableReloadInterval(seconds) {
+  if (tableReloadTimer) clearInterval(tableReloadTimer);
 
   if (seconds > 0) {
-    reloadTimer = setInterval(() => {
-      loadSpots();
+    tableReloadTimer = setInterval(() => {
+      tableLoadSpots();
     }, seconds * 1000);
   }
 }
@@ -38,16 +38,16 @@ function setReloadInterval(seconds) {
 // Station callsign for display purposes — updated at startup by CONFIG.loadStation()
 let call = CONFIG.station.callsign;
 
-// Connection status helpers (#36 / #41)
-function setStatus(state, label) {
-  const dot = document.getElementById('conn-status-dot');
-  const lbl = document.getElementById('conn-status-label');
+// Connection status helpers
+function setTableStatus(state, label) {
+  const dot = document.getElementById('table-conn-status-dot');
+  const lbl = document.getElementById('table-conn-status-label');
   if (dot) dot.className = `status-dot status-${state}`;
   if (lbl) lbl.textContent = label;
 }
 
-function setLastUpdated() {
-  const el = document.getElementById('last-updated');
+function setTableLastUpdated() {
+  const el = document.getElementById('table-last-updated');
   if (el) {
     const now = new Date();
     el.textContent = `Last updated: ${now.toISOString().slice(11, 19)} UTC`;
@@ -78,12 +78,18 @@ function setLastUpdated() {
  * - Oceania: Pacific islands
  */
   
-  async function loadSpots() {
-    setStatus('checking', 'Checking…');
+  async function tableLoadSpots() {
+    setTableStatus('checking', 'Checking…');
     const mins = Number(document.getElementById("lastInterval").value) || CONFIG.defaults.lastInterval;
     sessionStorage.setItem("lastInterval", mins);
     localStorage.setItem("lastInterval", mins);
     const threshold = Number(document.getElementById("threshold").value) || CONFIG.defaults.threshold;
+    const bands = CONFIG.contestBands;
+
+    // Always render the table structure immediately so it shows while loading
+    if (!document.getElementById("spotsTableContainer").innerHTML) {
+      buildTable({}, bands, threshold);
+    }
 
     try {
       const res = await fetch(`/tbspots?lastInterval=${mins}`);
@@ -98,7 +104,6 @@ function setLastUpdated() {
 
       // region → band → count
       const counts = {};
-      const bands = CONFIG.contestBands;
 
       recent.forEach(s => {
         // MODE FILTER
@@ -130,11 +135,12 @@ function setLastUpdated() {
       });
 
       buildTable(counts, bands, threshold);
-      setStatus('connected', 'Connected');
-      setLastUpdated();
+      setTableStatus('connected', 'Connected');
+      setTableLastUpdated();
     } catch (e) {
       console.error('Failed to load spots:', e);
-      setStatus('disconnected', 'Error');
+      buildTable({}, bands, threshold);
+      setTableStatus('disconnected', 'Error');
     }
   }
   
@@ -183,42 +189,42 @@ function setLastUpdated() {
     }
   
     html += "</table>";
-    document.getElementById("title").textContent = `WSPR Table for ${call} PSWS Reciever`
+    document.getElementById("table-title").textContent = `WSPR Table for ${call} PSWS Reciever`
     document.getElementById("spotsTableContainer").innerHTML = html;
   }
   
-  document.getElementById("updateButton").addEventListener("click", loadSpots);
+  if (!window.UNIFIED_PAGE) {
+    document.getElementById("updateButton").addEventListener("click", tableLoadSpots);
 
-  // Sync lastInterval from map iframe via localStorage storage event
-  window.addEventListener("storage", (e) => {
-    if (e.key === "lastInterval" && e.newValue) {
-      document.getElementById("lastInterval").value = e.newValue;
-      loadSpots();
-    }
-  });
+    // Sync lastInterval from map iframe via localStorage storage event (standalone only)
+    window.addEventListener("storage", (e) => {
+      if (e.key === "lastInterval" && e.newValue) {
+        document.getElementById("lastInterval").value = e.newValue;
+        tableLoadSpots();
+      }
+    });
+  }
   window.addEventListener("DOMContentLoaded", async function(){
-    // Fetch receiver config via CONFIG.loadStation() (populates CONFIG.station)
     await CONFIG.loadStation();
     call = CONFIG.station.callsign;
 
-    // Restore last interval from sessionStorage (shared with map view)
     const savedMins = sessionStorage.getItem("lastInterval");
     if (savedMins) document.getElementById("lastInterval").value = savedMins;
 
-    loadSpots()
-    const reloadSelect = document.getElementById("reloadInterval");
+    tableLoadSpots();
 
-    // restore any saved setting
-    const savedInterval = sessionStorage.getItem("tableReloadInterval");
-    if (savedInterval) {
-    reloadSelect.value = savedInterval;
-    setReloadInterval(Number(savedInterval));
+    if (!window.UNIFIED_PAGE) {
+      const reloadSelect = document.getElementById("reloadInterval");
+      const savedInterval = sessionStorage.getItem("tableReloadInterval");
+      if (savedInterval) {
+        reloadSelect.value = savedInterval;
+        setTableReloadInterval(Number(savedInterval));
+      }
+      reloadSelect.addEventListener("change", () => {
+        const seconds = Number(reloadSelect.value);
+        sessionStorage.setItem("tableReloadInterval", seconds);
+        setTableReloadInterval(seconds);
+      });
     }
-
-    reloadSelect.addEventListener("change", () => {
-    const seconds = Number(reloadSelect.value);
-    sessionStorage.setItem("tableReloadInterval", seconds);
-    setReloadInterval(seconds);
-    });
   });
   

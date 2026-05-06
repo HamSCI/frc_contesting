@@ -240,16 +240,16 @@ var layers = [];
 
 
 
-// Connection status helpers (#36 / #41)
+// Connection status helpers
 function setStatus(state, label) {
-  const dot = document.getElementById('conn-status-dot');
-  const lbl = document.getElementById('conn-status-label');
+  const dot = document.getElementById('map-conn-status-dot');
+  const lbl = document.getElementById('map-conn-status-label');
   if (dot) dot.className = `status-dot status-${state}`;
   if (lbl) lbl.textContent = label;
 }
 
 function setLastUpdated() {
-  const el = document.getElementById('last-updated');
+  const el = document.getElementById('map-last-updated');
   if (el) {
     const now = new Date();
     el.textContent = `Last updated: ${now.toISOString().slice(11, 19)} UTC`;
@@ -300,7 +300,7 @@ async function renderITUZones() {
 let bandCountsOut = {};
 
 
-async function loadSpots() {
+async function mapLoadSpots() {
   setStatus('checking', 'Checking…');
 
   //all possible color options
@@ -473,9 +473,9 @@ async function loadSpots() {
 
     //dynamic num spots mapped and title
     mapped++;
-    const spotInfo = document.getElementById("spot-info");
+    const spotInfo = document.getElementById("map-spot-info");
     spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${bandName1}`;
-    const title = document.getElementById("title");
+    const title = document.getElementById("map-title");
     title.textContent = `WSPR Spots From ${spot.rx_sign} PSWS Receiver`
 
     //num decoded per spot
@@ -547,7 +547,8 @@ function setReloadInterval(seconds) {
   }
   if (seconds > 0) {
     reloadTimer = setInterval(() => {
-      window.location.reload();
+      mapLoadSpots();
+      if (window.UNIFIED_PAGE) tableLoadSpots();
     }, seconds * 1000);
   }
 }
@@ -588,7 +589,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const continentSaved = sessionStorage.getItem("continent") || getQueryParam("continent")
   const CQZoneSaved = sessionStorage.getItem("cqzone") || getQueryParam("cqzone")
   const ITUZoneSaved = sessionStorage.getItem("ITUzone") || getQueryParam("ITUzone")
-  if (savedInterval) {
+  if (!window.UNIFIED_PAGE && savedInterval) {
     select.value = savedInterval;
     setReloadInterval(parseInt(savedInterval, 10));
   }
@@ -604,15 +605,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (cb) cb.checked = true;
   }
 
-  loadSpots();
+  mapLoadSpots();
 
-
-  select.addEventListener("change", () => {
-    
-    const interval = parseInt(select.value, 10);
-    sessionStorage.setItem("reloadInterval", interval);
-    setReloadInterval(interval);
-  });
+  if (!window.UNIFIED_PAGE) {
+    select.addEventListener("change", () => {
+      const interval = parseInt(select.value, 10);
+      sessionStorage.setItem("reloadInterval", interval);
+      setReloadInterval(interval);
+    });
+  }
 
 
   const params = new URLSearchParams(window.location.search);
@@ -704,17 +705,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.history.replaceState(null, "", newUrl);
 
     // Now load spots with new params
-    loadSpots();
+    mapLoadSpots();
     //window.location.reload();
   });
 
-  // Sync lastInterval from table iframe via localStorage storage event
-  window.addEventListener("storage", (e) => {
-    if (e.key === "lastInterval" && e.newValue) {
-      document.getElementById("lastInterval").value = e.newValue;
-      loadSpots();
-    }
-  });
+  // Sync lastInterval from table iframe via localStorage storage event (standalone only)
+  if (!window.UNIFIED_PAGE) {
+    window.addEventListener("storage", (e) => {
+      if (e.key === "lastInterval" && e.newValue) {
+        document.getElementById("lastInterval").value = e.newValue;
+        mapLoadSpots();
+      }
+    });
+  }
 
   //auto reload-on select
   // countrySelect.addEventListener("change", () =>{

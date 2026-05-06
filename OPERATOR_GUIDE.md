@@ -1,10 +1,8 @@
 # HamSCI Contesting Dashboard - Operator Quick Reference
 
-> **Note for station operators:** This guide is a template. Replace `YOUR_CALLSIGN`, `YOUR_GRID`, and `http://YOUR_DASHBOARD_URL` throughout with your station's actual callsign, Maidenhead grid square, and dashboard URL.
-
-**Station:** YOUR_CALLSIGN Personal Space Weather Station
-**Location:** YOUR_GRID
-**Dashboard:** http://YOUR_DASHBOARD_URL
+**Station:** KD3ALD Personal Space Weather Station
+**Location:** FN21ni (Northern New Jersey)
+**Dashboard:** http://dash.kd3ald.com
 
 ---
 
@@ -12,7 +10,7 @@
 
 ### What This Dashboard Shows
 
-This dashboard displays **real-time HF propagation conditions** by showing decoded WSPR, FT8, and FT4 spots from your receiver. Each spot represents a successful digital mode reception, indicating that a particular band is open to that location.
+This dashboard displays **real-time HF propagation conditions** by showing decoded WSPR, FT8, and FT4 spots from the KD3ALD receiver. Each spot represents a successful digital mode reception, indicating that a particular band is open to that location.
 
 **Use this dashboard to answer:**
 - ✅ What bands are currently open?
@@ -156,7 +154,7 @@ Amateur radio contest zones (1-40) defined by CQ Magazine. Used for zone multipl
 **Example Zones:**
 - Zone 3: West Coast USA
 - Zone 4: Central USA
-- Zone 5: East Coast USA
+- Zone 5: East Coast USA (includes KD3ALD receiver)
 - Zone 14-16, 20: Europe
 - Zone 25: Japan
 
@@ -322,11 +320,11 @@ Europe spots (last 15 min):
 
 ---
 
-## Understanding Your Receiver (YOUR_CALLSIGN PSWS)
+## Understanding Your Receiver (KD3ALD PSWS)
 
 ### What the Receiver Does
 
-The Personal Space Weather Station at YOUR_CALLSIGN **continuously monitors all HF bands** using:
+The Personal Space Weather Station at KD3ALD **continuously monitors all HF bands** using:
 - **RX-888 MkII SDR** (software defined radio)
 - **30 MHz bandwidth** (covers 0.3-30 MHz simultaneously!)
 - **KA9Q-radio software** (multichannel receiver)
@@ -335,7 +333,7 @@ The Personal Space Weather Station at YOUR_CALLSIGN **continuously monitors all 
 
 ### Data Collection
 
-**Receiver location:** YOUR_GRID grid square
+**Receiver location:** FN21ni grid square (Northern New Jersey)
 
 **What it decodes:**
 - WSPR on all amateur bands (2200m through 6m)
@@ -356,13 +354,13 @@ The Personal Space Weather Station at YOUR_CALLSIGN **continuously monitors all 
 ### Receiver Limitations
 
 **Important to know:**
-- ⚠️ **One receiver only:** Dashboard shows propagation **TO** YOUR_CALLSIGN (YOUR_GRID)
-- ⚠️ **Not transmitting:** YOUR_CALLSIGN receiver is RX-only (doesn't transmit)
+- ⚠️ **One receiver only:** Dashboard shows propagation **TO** KD3ALD (FN21ni)
+- ⚠️ **Not transmitting:** KD3ALD receiver is RX-only (doesn't transmit)
 - ⚠️ **Local noise:** Urban QTH may have higher noise floor
 - ⚠️ **Antenna limitations:** Small active antenna (not a beam or large wire)
 
 **What this means for you:**
-- **Dashboard shows:** What stations can hear at YOUR_CALLSIGN location
+- **Dashboard shows:** What stations can hear at KD3ALD location
 - **Dashboard doesn't show:** What you'll hear at YOUR location
 - **But:** HF propagation is generally reciprocal, so it's a good indicator!
 
@@ -385,7 +383,7 @@ Use this dashboard as a **guide** for band conditions, but always verify with yo
 
 **Solutions:**
 1. **Clear browser cache:** Ctrl+F5 (Windows) or Cmd+Shift+R (Mac)
-2. **Check browser console:** Open DevTools (F12) and look for loading errors
+2. **Check internet connection:** GeoJSON files are large (~18MB)
 3. **Try different browser:** Chrome, Firefox, or Edge
 4. **Disable browser extensions:** Some ad blockers interfere with maps
 
@@ -470,14 +468,16 @@ Shows **actual measured propagation** from your local region, not predictions or
 ## Contact and Support
 
 **Dashboard Operator:**
-YOUR_CALLSIGN
-[Your contact information]
+Owen Ruzanski, KD3ALD
+Email: owen.ruzanski@scranton.edu
 
 **Receiver Station:**
-YOUR_CALLSIGN, Grid YOUR_GRID
+KD3ALD, Grid FN21ni
+Northern New Jersey, USA
 
 **Project Website:**
-HamSCI Personal Space Weather Station Project — https://hamsci.org/
+University of Scranton W3USR Amateur Radio Club
+HamSCI Personal Space Weather Station Project
 
 **Report Issues:**
 - Receiver offline
@@ -499,6 +499,6 @@ HamSCI Personal Space Weather Station Project — https://hamsci.org/
 
 ---
 
-**73 de YOUR_CALLSIGN - Good DX!**
+**73 de KD3ALD - Good DX!**
 
 *For technical documentation, see [README.md](README.md)*

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prediction — How To</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .howto-body {
+      max-width: 860px;
+      margin: 30px auto 60px auto;
+      font-family: courier;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #111;
+    }
+
+    .howto-section {
+      margin-bottom: 48px;
+    }
+
+    .howto-section h2 {
+      font-size: 18px;
+      font-weight: bold;
+      color: #00aaff;
+      border-bottom: 1px solid #00aaff;
+      padding-bottom: 4px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .howto-section h3 {
+      font-size: 14px;
+      font-weight: bold;
+      margin: 20px 0 6px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #333;
+    }
+
+    .howto-section p {
+      margin: 0 0 10px 0;
+    }
+
+    .howto-section ul {
+      margin: 0 0 10px 0;
+      padding-left: 22px;
+    }
+
+    .howto-section ul li {
+      margin-bottom: 4px;
+    }
+
+    .howto-intro {
+      margin-bottom: 40px;
+      padding: 16px 20px;
+      background: #f4f8ff;
+      border-left: 3px solid #00aaff;
+      font-family: courier;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #222;
+    }
+
+    .howto-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      padding: 1px 7px;
+      border-radius: 3px;
+      background: #e8f0fe;
+      color: #1a56cc;
+      border: 1px solid #b0c8f8;
+      vertical-align: middle;
+      margin-right: 4px;
+      text-transform: uppercase;
+    }
+
+    .howto-tag.out {
+      background: #fff3e0;
+      color: #b45309;
+      border-color: #fcd68a;
+    }
+
+    .howto-tag.dl {
+      background: #eafaf1;
+      color: #166534;
+      border-color: #86efac;
+    }
+  </style>
+</head>
+
+<body class="pred-page">
+
+  <button id="hamburger-btn" onclick="toggleNav()">&#9776;</button>
+  <div id="nav-overlay" onclick="closeNav()"></div>
+  <nav id="nav-panel">
+    <a href="/">Spots</a>
+    <a href="/prediction">Prediction</a>
+  </nav>
+
+  <div class="pred-tabs">
+    <a class="pred-tab-btn active" href="/prediction">How To</a>
+    <a class="pred-tab-btn" href="/prediction/p2p">Point to Point</a>
+    <a class="pred-tab-btn" href="/prediction/area">Area</a>
+    <a class="pred-tab-btn" href="/prediction/contest">Contest</a>
+  </div>
+
+  <h1>How to Use this Program</h1>
+
+  <div class="howto-body">
+
+    <div class="howto-intro">
+      This tool generates HF propagation predictions using the ITU-R-HF engine. There are three prediction
+      modes: <strong>Point to Point</strong> (single path, full 24-hour frequency sweep),
+      <strong>Area</strong> (one transmitter to a geographic grid at a chosen UTC hour), and
+      <strong>Contest</strong> (multiple target regions, all bands, full 24-hour display). Each mode
+      produces both a visual output and downloadable raw data.
+    </div>
+
+    <!-- ========================================================= -->
+    <!--  POINT TO POINT                                            -->
+    <!-- ========================================================= -->
+    <div class="howto-section">
+      <h2>Point to Point</h2>
+
+      <p>
+        Predicts propagation between a single transmitter and receiver location across all frequencies
+        and all 24 UTC hours, displayed as a color-coded heatmap.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> Location</h3>
+      <p>
+        Enter decimal-degree coordinates for both the transmit (TX) and receive (RX) stations.
+        Alternatively, drag the red (TX) and blue (RX) markers directly on the map — the coordinate
+        fields update automatically.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> Frequency Mode</h3>
+      <ul>
+        <li><strong>Single</strong> — run prediction at one frequency you specify.</li>
+        <li><strong>Contest Bands</strong> — toggle any combination of 160 m, 80 m, 40 m, 20 m, 15 m, 10 m.</li>
+        <li><strong>HF Spectrum</strong> — sweep all 30 integer MHz steps from 1 to 30 MHz.</li>
+      </ul>
+
+      <h3><span class="howto-tag">Input</span> Other Parameters</h3>
+      <ul>
+        <li><strong>Antenna Gain</strong> — TX and RX antenna gain in dBi.</li>
+        <li><strong>Time &amp; Solar</strong> — year, month, and smoothed sunspot number (SSN / R12).</li>
+        <li><strong>TX Power</strong> — transmitter power in watts.</li>
+        <li><strong>Signal Type</strong> — mode (WSPR, FT8, CW, SSB) sets the required SNR threshold.</li>
+        <li><strong>Path Type</strong> — Short Path or Long Path.</li>
+        <li><strong>Noise Environment</strong> — background noise level from City to Quiet Rural.</li>
+      </ul>
+
+      <h3><span class="howto-tag out">Output</span> Frequency–Time Chart</h3>
+      <p>
+        A heatmap canvas plots frequency (y-axis, 1–30 MHz) against UTC hour (x-axis, 0–23). Cell
+        color represents the selected metric — BCR (circuit reliability %), SNR (dB), or PR (received
+        power). An orange spline overlays the predicted MUF. Hover over any cell to see the exact
+        frequency, hour, and value. Use the metric toggle buttons above the chart to switch between
+        BCR, SNR, and PR without re-running. Use the MUF toggle to switch between MUF 50th percentile
+        and Operational MUF 85th percentile.
+      </p>
+
+      <h3><span class="howto-tag dl">Download</span> CSV</h3>
+      <p>
+        Click <strong>Download CSV</strong> below the results text to save a timestamped CSV file
+        containing the full numeric prediction table for all frequencies and hours.
+      </p>
+
+      <h3><span class="howto-tag dl">Download</span> Chart Image</h3>
+      <p>
+        Click <strong>Download Chart Image</strong> above the chart to export the current
+        frequency–time heatmap as a PNG file.
+      </p>
+
+      <h3><span class="howto-tag dl">Download</span> Copy to Clipboard</h3>
+      <p>
+        Click <strong>Copy to Clipboard</strong> to copy the raw results text directly for pasting
+        into a spreadsheet or other tool.
+      </p>
+    </div>
+
+    <!-- ========================================================= -->
+    <!--  AREA                                                       -->
+    <!-- ========================================================= -->
+    <div class="howto-section">
+      <h2>Area</h2>
+
+      <p>
+        Predicts propagation from a single transmitter to every point on a global geographic grid
+        at a specific UTC hour, displayed as a color overlay on a world map.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> TX Location</h3>
+      <p>
+        Enter the transmitter latitude and longitude in decimal degrees, or drag the red marker on
+        the map. Only one station location is required — the prediction is computed to the entire grid.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> Display Hour</h3>
+      <p>
+        Set the initial UTC hour to display after the prediction runs. After running, use the
+        left/right arrow buttons to step through all 24 hours without re-running.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> Resolution</h3>
+      <p>
+        Choose the geographic grid resolution: Low (15°), Medium (10°), High (5°), or Very High (2°).
+        Higher resolution produces a finer heatmap but takes significantly longer to compute.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> Other Parameters</h3>
+      <p>
+        Antenna gain, year, month, SSN, frequency, TX power, signal type, and noise environment —
+        same meaning as Point to Point.
+      </p>
+
+      <h3><span class="howto-tag out">Output</span> Heatmap Overlay</h3>
+      <p>
+        A color heatmap is overlaid on the world map showing the selected metric (BCR, SNR, or PR)
+        at every grid point for the current hour. Use the metric toggle buttons to switch metrics
+        without re-running. Use the opacity slider to adjust heatmap transparency (0 = invisible,
+        1 = fully opaque). A grayline (solar terminator with twilight gradient zones) is also
+        overlaid automatically and updates every 60 seconds.
+      </p>
+
+      <h3><span class="howto-tag out">Output</span> Hover Info</h3>
+      <p>
+        Move the cursor over the map to see the predicted metric value at that geographic location
+        in the info box in the top-left corner of the map.
+      </p>
+
+      <h3><span class="howto-tag dl">Download</span> Map Image</h3>
+      <p>
+        Click <strong>Download Map Image</strong> to export the current map view as a PNG. A dialog
+        lets you choose the export extent:
+      </p>
+      <ul>
+        <li><strong>Whole Map</strong> — full 360°×180° world map.</li>
+        <li><strong>Surrounding Area</strong> — ±90° longitude and ±45° latitude around the TX.</li>
+        <li><strong>Custom</strong> — specify exact lat/lon bounds.</li>
+      </ul>
+
+      <h3><span class="howto-tag dl">Download</span> CSV</h3>
+      <p>
+        Click <strong>Download CSV</strong> to save a timestamped CSV of the full grid prediction
+        data for all 24 hours and all grid points.
+      </p>
+
+      <h3><span class="howto-tag dl">Download</span> Copy to Clipboard</h3>
+      <p>
+        Click <strong>Copy to Clipboard</strong> to copy the raw results text.
+      </p>
+    </div>
+
+    <!-- ========================================================= -->
+    <!--  CONTEST                                                    -->
+    <!-- ========================================================= -->
+    <div class="howto-section">
+      <h2>Contest</h2>
+
+      <p>
+        Predicts propagation from your station to a configurable list of target regions across all
+        contest bands and all 24 UTC hours, displayed as color-coded tables for both short and
+        long path.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> TX Grid Square</h3>
+      <p>
+        Enter your Maidenhead grid locator (4 or 6 characters, e.g. <em>FN21</em> or <em>FN21ab</em>).
+        This defines the transmitter location.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> Band Selection</h3>
+      <p>
+        Toggle any combination of the six contest bands: 160 m, 80 m, 40 m, 20 m, 15 m, 10 m.
+        Only selected bands appear in the output tables.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> Target Regions</h3>
+      <p>
+        The table lists the receive locations (target regions) to compute paths to. Each row has a
+        name, a Maidenhead grid square, and a checkbox to include or exclude it from the run.
+        You can edit region names and grid squares in-place. Click <strong>Add Region</strong> to
+        add a new row, or click the red X on any non-default row to remove it.
+      </p>
+
+      <h3><span class="howto-tag">Input</span> Other Parameters</h3>
+      <p>
+        TX Power, month, year, SSN, signal type, noise environment, and antenna gain — same meaning
+        as Point to Point.
+      </p>
+
+      <h3><span class="howto-tag out">Output</span> Contest Charts</h3>
+      <p>
+        After running, two color-coded tables appear — one for <strong>Short Path</strong> and one
+        for <strong>Long Path</strong>. Rows represent target regions grouped by band; columns
+        represent UTC hours 1–24. Each cell is colored by the predicted metric value using the
+        same viridis scale as the other prediction tools (white = 0, yellow = maximum).
+      </p>
+      <p>
+        If there are more than six regions, the tables are split into chunks of six. UTC hour labels
+        appear on both the left and right edges. Hover over any cell to see a tooltip showing the
+        region, band, hour, and exact value.
+      </p>
+      <p>
+        Use the metric toggle buttons (BCR %, SNR dB, PR S-unit) to switch the color coding and
+        legend without re-running the prediction.
+      </p>
+
+      <h3><span class="howto-tag dl">Download</span> PDF</h3>
+      <p>
+        Click <strong>Download PDF</strong> to open a print dialog with the contest charts
+        rendered at high resolution in landscape A4 format, suitable for printing or saving as PDF.
+      </p>
+
+      <h3><span class="howto-tag dl">Download</span> Images (ZIP)</h3>
+      <p>
+        Click <strong>Download Images</strong> to export each chart chunk as a PNG file, packaged
+        into a timestamped ZIP archive.
+      </p>
+    </div>
+
+  </div><!-- /.howto-body -->
+
+  <script>
+    function toggleNav() {
+      document.getElementById('nav-panel').classList.toggle('open');
+      document.getElementById('nav-overlay').classList.toggle('open');
+    }
+    function closeNav() {
+      document.getElementById('nav-panel').classList.remove('open');
+      document.getElementById('nav-overlay').classList.remove('open');
+    }
+  </script>
+
+</body>
+</html>
