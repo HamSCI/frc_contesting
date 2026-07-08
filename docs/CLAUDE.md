@@ -51,11 +51,12 @@ This documentation serves to:
 | April 19, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Contest chart: JSZip vendored, PDF/ZIP export (canvas-based, landscape, timestamped filenames, onload guard), cell height fix, band toggle fix, legend black borders, UTC labels both sides, band labels top+bottom, bold region separators in export, bold legend text | Liam Miller |
 | April 20, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Contest chart: antenna type dropdown + gain field (isotropic, 2.15 dBi default), tx_gain wired into POST body; trace color for near-zero values (cellColor helper, 11-block legend with white/trace/viridis) | Liam Miller |
 | May 3, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | How To page: populated prediction.html with input/output/data-extraction documentation for Point to Point, Area, and Contest Chart | Liam Miller |
+| July 8, 2026 | Claude Fable 5 | claude-fable-5 | Custom reference ionosphere: ITURHF_DATA_PATH .env override + fallback, seed script, engine rebuild (libp533.so/libp372.so), p2p/area path refactor, ionos bin format doc | Liam Miller |
 
 ### Current Model
 
-**Model**: Claude Sonnet 4.6
-**Model ID**: claude-sonnet-4-6
+**Model**: Claude Fable 5
+**Model ID**: claude-fable-5
 **Context Window**: Large (suitable for entire codebase analysis)
 
 ---
@@ -1027,6 +1028,47 @@ For questions about this project or the use of AI assistance, please refer to th
 
 ---
 
+### Session 25: Custom Reference Ionosphere ("Custom Disk File") + Engine Rebuild
+**Date**: July 8, 2026
+**Model**: Claude Fable 5 (claude-fable-5)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Make the ITURHFProp Reference Ionosphere swappable so a future tool can modify ionospheric values; rebuild the engine (shared libraries were missing); verify vendored source provenance against the arodland/ITU-R-HF fork
+**Status**: Complete
+
+**Provenance findings** (verified by diffing fresh clones):
+- The vendored `itu_r_hf/` tree is an exact copy of the **current official ITU-R-Study-Group-3/ITU-R-HF master** (which has absorbed the arodland fork's two build fixes). The arodland fork itself is an older upstream snapshot — no source or data sync was needed.
+- The Reference Ionosphere data files (`ionos01.bin`–`ionos12.bin`) are byte-identical across the vendored copy, the arodland fork, and official upstream.
+- The engine dlopens `libp533.so`/`libp372.so` from `itu_r_hf/ITURHFProp/Linux/`, but neither was git-tracked (blocked by the global `*.so` gitignore rule) — predictions failed on any fresh clone until rebuilt.
+
+**Activities**:
+- Rebuilt the engine in WSL (Ubuntu 24.04, gcc via build-essential): `make` in `itu_r_hf/Linux/` builds `libp533.so`, `libp372.so`, and the `ITURHFProp` binary; copied both `.so` files to `itu_r_hf/ITURHFProp/Linux/` (the directory both platforms put on `LD_LIBRARY_PATH`); loader smoke test passes (`P533 Version: 14.2`)
+- Added `_resolve_data_dir()` + `REQUIRED_DATA_FILES` to `routes/api.py`: honors `ITURHF_DATA_PATH` from `.env` (absolute or repo-relative), validates all 25 runtime-required files (`ionosNN.bin`, `COEFFNNW.txt` — note **.txt**, the `.BIN`/`FOF2*.DAW` files are never opened by the engine — and `P1239-3 Decile Factors.txt`), falls back to the bundled `itu_r_hf/ITURHFProp/Data/` with a logged warning on any problem; rejects POSIX-style paths on Windows (would be mangled by `_to_wsl()`)
+- Fixed latent inconsistency: `predict_p2p` and `predict_area` duplicated the path-derivation inline instead of using `_iturhfprop_paths()` — both now use the helper (and delegate their subprocess bodies to `_exec_iturhfprop()`, removing ~80 lines of duplicated code); `predict_contest` already did
+- Added `scripts/seed_custom_ionosphere.py`: copies the full bundled Data/ tree (incl. Antenna/) to `ionosphere/custom/` (gitignored); idempotent, `--force` restores pristine reference data, validates the required-file list
+- `.gitignore`: negations `!itu_r_hf/ITURHFProp/Linux/libp533.so`/`libp372.so` (the global `*.so` rule was silently blocking them), `itu_r_hf/**/*.o`/`*.d` ignore rules, `itu_r_hf/tmp/`, `ionosphere/`; removed ~50 stale committed `.o`/`.d` build artifacts under `itu_r_hf/ITURHFProp/Src/P533/`
+- `.env.example`: documented `ITURHF_DATA_PATH` with Windows-path caveat and restart note
+- New `docs/ionosphere-bin-format.md`: exact `ionosNN.bin` binary layout for the future modification tool (5-byte Fortran header, 1,399,728 × float32 foF2 payload, 10-byte record framing, M(3000)F2 payload, 5-byte tail — verified against the 11,197,844-byte file size and `ReadIonParametersBin()`), index formula `ssn*(241*121*24) + lon*(121*24) + lat*24 + hour`, worked example that scales foF2 by 1.2
+- README: "Building the ITURHFProp Prediction Engine" (WSL + native Linux commands, glibc-mismatch note, `make clean` warning) and "Custom Ionosphere Data" (seed → configure → restart workflow)
+
+**Key decisions**:
+- Kept the vendored source unchanged rather than "switching" to the arodland fork — the fork is older than what's vendored and the ionosphere data is identical; the actual goal (modifiable ionosphere) is achieved via the data-directory swap, exactly how the engine is designed (`DataFilePath` is a directory prefix; `ionos%02d.bin` filenames are hardcoded in `ReadIonParameters.c`)
+- Custom data dir must contain the FULL Data file set, not just ionos maps — the engine loads noise coefficients and P.1239 deciles from the same `DataFilePath`
+- Track all three built artifacts in git (offline-first; deploy targets may lack compilers); glibc mismatch on older servers is handled by documented native rebuild
+- Engine re-reads data files on every prediction subprocess, so map edits apply without app restart; changing `ITURHF_DATA_PATH` itself requires a restart (`load_dotenv()` runs once)
+
+**Files Modified/Created**:
+- `routes/api.py` — `REQUIRED_DATA_FILES`, `_resolve_data_dir()`, `_iturhfprop_paths()` uses resolver; `predict_p2p`/`predict_area` refactored onto shared helpers
+- `scripts/seed_custom_ionosphere.py` — new
+- `docs/ionosphere-bin-format.md` — new
+- `.gitignore` — engine artifact rules, `ionosphere/`
+- `.env.example` — `ITURHF_DATA_PATH`
+- `README.md` — engine build + custom ionosphere sections
+- `itu_r_hf/ITURHFProp/Linux/{ITURHFProp,libp533.so,libp372.so}` — rebuilt/added
+- `itu_r_hf/ITURHFProp/Src/P533/*.{o,d}` — stale committed build artifacts removed
+- `docs/CLAUDE.md` — session record
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -1054,6 +1096,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 3.0 | April 19, 2026 | Added Session 23: JSZip vendored, canvas-based PDF/ZIP export, timestamped filenames, onload print guard, cell height fix, band toggle fix, legend black borders, UTC both sides, band labels top+bottom, bold region separators in export, bold legend text | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 3.1 | April 20, 2026 | Updated Session 23: antenna type dropdown + gain field, tx_gain POST wiring, TRACE_COLOR + cellColor() helper, 11-block legend with trace tier | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 3.2 | May 3, 2026 | Added Session 24: How To page content — P2P, Area, Contest documentation; engine reference fix; map/grayline output corrections | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 3.3 | July 8, 2026 | Added Session 25: custom reference ionosphere (ITURHF_DATA_PATH, seed script, bin-format doc), engine rebuild with tracked shared libraries, p2p/area path refactor, provenance verification vs arodland fork | Claude Fable 5 (claude-fable-5) |
 
 ---
 

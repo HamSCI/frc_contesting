@@ -55,10 +55,53 @@ def maidenhead_to_latlon(grid):
     return round(lat, 4), round(lon, 4)
 
 
+# Files ITURHFProp actually opens from DataFilePath at runtime:
+#   ionosNN.bin  - monthly foF2/M(3000)F2 maps (P533 ReadIonParametersBin)
+#   COEFFNNW.txt - atmospheric noise coefficients (P372 ReadFamDud)
+#   P1239-3 Decile Factors.txt - MUF variability deciles (P533 ReadP1239)
+REQUIRED_DATA_FILES = (
+    [f'ionos{m:02d}.bin' for m in range(1, 13)]
+    + [f'COEFF{m:02d}W.txt' for m in range(1, 13)]
+    + ['P1239-3 Decile Factors.txt']
+)
+
+
+def _resolve_data_dir(project_root):
+    """Return the ITURHFProp data directory, honoring ITURHF_DATA_PATH.
+
+    ITURHF_DATA_PATH (from .env) may name a custom ionosphere data directory,
+    absolute or relative to the project root. Falls back to the bundled
+    reference Data/ (with a logged warning) if the variable points at a
+    missing or incomplete directory.
+    """
+    default_dir = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Data')
+    custom = os.environ.get('ITURHF_DATA_PATH', '').strip()
+    if not custom:
+        return default_dir
+    if platform.system() == 'Windows' and custom.startswith('/'):
+        current_app.logger.warning(
+            'ITURHF_DATA_PATH %r looks like a WSL/POSIX path; on Windows use '
+            'a Windows-style or repo-relative path. Falling back to bundled '
+            'reference data.', custom)
+        return default_dir
+    custom_dir = os.path.abspath(
+        custom if os.path.isabs(custom) else os.path.join(project_root, custom))
+    missing = [f for f in REQUIRED_DATA_FILES
+               if not os.path.isfile(os.path.join(custom_dir, f))]
+    if missing:
+        current_app.logger.warning(
+            'ITURHF_DATA_PATH=%s is missing %d required file(s) (e.g. %s); '
+            'falling back to bundled reference data. Run '
+            'scripts/seed_custom_ionosphere.py to seed the directory.',
+            custom_dir, len(missing), ', '.join(missing[:3]))
+        return default_dir
+    return custom_dir
+
+
 def _iturhfprop_paths():
     """Return platform-specific path info needed to invoke ITURHFProp."""
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    data_path  = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Data') + os.sep
+    data_path  = _resolve_data_dir(project_root) + os.sep
     tmp_dir    = os.path.join(project_root, 'itu_r_hf', 'tmp')
     linux_dir  = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Linux')
     os.makedirs(tmp_dir, exist_ok=True)
@@ -357,28 +400,10 @@ def predict_p2p():
     if not data['rpt_options']:
         return jsonify({'error': 'At least one output option required'}), 400
 
-    # --- Derive paths ---
-    project_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), '..')
-    )
-    data_path = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Data') + os.sep
-    tmp_dir   = os.path.join(project_root, 'itu_r_hf', 'tmp')
-    os.makedirs(tmp_dir, exist_ok=True)
-
-    # --- Platform-aware paths (WSL on Windows, direct on Linux) ---
-    on_windows = platform.system() == 'Windows'
-    linux_dir  = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Linux')
-
-    if on_windows:
-        wsl_exe           = _to_wsl(os.path.join(linux_dir, 'ITURHFProp'))
-        wsl_lib           = _to_wsl(linux_dir)
-        in_file_data_path = _to_wsl(data_path.rstrip(os.sep)) + '/'
-        in_file_rpt_path  = _to_wsl(tmp_dir) + '/'
-    else:
-        exe_path          = os.path.join(linux_dir, 'ITURHFProp')
-        lib_path          = linux_dir
-        in_file_data_path = data_path
-        in_file_rpt_path  = tmp_dir + '/'
+    # --- Derive paths (WSL on Windows, direct on Linux) ---
+    paths = _iturhfprop_paths()
+    in_file_data_path = paths['in_file_data_path']
+    in_file_rpt_path  = paths['in_file_rpt_path']
 
     # --- Convert TX power: Watts → dB(kW) ---
     watts = float(data['tx_power_w'])
@@ -441,41 +466,7 @@ def predict_p2p():
             f'DataFilePath "{in_file_data_path}"\n'
             f'RptFilePath "{in_file_rpt_path}"\n'
         )
-        run_id   = str(uuid.uuid4())
-        in_path  = os.path.join(tmp_dir, f'{run_id}.in')
-        out_path = os.path.join(tmp_dir, f'{run_id}.out')
-        try:
-            with open(in_path, 'w') as f:
-                f.write(in_content)
-            if on_windows:
-                wsl_in  = _to_wsl(in_path)
-                wsl_out = _to_wsl(out_path)
-                cmd = f'LD_LIBRARY_PATH={wsl_lib} {wsl_exe} -s {wsl_in} {wsl_out}'
-                proc = subprocess.run(
-                    ['wsl', 'bash', '-c', cmd],
-                    capture_output=True, text=True, timeout=120
-                )
-            else:
-                env = os.environ.copy()
-                env['LD_LIBRARY_PATH'] = lib_path + ':' + env.get('LD_LIBRARY_PATH', '')
-                proc = subprocess.run(
-                    [exe_path, '-s', in_path, out_path],
-                    capture_output=True, text=True, timeout=120, env=env
-                )
-            if proc.returncode != 0:
-                stderr = proc.stderr.strip() or proc.stdout.strip()
-                raise RuntimeError(f'ITURHFProp exited with code {proc.returncode}: {stderr}')
-            if not os.path.exists(out_path):
-                raise RuntimeError('Output file was not created. Check input parameters.')
-            with open(out_path, 'r', errors='replace') as f:
-                return f.read()
-        finally:
-            for path in (in_path, out_path):
-                try:
-                    if os.path.exists(path):
-                        os.remove(path)
-                except OSError:
-                    pass
+        return _exec_iturhfprop(in_content, paths)
 
     try:
         chart_freq_str = ','.join(str(f) for f in range(1, 31))
@@ -526,26 +517,9 @@ def predict_area():
         return jsonify({'error': 'Missing fields: ' + ', '.join(missing)}), 400
 
     # --- Derive paths (same pattern as predict_p2p) ---
-    project_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), '..')
-    )
-    data_path = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Data') + os.sep
-    tmp_dir   = os.path.join(project_root, 'itu_r_hf', 'tmp')
-    os.makedirs(tmp_dir, exist_ok=True)
-
-    on_windows = platform.system() == 'Windows'
-    linux_dir  = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Linux')
-
-    if on_windows:
-        wsl_exe           = _to_wsl(os.path.join(linux_dir, 'ITURHFProp'))
-        wsl_lib           = _to_wsl(linux_dir)
-        in_file_data_path = _to_wsl(data_path.rstrip(os.sep)) + '/'
-        in_file_rpt_path  = _to_wsl(tmp_dir) + '/'
-    else:
-        exe_path          = os.path.join(linux_dir, 'ITURHFProp')
-        lib_path          = linux_dir
-        in_file_data_path = data_path
-        in_file_rpt_path  = tmp_dir + '/'
+    paths = _iturhfprop_paths()
+    in_file_data_path = paths['in_file_data_path']
+    in_file_rpt_path  = paths['in_file_rpt_path']
 
     watts = float(data['tx_power_w'])
     if watts <= 0:
@@ -601,39 +575,8 @@ def predict_area():
         f'RptFilePath "{in_file_rpt_path}"\n'
     )
 
-    run_id   = str(uuid.uuid4())
-    in_path  = os.path.join(tmp_dir, f'{run_id}.in')
-    out_path = os.path.join(tmp_dir, f'{run_id}.out')
-
     try:
-        with open(in_path, 'w') as f:
-            f.write(in_content)
-
-        if on_windows:
-            wsl_in  = _to_wsl(in_path)
-            wsl_out = _to_wsl(out_path)
-            cmd = f'LD_LIBRARY_PATH={wsl_lib} {wsl_exe} -s {wsl_in} {wsl_out}'
-            proc = subprocess.run(
-                ['wsl', 'bash', '-c', cmd],
-                capture_output=True, text=True, timeout=300
-            )
-        else:
-            env = os.environ.copy()
-            env['LD_LIBRARY_PATH'] = lib_path + ':' + env.get('LD_LIBRARY_PATH', '')
-            proc = subprocess.run(
-                [exe_path, '-s', in_path, out_path],
-                capture_output=True, text=True, timeout=300, env=env
-            )
-
-        if proc.returncode != 0:
-            stderr = proc.stderr.strip() or proc.stdout.strip()
-            return jsonify({'error': f'ITURHFProp exited with code {proc.returncode}: {stderr}'}), 500
-
-        if not os.path.exists(out_path):
-            return jsonify({'error': 'Output file was not created. Check input parameters.'}), 500
-
-        with open(out_path, 'r', errors='replace') as f:
-            output_text = f.read()
+        output_text = _exec_iturhfprop(in_content, paths, timeout=300)
 
         area_data = parse_area_data(output_text, res)
         if area_data is None:
@@ -645,13 +588,6 @@ def predict_area():
         return jsonify({'error': 'Prediction timed out after 300 seconds'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    finally:
-        for path in (in_path, out_path):
-            try:
-                if os.path.exists(path):
-                    os.remove(path)
-            except OSError:
-                pass
 
 
 @api_bp.route('/api/predict/contest', methods=['POST'])

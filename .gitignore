@@ -61,6 +61,18 @@ secrets.json
 credentials.json
 config.local.py
 
+# ITU-R HF engine: build intermediates stay out, but the runtime shared
+# libraries are tracked (negations needed because of the global *.so rule)
+itu_r_hf/**/*.o
+itu_r_hf/**/*.d
+!itu_r_hf/ITURHFProp/Linux/libp533.so
+!itu_r_hf/ITURHFProp/Linux/libp372.so
+itu_r_hf/tmp/
+
+# Custom ionosphere data set (seeded locally by
+# scripts/seed_custom_ionosphere.py, never committed)
+ionosphere/
+
 # MongoDB
 mongodb_data/
 dump/

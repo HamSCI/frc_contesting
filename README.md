@@ -230,6 +230,34 @@ curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers.png -o static/vendor
 curl -sL https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png -o static/vendor/leaflet/images/layers-2x.png
 ```
 
+### Building the ITURHFProp Prediction Engine
+
+The prediction pages shell out to the ITURHFProp binary (ITU-R P.533/P.372),
+vendored in source form at `itu_r_hf/`. The Linux binary `ITURHFProp` and the
+shared libraries `libp533.so` / `libp372.so` must all be present in
+`itu_r_hf/ITURHFProp/Linux/` — they are tracked in git, but rebuild them after
+changing engine source or when the prebuilt artifacts fail on your system
+(e.g., a `GLIBC_x.xx not found` error on an older server means the tracked
+artifacts were built against a newer glibc — rebuild natively):
+
+```bash
+# On Windows (engine runs under WSL; needs build-essential inside WSL):
+wsl bash -c '
+  cd /mnt/c/<path-to-repo>/itu_r_hf/Linux &&
+  make &&
+  cp ../P533/Linux/libp533.so ../P372/Linux/libp372.so ../ITURHFProp/Linux/
+'
+
+# On Linux (needs gcc + make):
+cd itu_r_hf/Linux
+make
+cp ../P533/Linux/libp533.so ../P372/Linux/libp372.so ../ITURHFProp/Linux/
+```
+
+Do not run `make clean` in `ITURHFProp/Linux` afterwards — that target also
+deletes the freshly built binary. Build intermediates (`*.o`, `*.d`) are
+gitignored.
+
 ---
 
 ## Configuration
@@ -264,6 +292,31 @@ RECEIVER_GRIDSQUARE=FN21ni
 ```
 
 The backend reads these values at startup and serves them to the frontend via the `/config` API endpoint. The grid square can be 4-character (e.g., `FN21`) or 6-character (e.g., `FN21ni`).
+
+### Custom Ionosphere Data (ITURHF_DATA_PATH)
+
+The prediction engine's Reference Ionosphere is the file set in
+`itu_r_hf/ITURHFProp/Data/` (`ionos01.bin` … `ionos12.bin` monthly foF2 /
+M(3000)F2 maps, plus noise coefficients and P.1239 decile factors). To run
+predictions against a **custom, modifiable** copy of this data set:
+
+1. Seed the custom directory (full copy of the bundled data):
+   ```bash
+   python scripts/seed_custom_ionosphere.py
+   ```
+2. Point the app at it in `.env`:
+   ```bash
+   ITURHF_DATA_PATH=ionosphere/custom
+   ```
+3. Restart the dashboard.
+
+Relative paths resolve against the repo root; on Windows use Windows-style
+paths (converted to `/mnt/...` for WSL automatically). If the variable is
+unset, or the directory is missing any required file, the app logs a warning
+and falls back to the bundled reference data. Restore a modified custom set
+to pristine reference data with `python scripts/seed_custom_ionosphere.py
+--force`. The `ionos*.bin` binary layout is documented in
+[docs/ionosphere-bin-format.md](docs/ionosphere-bin-format.md).
 
 ### Band Color Configuration
 
