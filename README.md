@@ -318,6 +318,25 @@ to pristine reference data with `python scripts/seed_custom_ionosphere.py
 --force`. The `ionos*.bin` binary layout is documented in
 [docs/ionosphere-bin-format.md](docs/ionosphere-bin-format.md).
 
+### Assimilated-Predictions [BETA]
+
+A scaffolding page (left menu → "Assimilated-Predictions [BETA]", route
+`/prediction/assimilated`) for a future data-assimilation feature. It shows a live contest-band spot
+map above a full Point-to-Point prediction form, with an indicator showing whether predictions
+currently use the **baseline** ionosphere (red) or an **assimilated** one (green). The actual
+assimilation algorithm is not implemented yet — this is the framework it will plug into.
+
+How it works now:
+- Baseline = the pristine `itu_r_hf/ITURHFProp/Data/`; the assimilated working copy lives in
+  `ionosphere/assimilated/` (gitignored, auto-created), with session state in
+  `ionosphere/assimilated_state.json`.
+- On open, a session starts and the indicator shows red "Baseline Ionosphere" for
+  `ASSIMILATION_WARMUP_MINUTES` (default 15), then flips to green "Assimilated Ionosphere".
+- Predictions on the page automatically use whichever ionosphere the indicator reflects.
+- The **Done Predicting** button records a timestamp that keeps the session alive; a session idle
+  longer than `ASSIMILATION_STALE_MINUTES` (default 30) is reset to a fresh baseline copy.
+- Both minute values are configurable in `.env` (fractions allowed for testing).
+
 ### Band Color Configuration
 
 Band colors are defined in [static/js/config.js](static/js/config.js) under `CONFIG.bandColorMap`:

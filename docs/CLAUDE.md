@@ -52,11 +52,12 @@ This documentation serves to:
 | April 20, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Contest chart: antenna type dropdown + gain field (isotropic, 2.15 dBi default), tx_gain wired into POST body; trace color for near-zero values (cellColor helper, 11-block legend with white/trace/viridis) | Liam Miller |
 | May 3, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | How To page: populated prediction.html with input/output/data-extraction documentation for Point to Point, Area, and Contest Chart | Liam Miller |
 | July 8, 2026 | Claude Fable 5 | claude-fable-5 | Custom reference ionosphere: ITURHF_DATA_PATH .env override + fallback, seed script, engine rebuild (libp533.so/libp372.so), p2p/area path refactor, ionos bin format doc | Liam Miller |
+| July 8, 2026 | Claude Opus 4.8 | claude-opus-4-8 | Assimilated-Predictions [BETA] framework: new page (P2P copy + iframe contest spot map + baseline/assimilated indicator + Done Predicting), assimilation state machine service, status/done/predict endpoints | Liam Miller |
 
 ### Current Model
 
-**Model**: Claude Fable 5
-**Model ID**: claude-fable-5
+**Model**: Claude Opus 4.8
+**Model ID**: claude-opus-4-8
 **Context Window**: Large (suitable for entire codebase analysis)
 
 ---
@@ -1069,6 +1070,65 @@ For questions about this project or the use of AI assistance, please refer to th
 
 ---
 
+### Session 26: Assimilated-Predictions [BETA] — Framework (no real assimilation)
+**Date**: July 8, 2026
+**Model**: Claude Opus 4.8 (claude-opus-4-8)
+**Contributor**: Liam Miller (KD3BVX)
+**Scope**: Scaffold the assimilation feature — a page showing real spot data and predicted data
+together, with an indicator for whether predictions use the baseline or an "assimilated" ionosphere.
+The real assimilation algorithm is intentionally NOT built; this is the framework it will plug into.
+**Status**: Complete
+
+**What was built**:
+- **New page `/prediction/assimilated`** ("Assimilated-Predictions [BETA]", added to the left
+  hamburger nav in all pages): a full copy of the Point-to-Point page with working inputs that return
+  a real prediction, plus three additions — a color-coded ionosphere indicator at the top, a live
+  contest-band spot map above the P2P section, and a "Done Predicting" button at the bottom.
+- **Live contest spot map** via `<iframe src="/contestmap">`. New route `/contestmap` +
+  `templates/map_contest.html` = a copy of `index_ft.html` with the filter controls hidden
+  (`display:none`, but kept in the DOM because `map_ft.js` reads ~13 control elements or throws),
+  `bandFilter` preselected to `"CBs"` (contest bands only), and a 2-min auto-reload. Served at a
+  **single-path segment** (`/contestmap`, not `/map/contest`) so `map_ft.js`'s relative asset/GeoJSON
+  fetches resolve against the site root. Embedded via iframe to isolate `map_ft.js`'s globals and its
+  hardcoded `#map` id from the P2P page's own `#pred-map`.
+- **Ionosphere indicator**: red "Baseline Ionosphere" / green "Assimilated Ionosphere". Frontend
+  polls `/api/assimilation/status` on load + every 60 s, and sets a client-side timer to `flip_at`
+  for a crisp baseline→assimilated flip.
+- **"Done Predicting"** → `POST /api/assimilation/done` writes the session timestamp so the session
+  stays alive (critical: without it the session goes stale and resets).
+- **State machine** in new `services/assimilation.py`. Directories (under the gitignored
+  `ionosphere/`): baseline = pristine `itu_r_hf/ITURHFProp/Data/`; assimilated working copy =
+  `ionosphere/assimilated/`; state file = `ionosphere/assimilated_state.json`
+  (`session_start`/`last_activity`). Logic (`get_status()`): a fresh session shows baseline for
+  `ASSIMILATION_WARMUP_MINUTES` (default 15) then flips to assimilated; a session idle longer than
+  `ASSIMILATION_STALE_MINUTES` (default 30) is reset (working copy re-copied from baseline, new
+  session). Real modifications to the maps (detected by byte-comparing `ionosNN.bin` vs baseline)
+  short-circuit to assimilated while the session is fresh. Both knobs read from env as floats.
+- **Predictions follow the indicator**: `/api/predict/assimilated/p2p` resolves the data directory
+  via `assimilation.resolve_prediction_data_dir()` (pristine baseline when red, assimilated copy when
+  green) — this is how the page switches ionospheres. Reused last session's work: added
+  `data_dir_override` to `_iturhfprop_paths()` and extracted `_predict_p2p_core(data,
+  data_dir_override)` from `predict_p2p()` (existing `/api/predict/p2p` behavior unchanged).
+
+**Verified end-to-end**: first open creates the working copy + session (red); warmup flip to green
+(tested with `ASSIMILATION_WARMUP_MINUTES=0.1`); assimilated P2P prediction returns results; Done
+Predicting records the timestamp; perturbing `ionosphere/assimilated/ionos07.bin` (foF2 ×1.2) shifts
+a month-7 prediction 16.67→19.97 MHz while green (proving the switch); a >30-min-stale session resets
+the working copy to baseline and predictions return to 16.67. (`/spots` needs a live MongoDB; the
+map otherwise renders its offline basemap.)
+
+**Explicitly out of scope** (future): the assimilation algorithm itself, and click-a-spot →
+populate TX/RX. The session/timestamp machinery here is the hook for them.
+
+**Files**:
+- New: `services/assimilation.py`, `templates/prediction_assimilated.html`, `templates/map_contest.html`
+- Modified: `routes/api.py` (import + 3 endpoints + `_iturhfprop_paths(data_dir_override)` +
+  `_predict_p2p_core` extract), `routes/views.py` (`/contestmap`, `/prediction/assimilated`),
+  `static/css/style.css` (Section 16), `.env.example`, the 5 nav templates, `README.md`, `docs/CLAUDE.md`
+- Runtime-created (gitignored): `ionosphere/assimilated/`, `ionosphere/assimilated_state.json`
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -1097,6 +1157,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 3.1 | April 20, 2026 | Updated Session 23: antenna type dropdown + gain field, tx_gain POST wiring, TRACE_COLOR + cellColor() helper, 11-block legend with trace tier | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 3.2 | May 3, 2026 | Added Session 24: How To page content — P2P, Area, Contest documentation; engine reference fix; map/grayline output corrections | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 3.3 | July 8, 2026 | Added Session 25: custom reference ionosphere (ITURHF_DATA_PATH, seed script, bin-format doc), engine rebuild with tracked shared libraries, p2p/area path refactor, provenance verification vs arodland fork | Claude Fable 5 (claude-fable-5) |
+| 3.4 | July 8, 2026 | Added Session 26: Assimilated-Predictions [BETA] framework — new page (P2P copy + iframe contest spot map + baseline/assimilated indicator + Done Predicting), services/assimilation.py state machine, status/done/assimilated-p2p endpoints | Claude Opus 4.8 (claude-opus-4-8) |
 
 ---
 

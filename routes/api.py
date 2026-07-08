@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, current_app, jsonify, request
 
+from services import assimilation
 from services.spots import fetch_spots_for_map, fetch_spots_for_table
 
 api_bp = Blueprint('api', __name__)
@@ -98,10 +99,17 @@ def _resolve_data_dir(project_root):
     return custom_dir
 
 
-def _iturhfprop_paths():
-    """Return platform-specific path info needed to invoke ITURHFProp."""
+def _iturhfprop_paths(data_dir_override=None):
+    """Return platform-specific path info needed to invoke ITURHFProp.
+
+    data_dir_override: if given, use this directory for the ionosphere/noise
+    data instead of the ITURHF_DATA_PATH-resolved default. Used by the
+    assimilation page to run predictions against the baseline or assimilated
+    working copy as selected by the indicator state.
+    """
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    data_path  = _resolve_data_dir(project_root) + os.sep
+    data_dir   = data_dir_override if data_dir_override else _resolve_data_dir(project_root)
+    data_path  = data_dir.rstrip(os.sep) + os.sep
     tmp_dir    = os.path.join(project_root, 'itu_r_hf', 'tmp')
     linux_dir  = os.path.join(project_root, 'itu_r_hf', 'ITURHFProp', 'Linux')
     os.makedirs(tmp_dir, exist_ok=True)
@@ -383,8 +391,15 @@ def predict_p2p():
     Returns:
         JSON: {"output": "<text>"} on success, {"error": "<msg>"} on failure
     """
-    data = request.get_json(force=True)
+    return _predict_p2p_core(request.get_json(force=True))
 
+
+def _predict_p2p_core(data, data_dir_override=None):
+    """
+    Core point-to-point prediction logic shared by /api/predict/p2p and the
+    assimilation page. data_dir_override selects an alternate ionosphere data
+    directory (baseline vs assimilated); None uses the ITURHF_DATA_PATH default.
+    """
     # --- Validate required fields ---
     required = ['tx_lat', 'tx_lng', 'rx_lat', 'rx_lng',
                 'year', 'month', 'ssn', 'tx_power_w',
@@ -401,7 +416,7 @@ def predict_p2p():
         return jsonify({'error': 'At least one output option required'}), 400
 
     # --- Derive paths (WSL on Windows, direct on Linux) ---
-    paths = _iturhfprop_paths()
+    paths = _iturhfprop_paths(data_dir_override=data_dir_override)
     in_file_data_path = paths['in_file_data_path']
     in_file_rpt_path  = paths['in_file_rpt_path']
 
@@ -493,6 +508,31 @@ def predict_p2p():
         return jsonify({'error': 'Prediction timed out after 120 seconds'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ── Assimilated-Predictions [BETA] ───────────────────────────────────────────
+
+@api_bp.route('/api/assimilation/status')
+def assimilation_status():
+    """Return the current ionosphere indicator state (baseline vs assimilated)."""
+    return jsonify(assimilation.get_status())
+
+
+@api_bp.route('/api/assimilation/done', methods=['POST'])
+def assimilation_done():
+    """Record 'Done Predicting': refresh the session timestamp. Returns status."""
+    return jsonify(assimilation.mark_done())
+
+
+@api_bp.route('/api/predict/assimilated/p2p', methods=['POST'])
+def predict_assimilated_p2p():
+    """
+    Point-to-point prediction for the assimilation page. Runs against whichever
+    ionosphere the current indicator state selects (pristine baseline when
+    'baseline', the assimilated working copy when 'assimilated').
+    """
+    data_dir = assimilation.resolve_prediction_data_dir()
+    return _predict_p2p_core(request.get_json(force=True), data_dir_override=data_dir)
 
 
 @api_bp.route('/api/predict/area', methods=['POST'])

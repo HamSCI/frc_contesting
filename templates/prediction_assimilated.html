@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Prediction — Point to Point</title>
+  <title>Assimilated-Predictions [BETA]</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 </head>
@@ -19,12 +19,21 @@
 
   <div class="pred-tabs">
     <a class="pred-tab-btn" href="/prediction">How To</a>
-    <a class="pred-tab-btn active" href="/prediction/p2p">Point to Point</a>
+    <a class="pred-tab-btn" href="/prediction/p2p">Point to Point</a>
     <a class="pred-tab-btn" href="/prediction/area">Area</a>
     <a class="pred-tab-btn" href="/prediction/contest">Contest</a>
   </div>
 
-  <h1 style="text-align:center; margin-top: 30px; margin-bottom: 10px;">Point to Point</h1>
+  <!-- Ionosphere indicator (baseline = red, assimilated = green) -->
+  <div id="ion-indicator" class="ion-indicator baseline">Checking ionosphere&hellip;</div>
+
+  <h1 style="text-align:center; margin-top: 20px; margin-bottom: 6px;">Assimilated-Predictions <span style="color:#f97316;">[BETA]</span></h1>
+
+  <!-- Live contest-band spot map (visual only) -->
+  <h2 style="text-align:center; margin: 6px 0;">Live Contest Spots</h2>
+  <iframe src="/contestmap" class="assim-spot-map" title="Live contest-band spot map"></iframe>
+
+  <h2 style="text-align:center; margin: 18px 0 6px;">Point-to-Point Prediction</h2>
 
   <div class="pred-map-row">
     <div id="pred-map"></div>
@@ -217,6 +226,12 @@
     </div>
   </div>
 
+  <!-- Done Predicting -->
+  <div style="text-align:center; margin: 24px 0 40px;">
+    <button class="run-btn" id="done-btn" onclick="donePredicting()">Done Predicting</button>
+    <div id="done-note" style="font-size:12px; color:#555; margin-top:6px;"></div>
+  </div>
+
   <script>
     // --- Nav ---
     function toggleNav() {
@@ -336,7 +351,7 @@
         rpt_options:  checkedOutputs
       };
 
-      fetch('/api/predict/p2p', {
+      fetch('/api/predict/assimilated/p2p', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1062,6 +1077,55 @@
       document.getElementById(id).addEventListener('input', updateMarkers);
     });
 
+  </script>
+
+  <!-- Ionosphere indicator + Done Predicting -->
+  <script>
+    let ionFlipTimer = null;
+
+    function renderIndicator(status) {
+      const el = document.getElementById('ion-indicator');
+      if (!el || !status || !status.label) return;
+      el.textContent = status.label;
+      el.classList.remove('baseline', 'assimilated');
+      el.classList.add(status.color === 'green' ? 'assimilated' : 'baseline');
+
+      // Schedule a crisp flip to "assimilated" at flip_at (client-side), so the
+      // indicator updates without waiting for the next poll.
+      if (ionFlipTimer) { clearTimeout(ionFlipTimer); ionFlipTimer = null; }
+      if (status.mode === 'baseline' && status.flip_at) {
+        const ms = new Date(status.flip_at + 'Z').getTime() - Date.now();
+        if (ms > 0 && ms < 2147483647) {
+          ionFlipTimer = setTimeout(refreshIndicator, ms + 500);
+        }
+      }
+    }
+
+    function refreshIndicator() {
+      fetch('/api/assimilation/status')
+        .then(r => r.json())
+        .then(renderIndicator)
+        .catch(() => {});
+    }
+
+    function donePredicting() {
+      const btn = document.getElementById('done-btn');
+      const note = document.getElementById('done-note');
+      btn.disabled = true;
+      fetch('/api/assimilation/done', { method: 'POST' })
+        .then(r => r.json())
+        .then(status => {
+          renderIndicator(status);
+          const ts = status.last_activity ? status.last_activity.replace('T', ' ').slice(0, 19) + ' UTC' : '';
+          note.textContent = 'Session timestamp recorded: ' + ts;
+        })
+        .catch(() => { note.textContent = 'Could not record timestamp — check the connection.'; })
+        .finally(() => { btn.disabled = false; });
+    }
+
+    // Initial load + periodic refresh (also drives the stale-session reset check).
+    refreshIndicator();
+    setInterval(refreshIndicator, 60000);
   </script>
 
 </body>

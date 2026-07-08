@@ -65,6 +65,19 @@ def table():
     return render_template("table_ft.html")
 
 
+@views_bp.route('/contestmap')
+def contest_map():
+    """
+    Stripped, contest-band-only spot map (no filter UI). Embedded via iframe
+    on the Assimilated-Predictions page. Served at a single-path segment so
+    map_ft.js's relative asset/GeoJSON fetches resolve against the site root.
+
+    Returns:
+        HTML: Rendered map_contest.html template
+    """
+    return render_template('map_contest.html')
+
+
 @views_bp.route('/prediction')
 def prediction():
     return render_template("prediction.html")
@@ -83,3 +96,10 @@ def prediction_area():
 @views_bp.route('/prediction/contest')
 def prediction_contest():
     return render_template("prediction_contest.html")
+
+
+@views_bp.route('/prediction/assimilated')
+def prediction_assimilated():
+    """Assimilated-Predictions [BETA]: P2P prediction + live contest spot map +
+    baseline/assimilated ionosphere indicator."""
+    return render_template("prediction_assimilated.html")
