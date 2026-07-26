@@ -1,8 +1,7 @@
 """
 Page-rendering routes for the HamSCI Dashboard.
 
-Serves HTML templates for the map view, table view, combined view,
-and legacy display view.
+Serves HTML templates for the map view, table view, and combined view.
 """
 
 from flask import Blueprint, render_template, Response
@@ -38,17 +37,6 @@ def map_view():
         HTML: Rendered index_ft.html template
     """
     return render_template('index_ft.html')
-
-
-@views_bp.route('/display')
-def display():
-    """
-    Alternative display route (legacy).
-
-    Returns:
-        HTML: Rendered index_wcount.html template
-    """
-    return render_template('index_wcount.html')
 
 
 @views_bp.route('/table')

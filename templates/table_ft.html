@@ -1,44 +1,81 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="table-page">
 <head>
   <meta charset="UTF-8">
   <title>WSPR Spots Table</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body>
-  <h1 class="page-title" id="title">WSPR Spots Table</h1>
-  <div class="status-bar">
-    Connection Status:&nbsp;<span id="conn-status-dot" class="status-dot status-checking"></span><span id="conn-status-label">Checking...</span>
-    &nbsp;&nbsp;|&nbsp;&nbsp;<span id="last-updated">Last updated: —</span>
+<body class="table-page">
+
+  <div class="panel-header">
+    <h1 class="page-title" id="title">WSPR Spots Table</h1>
+    <div class="status-bar">
+      Connection Status:&nbsp;<span id="conn-status-dot" class="status-dot status-checking"></span><span id="conn-status-label">Checking...</span>
+      &nbsp;&nbsp;|&nbsp;&nbsp;<span id="last-updated">Last updated: —</span>
+    </div>
   </div>
 
   <div id="controls">
-    <label for="lastInterval">Last Number of Minutes:</label>
-    <input id="lastInterval" type="number" value="15" min="1" class="narrow-input">
+    <div class="field">
+      <label for="lastInterval">Last Minutes</label>
+      <input id="lastInterval" type="number" value="15" min="1">
+    </div>
 
-    <label for="threshold">Green Threshold:</label>
-    <input id="threshold" type="number" value="1" min="0" class="narrow-input">
+    <div class="field">
+      <label for="threshold">Green Threshold</label>
+      <input id="threshold" type="number" value="1" min="0">
+    </div>
 
-    <label for="reloadInterval">Auto Reload:</label>
-    <select id="reloadInterval">
-      <option value="0">Off</option>
-      <option value="120">Every 2 min</option>
-      <option value="300">Every 5 min</option>
-      <option value="600">Every 10 min</option>
-      <option value="900">Every 15 min</option>
-      <option value="1800">Every 30 min</option>
-    </select></br>
-    <label><input type="checkbox" id="modeWSPR" checked> WSPR</label>
-  <label><input type="checkbox" id="modeFT8" checked> FT8</label>
-  <label><input type="checkbox" id="modeFT4" checked> FT4</label>
-</br>
-    <button id="updateButton">Update</button>
+    <div class="field">
+      <label for="reloadInterval">Auto Reload</label>
+      <select id="reloadInterval">
+        <option value="0">Off</option>
+        <option value="120">Every 2 min</option>
+        <option value="300">Every 5 min</option>
+        <option value="600">Every 10 min</option>
+        <option value="900">Every 15 min</option>
+        <option value="1800">Every 30 min</option>
+      </select>
+    </div>
+
+    <div class="mode-group">
+      <label class="mode-pill"><input type="checkbox" id="modeWSPR" checked> WSPR</label>
+      <label class="mode-pill"><input type="checkbox" id="modeFT8" checked> FT8</label>
+      <label class="mode-pill"><input type="checkbox" id="modeFT4" checked> FT4</label>
+    </div>
+
+    <button id="regionSettingsButton" class="btn-secondary" type="button">⚙ Regions</button>
+    <button id="updateButton" class="btn-primary">Update</button>
   </div>
 
   <div id="totalDisplay" class="total-display"></div>
 
-  <div id="spotsTableContainer" class="spots-table-container"></div>
+  <div class="table-scroll">
+    <div id="spotsTableContainer" class="spots-table-container"></div>
+  </div>
+
+  <div id="regionModalOverlay" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>Region Groupings</h2>
+        <button id="regionModalClose" class="modal-close" type="button" aria-label="Close">&times;</button>
+      </div>
+      <p class="modal-hint">Group CQ zones (1–40) into named regions shown as rows in the table. Regions are paired two-per-row in the order listed below. Saved to this browser.</p>
+
+      <div id="regionRows" class="region-rows"></div>
+
+      <button id="addRegionRow" class="btn-secondary" type="button">+ Add Region</button>
+
+      <div class="modal-actions">
+        <button id="resetRegionsButton" class="btn-secondary" type="button">Reset to Defaults</button>
+        <div class="modal-actions-right">
+          <button id="cancelRegionsButton" class="btn-secondary" type="button">Cancel</button>
+          <button id="saveRegionsButton" class="btn-primary" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>

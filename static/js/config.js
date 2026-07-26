@@ -141,3 +141,25 @@ const CONFIG = {
     ["Unknown",       "Not in Use"],
   ],
 };
+
+// Keep a pristine copy of the built-in region groupings so the region-settings
+// modal (table_ft.js) can offer a "Reset to Defaults" option after the user
+// has saved a custom grouping.
+CONFIG.defaultRegionZones = JSON.parse(JSON.stringify(CONFIG.regionZones));
+CONFIG.defaultRegionPairs = JSON.parse(JSON.stringify(CONFIG.regionPairs));
+
+// Apply a region grouping saved from a previous session (see table_ft.js),
+// overriding the defaults above in place.
+(function applyStoredRegionConfig() {
+  try {
+    const saved = localStorage.getItem("regionConfig");
+    if (!saved) return;
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.regionZones && parsed.regionPairs) {
+      CONFIG.regionZones = parsed.regionZones;
+      CONFIG.regionPairs = parsed.regionPairs;
+    }
+  } catch (e) {
+    console.error("Failed to apply saved region config, using defaults:", e);
+  }
+})();

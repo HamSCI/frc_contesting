@@ -1,18 +1,27 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-page">
+<html lang="en" class="dashboard-page">
 <head>
   <meta charset="UTF-8">
-  <title>WSPR Map + Table</title>
+  <title>PSWS Contesting Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body class="scroll-page">
+<body class="dashboard-page">
 
-  <iframe class="fullFrame" src="/map"></iframe>
+  <nav class="dash-nav">
+    <div class="dash-brand">HamSCI PSWS Dashboard<span class="dash-brand-sub">Contesting &amp; DXing</span></div>
+    <div class="dash-tabs">
+      <button class="dash-tab-btn active" data-target="map-frame">Map</button>
+      <button class="dash-tab-btn" data-target="table-frame">Table</button>
+    </div>
+  </nav>
 
-  <div id="divider"></div>
+  <div class="dash-frames">
+    <iframe id="map-frame" class="dash-frame active" src="/map"></iframe>
+    <iframe id="table-frame" class="dash-frame" src="/table"></iframe>
+  </div>
 
-     <iframe class="fullFrame" src="/table"></iframe>
+  <script src="js/dashboard.js"></script>
 
 </body>
 </html>

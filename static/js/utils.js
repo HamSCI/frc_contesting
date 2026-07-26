@@ -243,21 +243,28 @@ function frequencyToBand(freq) {
 }
 
 /**
- * Map a CQ zone number to its geographic region name.
+ * Map a CQ zone number to every geographic region that claims it.
+ *
+ * Regions are user-editable (see the table view's Region Groupings modal)
+ * and are not required to be mutually exclusive — e.g. a cloned region
+ * covering the same zones as an existing one is valid and should count
+ * spots into both, not just whichever region happened to be defined first.
  *
  * @param {number|string} cqZone - CQ zone number (1-40)
- * @returns {string} Region name or "Unknown" if zone is invalid/unmapped
+ * @returns {string[]} Names of every region whose zone list includes cqZone,
+ *   or ["Unknown"] if the zone is invalid or unmapped by any region
  *
  * @example
- * getRegionFromCQ(5)  // "North America"
- * getRegionFromCQ(14) // "Europe"
+ * getRegionsFromCQ(5)  // ["North America"]
+ * getRegionsFromCQ(14) // ["Europe"]
  */
-function getRegionFromCQ(cqZone) {
+function getRegionsFromCQ(cqZone) {
   const num = Number(cqZone);
-  if (!num || num < 1 || num > 40) return "Unknown";
+  if (!num || num < 1 || num > 40) return ["Unknown"];
 
-  for (const [region, zones] of Object.entries(CONFIG.regionZones)) {
-    if (zones.includes(num)) return region;
-  }
-  return "Unknown";
+  const matches = Object.entries(CONFIG.regionZones)
+    .filter(([, zones]) => zones.includes(num))
+    .map(([region]) => region);
+
+  return matches.length ? matches : ["Unknown"];
 }

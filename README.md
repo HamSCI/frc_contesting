@@ -501,10 +501,9 @@ frc_contesting/
 │   ├── storedb.sh             # Shell wrapper called by WSPR_LOGGING_CMD
 │   └── storedb.py             # Reads decoded spots and upserts into MongoDB
 ├── templates/                 # Flask HTML templates
-│   ├── both.html              # Combined map + table view
+│   ├── both.html              # Combined map + table view (tabbed dashboard)
 │   ├── index_ft.html          # Map view
-│   ├── table_ft.html          # Table view
-│   └── index_wcount.html      # Alternative display with counter
+│   └── table_ft.html          # Table view
 ├── app.py                     # Flask application factory (create_app)
 ├── web-ft.py                  # Thin shim for backwards-compatible startup
 ├── .env.example               # Environment variable template (copy to .env)

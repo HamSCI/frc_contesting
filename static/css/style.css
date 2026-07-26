@@ -5,85 +5,124 @@
 
 
 /* -------------------------------------------------------------
-   1. BASE RESET (all templates)
+   1. BASE RESET & THEME VARIABLES (all templates)
    ------------------------------------------------------------- */
+
+:root {
+  --bg: #0b0e14;
+  --bg-elevated: #11151f;
+  --bg-card: #161b28;
+  --bg-input: #0d1119;
+  --border: #262d40;
+  --text: #e6e9f2;
+  --text-dim: #8b93a7;
+  --accent: #29b6f6;
+  --accent-strong: #00aaff;
+  --accent-contrast: #04121c;
+  --success: #2ecc71;
+  --warning: #f2a900;
+  --danger: #ef4444;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "Courier New", Courier, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
 
 html, body {
   margin: 0;
   padding: 0;
-  font-family: courier;
+  height: 100%;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
 }
 
 
 /* -------------------------------------------------------------
-   2. SCROLLBAR — neon blue (both.html only)
+   2. SCROLLBAR — neon blue (all templates)
    ------------------------------------------------------------- */
 
-/* both.html adds width/height/background/overflow/scroll to html,body */
-.scroll-page {
-  width: 100%;
-  height: 100%;
-  background: #ffffff;
-  overflow-y: scroll;
-  scroll-behavior: smooth;
-}
-
-/* Slim neon blue scrollbar (WebKit) */
 ::-webkit-scrollbar {
-  width: 15px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0b0b0b;
+  background: var(--bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #00aaff;
+  background: var(--accent-strong);
   border-radius: 10px;
-  box-shadow: 0 0 8px #00aaff;
+  box-shadow: 0 0 8px rgba(0, 170, 255, 0.6);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #33ccff;
-  box-shadow: 0 0 12px #33ccff;
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(51, 204, 255, 0.7);
 }
 
-/* Firefox scrollbar */
 html {
   scrollbar-width: thin;
-  scrollbar-color: #00aaff #0b0b0b;
+  scrollbar-color: var(--accent-strong) var(--bg);
 }
 
 
 /* -------------------------------------------------------------
-   3. LAYOUT UTILITIES (both.html)
+   3. MAP LAYOUT & PANEL HEADER (index_ft.html, table_ft.html)
    ------------------------------------------------------------- */
 
-.fullFrame {
-  width: 100%;
-  height: 100vh;
-  border: none;
-  display: block;
+.map-page,
+.table-page {
+  display: flex;
+  flex-direction: column;
 }
 
-#divider {
-  width: 100%;
-  height: 15px;
-  background: black;
+.panel-header {
+  padding: 14px 24px 0;
+  flex: none;
 }
 
+.page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+}
 
-/* -------------------------------------------------------------
-   4. MAP LAYOUT (index_ft.html, index_wcount.html)
-   ------------------------------------------------------------- */
+.status-bar {
+  text-align: center;
+  font-size: 13px;
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
 
-.map-page {
-  height: 100%;
-  width: 100%;
+.status-line {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.map-card {
+  flex: 1;
+  margin: 0 24px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-height: 420px;
 }
 
 #map {
-  height: calc(100% - 130px);
+  width: 100%;
+  height: 100%;
   background-color: #a8d5e8; /* ocean blue for offline basemap */
 }
 
@@ -91,33 +130,48 @@ html {
   width: 45px;
 }
 
-#lastInterval {
-  width: 45px;
-}
-
 
 /* -------------------------------------------------------------
-   5. LEAFLET WIDGETS (index_ft.html, index_wcount.html)
+   4. LEAFLET WIDGETS (index_ft.html)
    ------------------------------------------------------------- */
 
-.info-box {
-  background: white;
-  padding: 8px;
-  border-radius: 5px;
-  box-shadow: 0 0 5px rgba(0,0,0,0.5);
-  font-size: 14px;
+.leaflet-bottom.leaflet-right .spot-counter {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  font-family: var(--font-mono);
+  max-height: 220px;
+  overflow-y: auto;
+  line-height: 1.5;
 }
 
-.leaflet-bottom.leaflet-right .spot-counter {
-  background: white;
-  padding: 6px 12px;
-  font-size: 14px;
-  border-radius: 5px;
-  box-shadow: 0 0 5px rgba(0,0,0,0.5);
-  font-family: courier;
-  max-height: 200px;
-  overflow-y: auto;
-  line-height: 1.4;
+.spot-count-row {
+  cursor: pointer;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  border-radius: var(--radius-sm);
+}
+
+.spot-count-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.spot-count-row.active {
+  background: rgba(0, 170, 255, 0.25);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.leaflet-popup-content a {
+  color: var(--accent);
 }
 
 .cq-zone-label {
@@ -136,7 +190,7 @@ html {
 
 
 /* -------------------------------------------------------------
-   6. CONNECTION STATUS (index_ft.html, table_ft.html)
+   5. CONNECTION STATUS (index_ft.html, table_ft.html)
    ------------------------------------------------------------- */
 
 .status-dot {
@@ -148,78 +202,409 @@ html {
   margin-right: 4px;
 }
 
-.status-checking     { background: #f0a500; }
-.status-connected    { background: #22c55e; }
+.status-checking     { background: var(--warning); }
+.status-connected    { background: var(--success); }
 .status-dberror      { background: #f97316; }
-.status-disconnected { background: #ef4444; }
+.status-disconnected { background: var(--danger); }
 
 
 /* -------------------------------------------------------------
-   7. PAGE HEADER UTILITIES (index_ft.html, table_ft.html)
+   6. SHARED TOOLBAR / FIELDS / BUTTONS (index_ft.html, table_ft.html)
    ------------------------------------------------------------- */
 
-.page-title {
-  text-align: center;
-}
-
-.status-bar {
-  text-align: center;
-  font-size: 13px;
-  margin: 2px 0 6px 0;
-  font-family: courier;
-}
-
-.controls-center {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-
-/* -------------------------------------------------------------
-   8. TABLE STYLES (table_ft.html)
-   ------------------------------------------------------------- */
-
+.controls-center,
 #controls {
-  text-align: center;
-  margin: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px 18px;
+  margin: 14px 24px;
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex: none;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.controls-center input[type="number"],
+.controls-center select,
+#controls input[type="number"],
+#controls select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  min-height: 32px;
+}
+
+.controls-center input[type="number"],
+#controls input[type="number"] {
+  width: 80px;
+}
+
+.controls-center input:focus,
+.controls-center select:focus,
+#controls input:focus,
+#controls select:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+}
+
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  padding-bottom: 7px;
+}
+
+.check-field input {
+  accent-color: var(--accent-strong);
+}
+
+.mode-group {
+  display: flex;
+  gap: 6px;
+}
+
+.mode-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mode-pill input {
+  accent-color: var(--accent-strong);
+}
+
+.btn-primary {
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 32px;
+  transition: filter 0.15s ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 32px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent-strong);
+  color: var(--accent);
+}
+
+
+/* -------------------------------------------------------------
+   7. TABLE STYLES (table_ft.html)
+   ------------------------------------------------------------- */
+
+.table-scroll {
+  margin: 0 24px 24px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: auto;
+  flex: 1;
 }
 
 table {
   border-collapse: collapse;
-  margin: 0 auto;
+  margin: 12px auto;
   font-size: 14px;
+  font-family: var(--font-mono);
   table-layout: fixed;
-  width: 1000px;
+  width: 100%;
+  max-width: 1000px;
 }
 
 th, td {
-  border: 1px solid #000;
+  border: 1px solid var(--border);
   text-align: center;
   padding: 6px 8px;
   width: 60px;
   height: 28px;
+  color: var(--text);
 }
 
-.band-header   { background-color: #1f497d; color: white; font-weight: bold; }
-.region-header { background-color: #f2a900; font-weight: bold; }
-.value         { background-color: #4caf50; color: white; font-weight: bold; }
+.band-header   { background-color: #17324f; color: #cfe8ff; font-weight: bold; }
+.region-header { background-color: #4a3410; color: #ffd699; font-weight: bold; }
+.value         { background-color: #1d6b3d; color: #d9ffe8; font-weight: bold; }
 
 
 /* -------------------------------------------------------------
-   9. TABLE UTILITY CLASSES (table_ft.html)
+   8. TABLE UTILITY CLASSES (table_ft.html)
    ------------------------------------------------------------- */
 
-.narrow-input {
-  width: 60px;
-}
-
 .total-display {
-  text-align: center;
-  margin-top: 10px;
-  font-size: 18px;
-  font-weight: bold;
+  margin: 0 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .spots-table-container {
+  width: 100%;
+}
+
+
+/* -------------------------------------------------------------
+   9. MODAL DIALOG — region settings (table_ft.html)
+   ------------------------------------------------------------- */
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  margin: 20px;
+  padding: 20px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.modal-close:hover {
+  color: var(--text);
+}
+
+.modal-hint {
+  margin: 8px 0 16px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.region-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.region-row {
+  display: flex;
+  gap: 8px;
+}
+
+.region-name-input,
+.region-zones-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.region-name-input:focus,
+.region-zones-input:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+}
+
+.region-name-input {
+  flex: 0 0 35%;
+}
+
+.region-zones-input {
+  flex: 1;
+}
+
+.region-remove-btn {
+  flex: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  width: 32px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.region-remove-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 20px;
+}
+
+.modal-actions-right {
+  display: flex;
+  gap: 8px;
+}
+
+
+/* -------------------------------------------------------------
+   10. DASHBOARD SHELL — tabbed combined view (both.html)
+   ------------------------------------------------------------- */
+
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 20px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.dash-brand {
+  font-weight: 600;
+  font-size: 15px;
+  margin-right: 20px;
+  white-space: nowrap;
+}
+
+.dash-brand-sub {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.dash-tabs {
+  display: flex;
+  gap: 4px;
+  height: 100%;
+}
+
+.dash-tab-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  padding: 0 16px;
+  height: 100%;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.dash-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dash-tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent-strong);
+}
+
+.dash-frames {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.dash-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: none;
+  background: var(--bg);
+}
+
+.dash-frame.active {
+  display: block;
 }

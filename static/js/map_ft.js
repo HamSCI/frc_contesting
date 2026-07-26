@@ -133,12 +133,25 @@ let ituZoneLabelsLayer  = null;
 
 
 
-// Create the spot count control once, outside loadSpots
+// Create the spot count control once, outside fetchSpots/renderMapFilters
 let spotCountControl = L.control({ position: 'bottomright' });
 
 spotCountControl.onAdd = function () {
   this._div = L.DomUtil.create('div', 'spot-counter');
   this.update({});
+
+  // Clicking a band's row instantly shows/hides that band's already-rendered
+  // markers (click the active band again to show All Bands) — no refetch.
+  this._div.addEventListener('click', (e) => {
+    const row = e.target.closest('.spot-count-row');
+    if (!row) return;
+    const bandFilter = document.getElementById('bandFilter');
+    if (!bandFilter) return;
+    bandFilter.value = (bandFilter.value === row.dataset.band) ? '' : row.dataset.band;
+    persistFilterState();
+    renderMapFilters();
+  });
+
   return this._div;
 };
 
@@ -185,12 +198,14 @@ const colorHexMap = {
 };
 
 spotCountControl.update = function (bandCounts) {
+  const selectedBand = document.getElementById('bandFilter')?.value || '';
   const lines = Object.entries(bandCounts)
     .sort(([a], [b]) => bandOrder.indexOf(a) - bandOrder.indexOf(b))
     .map(([band, count]) => {
       const markerColor = bandColorMap[band] || 'black';
       const hex = colorHexMap[markerColor] || '000000';
-      return `<span style="
+      const activeClass = band === selectedBand ? ' active' : '';
+      return `<div class="spot-count-row${activeClass}" data-band="${band}"><span style="
         display: inline-block;
         width: 12px;
         height: 12px;
@@ -198,9 +213,9 @@ spotCountControl.update = function (bandCounts) {
         border-radius: 50%;
         background-color: #${hex};
         border: 1px solid #333;
-      "></span><b>${band}</b>: ${count}`;
+      "></span><b>${band}</b>: ${count}</div>`;
     });
-  this._div.innerHTML = `<b>Spots:</b><br>${lines.join('<br>')}`;
+  this._div.innerHTML = `<b>Spots:</b><br>${lines.join('')}`;
 };
 
 // Add the control to the map ONCE
@@ -236,7 +251,6 @@ async function loadBasemap() {
   }
 }
 loadBasemap();
-var layers = [];
 
 
 
@@ -300,242 +314,248 @@ async function renderITUZones() {
 let bandCountsOut = {};
 
 
-async function loadSpots() {
+// Cached, metadata-tagged markers from the last /spots fetch. Every filter
+// except lastInterval (mode, country, continent, CQ/ITU zone, band) is
+// applied purely from this cache in renderMapFilters() — no refetch, since
+// the server only ever respects lastInterval (confirmed in services/spots.py).
+let spotRecords = [];
+
+async function fetchSpots() {
   setStatus('checking', 'Checking…');
 
-  //all possible color options
-  const markerColors = [
-    'red', 'orange-dark', 'orange', 'yellow', 'blue-dark',
-    'cyan', 'purple', 'violet', 'pink',
-    'green-dark', 'green', 'green-light',
-    'black', 'white'
-  ];
-  //band color map
-  const bandColorMap = {
-    '160m': 'black',
-    '80m': 'red',
-    '60m': 'orange-dark',
-    '40m': 'orange',
-    '30m': 'yellow',
-    '20m': 'green',
-    '17m': 'green-light',
-    '15m': 'cyan',
-    '12m': 'blue-dark',
-    '10m': 'blue-dark',
-    '6m': 'purple',
-    '4m': 'violet',
-    '2m': 'pink',
-    '70cm': 'white',
-    'unknown': 'green-dark'
-  };
-  
-  
-  const markers = {};
-  markerColors.forEach(color => {
-    markers[color] = L.ExtraMarkers.icon({
-      icon: 'fa-coffee',
-      markerColor: color,
-      shape: 'star',
-      prefix: 'fa',
-      shadowSize: [0, 0],
-    });
-  });
-  
+  const lastInterval = document.getElementById("lastInterval").value || CONFIG.defaults.lastInterval;
 
-// load all params, build url , load json
-  const lastInterval = document.getElementById("lastInterval").value || getQueryParam("lastInterval") || 15;
-  const selectedBand = getQueryParam("band") || document.getElementById("bandFilter").value;
-  const selectedCountry = document.getElementById("countryFilter").value;
-  const selectedContinent = document.getElementById("continentFilter").value;
-  const selectedCqZone = document.getElementById("cqZoneFilter").value;
-  const selectedITUZone = document.getElementById("ITUZoneFilter").value;
-  const queryParams = new URLSearchParams();
-  queryParams.set("lastInterval", lastInterval);
-  // no date/time params sent to server; server only supports lastInterval
-  if (selectedBand) queryParams.set("band", selectedBand);
-  if (selectedCountry) queryParams.set("country", selectedCountry);
-  if (selectedContinent) queryParams.set("continent", selectedContinent)
   try {
-  const res = await fetch(`/spots?${queryParams.toString()}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  //console.log(`/spots?${queryParams.toString()}`)
-  const spots = await res.json();
+    const res = await fetch(`/spots?lastInterval=${lastInterval}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const spots = await res.json();
 
-  // set spot info h3 and title
-  const readableDate = `${lastInterval} minutes`; // show the minutes window
-  const readableTime = "recent";
-  const countryName = selectedCountry || "all countries";
-  const bandName1 = getQueryParam("band") || "All Bands"
+    // Clear markers from the previous fetch
+    spotRecords.forEach(rec => {
+      map.removeLayer(rec.txMarker);
+      map.removeLayer(rec.rxMarker);
+    });
+    spotRecords = [];
 
+    //all possible color options
+    const markerColors = [
+      'red', 'orange-dark', 'orange', 'yellow', 'blue-dark',
+      'cyan', 'purple', 'violet', 'pink',
+      'green-dark', 'green', 'green-light',
+      'black', 'white'
+    ];
+    const markers = {};
+    markerColors.forEach(color => {
+      markers[color] = L.ExtraMarkers.icon({
+        icon: 'fa-coffee',
+        markerColor: color,
+        shape: 'star',
+        prefix: 'fa',
+        shadowSize: [0, 0],
+      });
+    });
 
-  layers.forEach(layer => map.removeLayer(layer));
-  layers = [];
-
-  let bandCounts = {};
-  let firstRxLat = null;
-  let firstRxLon = null;
-  let centered = true;
-  let mapped = 0;
-
-  //map each spot 
-  const spotCountsMap = {};
-  spots.forEach(spot => {
-    const key = `${spot.tx_sign}_${spot.rx_sign}_${spot.frequency}`;
-    spotCountsMap[key] = (spotCountsMap[key] || 0) + 1;
-    if (!centered && spot.rx_lat && spot.rx_lon) {
-      map.setView([spot.rx_lat, spot.rx_lon]);
-      centered = true;
-    }
-    if (
-      isNaN(spot.tx_lat) || isNaN(spot.tx_lon) ||
-      isNaN(spot.rx_lat) || isNaN(spot.rx_lon) ||
-      spot.tx_lat < -90 || spot.tx_lat > 90 ||
-      spot.tx_lon < -180 || spot.tx_lon > 180 ||
-      spot.rx_lat < -90 || spot.rx_lat > 90 ||
-      spot.rx_lon < -180 || spot.rx_lon > 180
-    ) {
-      return; // skip invalid coordinates
-    }
-    // FILTER BY MODE (WSPR, FT8, FT4)
-    const modeLower = (spot.mode || "").toLowerCase();
-
-    const allowWSPR = document.getElementById("modeWSPR").checked;
-    const allowFT8  = document.getElementById("modeFT8").checked;
-    const allowFT4  = document.getElementById("modeFT4").checked;
-
-    if (!allowWSPR && !allowFT8 && !allowFT4) {
-        // treat as "All modes"
-    } else {
-        if (modeLower === "wspr" && !allowWSPR) return;
-        if (modeLower === "ft8"  && !allowFT8)  return;
-        if (modeLower === "ft4"  && !allowFT4)  return;
-    }
-
-    //map by country
-    const tx_country = lookupCountry(spot.tx_lat, spot.tx_lon);
-    if (selectedCountry === "nonUS") {
-      if (tx_country === "United States of America") return;  // skip US
-    }
-
-    else if (selectedCountry && selectedCountry !== "" && selectedCountry !== "all") {
-      if (tx_country !== selectedCountry) return;  // skip non-matching country
-}
-    //map by cont.
-    const tx_continent = lookupContinent(spot.tx_lat, spot.tx_lon);
-    if(selectedContinent && tx_continent !== selectedContinent){
-      return; //skip spot
-    }
-    //map by cq zone
-    const tx_cqzone = lookupCqZone(spot.tx_lat, spot.tx_lon);
-
-    // If user selected "All zones" (blank), skip filtering
-    if (selectedCqZone === "" || selectedCqZone === null) {
-      // do nothing
-    }
-    // Normal numeric zone filtering
-    else if (selectedCqZone !== "CBs") {   // Do NOT zone-filter CBs mode
-      if (tx_cqzone !== String(selectedCqZone)) {
-        return; // Skip spots not in this CQ zone
+    spots.forEach(spot => {
+      if (
+        isNaN(spot.tx_lat) || isNaN(spot.tx_lon) ||
+        isNaN(spot.rx_lat) || isNaN(spot.rx_lon) ||
+        spot.tx_lat < -90 || spot.tx_lat > 90 ||
+        spot.tx_lon < -180 || spot.tx_lon > 180 ||
+        spot.rx_lat < -90 || spot.rx_lat > 90 ||
+        spot.rx_lon < -180 || spot.rx_lon > 180
+      ) {
+        return; // skip invalid coordinates
       }
-    }
 
-    //map by itu zone
-     const tx_ITUzone = lookupITUZone(spot.tx_lat, spot.tx_lon);
-    if(selectedITUZone && tx_ITUzone !== selectedITUZone){
-      return; //skip spot
-    }
+      // Precompute everything a filter could need, once, so re-filtering
+      // later is just property comparisons — no repeat Turf.js lookups.
+      const bandName = frequencyToBand(spot.frequency) || 'unknown';
+      const markerColor = bandColorMap[bandName] || 'black';
+      const icon = markers[markerColor] || markers['black'];
 
-    
-    //freq to band
-    // const bandName = frequencyToBand(spot.frequency) || 'unknown';
-    // if (selectedBand && bandName !== selectedBand) {
-    //   return; // skip this spot if it doesn't match the filter
-    // }
-    // bandCounts[bandName] = (bandCounts[bandName] || 0) + 1;
+      const txMarker = L.marker([spot.tx_lat, spot.tx_lon], { icon });
+      txMarker.bindPopup(`
+        <b>Received Spot by ${spot.rx_sign}</b><br>
+        <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a><br>
+        <b>SNR:</b> ${spot.snr} dB<br>
+        <b>Drift:</b> ${spot.drift}<br>
+        <b>Freq:</b> ${spot.frequency} MHz<br>
+        <b>Time:</b> ${parseWsprTime(spot.time)}<br>
+        <b>Band:</b> ${spot.band} <br>
+        <b>Mode:</b>  ${spot.mode.toUpperCase()}
 
+      `);
 
-    //freq to band
-    const bandName = frequencyToBand(spot.frequency) || 'unknown';
+      const rxMarker = L.marker([spot.rx_lat, spot.rx_lon]);
+      rxMarker.bindPopup(`
+        <b>Receiver</b><br>
+        <b>RX:</b> ${spot.rx_sign}<br>
+        <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a><br>
+        <b>SNR:</b> ${spot.snr} dB<br>
+        <b>Drift:</b> ${spot.drift}<br>
+        <b>Freq:</b> ${spot.frequency} MHz<br>
+        <b>Time:</b> ${parseWsprTime(spot.time)}<br>
+        <b>Band:</b> ${spot.band}</br>
+        <b>Mode:</b>  ${spot.mode.toUpperCase()}
 
-    // "Contest Bands Only" mode
-    if (selectedBand === "CBs") {
-      if (!CONTEST_BANDS.includes(bandName)) {
-        return; // skip non-contest bands
-      }
-    }
-    // Normal single-band filter
-    else if (selectedBand && bandName !== selectedBand) {
-      return; // skip this spot if it doesn't match the selected band
-    }
+      `);
 
-    bandCounts[bandName] = (bandCounts[bandName] || 0) + 1;
+      spotRecords.push({
+        txMarker,
+        rxMarker,
+        band: bandName,
+        country: lookupCountry(spot.tx_lat, spot.tx_lon),
+        continent: lookupContinent(spot.tx_lat, spot.tx_lon),
+        cqZone: lookupCqZone(spot.tx_lat, spot.tx_lon),
+        ituZone: lookupITUZone(spot.tx_lat, spot.tx_lon),
+        mode: (spot.mode || "").toLowerCase(),
+      });
+    });
 
-
-    //dynamic num spots mapped and title
-    mapped++;
-    const spotInfo = document.getElementById("spot-info");
-    spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${bandName1}`;
-    const title = document.getElementById("title");
-    title.textContent = `WSPR Spots From ${spot.rx_sign} PSWS Receiver`
-
-    //num decoded per spot
-    const spotKey = `${spot.tx_sign}_${spot.rx_sign}_${spot.frequency}`;
-    const spotCount = spotCountsMap[spotKey];
-    
-
-    //colored markers
-    const markerColor = bandColorMap[bandName] || 'black';
-    const icon = markers[markerColor] || markers['black'];
-
-
-    if (!markers[markerColor]) {
-      console.warn(`Missing marker color for band: ${bandName}, color: ${markerColor}`);
-    }
-    //make tx markers
-    const txMarker = L.marker([spot.tx_lat, spot.tx_lon], {
-      icon: icon
-    }).addTo(map);
-    txMarker.bindPopup(`
-      <b>Received Spot by ${spot.rx_sign}</b><br>
-      <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a><br>
-      <b>SNR:</b> ${spot.snr} dB<br>
-      <b>Drift:</b> ${spot.drift}<br>
-      <b>Freq:</b> ${spot.frequency} MHz<br>
-      <b>Time:</b> ${parseWsprTime(spot.time)}<br>
-      <b>Band:</b> ${spot.band} <br>
-      <b>Mode:</b>  ${spot.mode.toUpperCase()}
-
-    `);
-
-    //make rx markers
-    const rxMarker = L.marker([spot.rx_lat, spot.rx_lon]).addTo(map);
-    rxMarker.bindPopup(`
-      <b>Receiver</b><br>
-      <b>RX:</b> ${spot.rx_sign}<br>
-      <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a><br>
-      <b>SNR:</b> ${spot.snr} dB<br>
-      <b>Drift:</b> ${spot.drift}<br>
-      <b>Freq:</b> ${spot.frequency} MHz<br>
-      <b>Time:</b> ${parseWsprTime(spot.time)}<br>
-      <b>Band:</b> ${spot.band}</br>
-      <b>Mode:</b>  ${spot.mode.toUpperCase()}
-
-    `);
-
-    layers.push(txMarker, rxMarker);
-
-    
-  });
-
-  spotCountControl.update(bandCounts);
-  bandCountsOut = bandCounts;
-  console.log(bandCountsOut);
-  setStatus('connected', 'Connected');
-  setLastUpdated();
+    renderMapFilters();
+    setStatus('connected', 'Connected');
+    setLastUpdated();
   } catch (e) {
     console.error('Failed to load spots:', e);
     setStatus('disconnected', 'Error');
   }
+}
+
+// Pure client-side re-filter of the cached spotRecords — toggles marker
+// visibility and rebuilds the spot-count control. No network involved.
+function renderMapFilters() {
+  const selectedBand = document.getElementById("bandFilter").value;
+  const selectedCountry = document.getElementById("countryFilter").value;
+  const selectedContinent = document.getElementById("continentFilter").value;
+  const selectedCqZone = document.getElementById("cqZoneFilter").value;
+  const selectedITUZone = document.getElementById("ITUZoneFilter").value;
+  const allowWSPR = document.getElementById("modeWSPR").checked;
+  const allowFT8  = document.getElementById("modeFT8").checked;
+  const allowFT4  = document.getElementById("modeFT4").checked;
+  const anyModeChecked = allowWSPR || allowFT8 || allowFT4;
+
+  let bandCounts = {};
+  let mapped = 0;
+
+  spotRecords.forEach(rec => {
+    let modeOk = true;
+    if (anyModeChecked) {
+      if (rec.mode === "wspr" && !allowWSPR) modeOk = false;
+      else if (rec.mode === "ft8" && !allowFT8) modeOk = false;
+      else if (rec.mode === "ft4" && !allowFT4) modeOk = false;
+    }
+
+    let countryOk = true;
+    if (selectedCountry === "nonUS") {
+      countryOk = rec.country !== "United States of America";
+    } else if (selectedCountry && selectedCountry !== "all") {
+      countryOk = rec.country === selectedCountry;
+    }
+
+    const continentOk = !selectedContinent || rec.continent === selectedContinent;
+
+    let cqOk = true;
+    if (selectedCqZone && selectedCqZone !== "CBs") {
+      cqOk = rec.cqZone === String(selectedCqZone);
+    }
+
+    const ituOk = !selectedITUZone || rec.ituZone === selectedITUZone;
+
+    const otherFiltersOk = modeOk && countryOk && continentOk && cqOk && ituOk;
+
+    if (otherFiltersOk) {
+      bandCounts[rec.band] = (bandCounts[rec.band] || 0) + 1;
+    }
+
+    const bandOk = selectedBand === "CBs"
+      ? CONFIG.contestBands.includes(rec.band)
+      : !selectedBand || rec.band === selectedBand;
+
+    const visible = otherFiltersOk && bandOk;
+
+    if (visible) {
+      mapped++;
+      if (!map.hasLayer(rec.txMarker)) rec.txMarker.addTo(map);
+      if (!map.hasLayer(rec.rxMarker)) rec.rxMarker.addTo(map);
+    } else {
+      if (map.hasLayer(rec.txMarker)) map.removeLayer(rec.txMarker);
+      if (map.hasLayer(rec.rxMarker)) map.removeLayer(rec.rxMarker);
+    }
+  });
+
+  spotCountControl.update(bandCounts);
+  bandCountsOut = bandCounts;
+
+  const spotInfo = document.getElementById("spot-info");
+  if (spotInfo) {
+    const countryName = selectedCountry || "all countries";
+    const readableDate = `${document.getElementById("lastInterval").value || CONFIG.defaults.lastInterval} minutes`;
+    const bandName1 = selectedBand === "CBs" ? "Contest Bands" : (selectedBand || "All Bands");
+    spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${bandName1}`;
+  }
+}
+
+// Persist filter state to sessionStorage/localStorage/the URL and sync the
+// CQ/ITU zone outline overlays. Runs on every filter change, whether or not
+// that filter needs a refetch. Top-level (not nested in DOMContentLoaded)
+// since it's called both from there and from spotCountControl's click handler.
+function persistFilterState() {
+  const params = new URLSearchParams(window.location.search);
+
+  const minInterval = document.getElementById("lastInterval").value;
+  sessionStorage.setItem("lastInterval", minInterval);
+  localStorage.setItem("lastInterval", minInterval);
+  if (minInterval) params.set("lastInterval", minInterval); else params.delete("lastInterval");
+
+  const band = document.getElementById("bandFilter").value;
+  if (band) params.set("band", band); else params.delete("band");
+
+  const country = document.getElementById("countryFilter").value;
+  sessionStorage.setItem("country", country);
+  // Do NOT pass "nonUS" to the backend — client filters it
+  if (country && country !== "nonUS") {
+    params.set("country", country);
+  } else {
+    params.delete("country");
+  }
+
+  //CQ Zone outline
+  const cqOutlineCheckbox = document.getElementById("cqOutline");
+  if (cqOutlineCheckbox.checked) {
+    if (cqZoneBordersLayer) map.addLayer(cqZoneBordersLayer);
+    if (cqZoneLabelsLayer)  map.addLayer(cqZoneLabelsLayer);
+  } else {
+    if (cqZoneBordersLayer) map.removeLayer(cqZoneBordersLayer);
+    if (cqZoneLabelsLayer)  map.removeLayer(cqZoneLabelsLayer);
+  }
+  sessionStorage.setItem("CQZoneOutline", cqOutlineCheckbox.checked);
+  if (cqOutlineCheckbox.checked) params.set("CQZoneOutline", "true"); else params.delete("CQZoneOutline");
+
+  //ITU Zone outline
+  const ituOutlineCheckbox = document.getElementById("ituOutline");
+  if (ituOutlineCheckbox.checked) {
+    if (ituZoneBordersLayer) map.addLayer(ituZoneBordersLayer);
+    if (ituZoneLabelsLayer)  map.addLayer(ituZoneLabelsLayer);
+  } else {
+    if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
+    if (ituZoneLabelsLayer)  map.removeLayer(ituZoneLabelsLayer);
+  }
+  sessionStorage.setItem("ITUZoneOutline", ituOutlineCheckbox.checked);
+
+  const continent = document.getElementById("continentFilter").value;
+  sessionStorage.setItem("continent", continent);
+  if (continent) params.set("continent", continent); else params.delete("continent");
+
+  const cqZone = document.getElementById("cqZoneFilter").value;
+  sessionStorage.setItem("cqzone", cqZone);
+  if (cqZone) params.set("cqzone", cqZone); else params.delete("cqzone");
+
+  const ITUZone = document.getElementById("ITUZoneFilter").value;
+  sessionStorage.setItem("ITUzone", ITUZone);
+  if (ITUZone) params.set("ITUzone", ITUZone); else params.delete("ITUzone");
+
+  const newUrl = `${window.location.pathname}?${params.toString()}`;
+  window.history.replaceState(null, "", newUrl);
 }
 
 //reload interval
@@ -561,42 +581,36 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadCqZones();
   await loadITUZones();
   await renderITUZones();
-  //console.log(lookupContinent(40.7128, -74.0060))
-  //console.log(lookupCqZone(40.7128, -74.0060))
 
+  const titleEl = document.getElementById("title");
+  if (titleEl) titleEl.textContent = `WSPR Spots From ${CONFIG.station.callsign} PSWS Receiver`;
 
-  const update = document.getElementById("updateButton")
+  const update = document.getElementById("updateButton");
   const intervalInput = document.getElementById("lastInterval");
-  // optional inputs that may not exist in every template
-
   const select = document.getElementById("reloadInterval");
   const countrySelect = document.getElementById("countryFilter");
   const continentSelect = document.getElementById("continentFilter");
-  const cqZoneSelect = document.getElementById("cqZoneFilter")
-  const ITUZoneSelect = document.getElementById("ITUZoneFilter")
-  const savedCountry = getQueryParam("country");
-  const savedContinent = getQueryParam("continent")
-  const savedCQZone = getQueryParam("cqzone")
-  const modeWSPR = document.getElementById("modeWSPR").checked;
-  const modeFT8  = document.getElementById("modeFT8").checked;
-  const modeFT4  = document.getElementById("modeFT4").checked;
+  const cqZoneSelect = document.getElementById("cqZoneFilter");
+  const ITUZoneSelect = document.getElementById("ITUZoneFilter");
 
-  // Restore previous selections from sessionStorage
+  // Restore previous selections from sessionStorage (falling back to
+  // whatever's already in the URL query string)
   const savedInterval = sessionStorage.getItem("reloadInterval");
-  const intervalSaved = sessionStorage.getItem("lastInterval") || getQueryParam("lastInterval")
-  const countrySaved = sessionStorage.getItem("country") || getQueryParam("country")
-  const continentSaved = sessionStorage.getItem("continent") || getQueryParam("continent")
-  const CQZoneSaved = sessionStorage.getItem("cqzone") || getQueryParam("cqzone")
-  const ITUZoneSaved = sessionStorage.getItem("ITUzone") || getQueryParam("ITUzone")
+  const intervalSaved = sessionStorage.getItem("lastInterval") || getQueryParam("lastInterval");
+  const countrySaved = sessionStorage.getItem("country") || getQueryParam("country");
+  const continentSaved = sessionStorage.getItem("continent") || getQueryParam("continent");
+  const CQZoneSaved = sessionStorage.getItem("cqzone") || getQueryParam("cqzone");
+  const ITUZoneSaved = sessionStorage.getItem("ITUzone") || getQueryParam("ITUzone");
+
   if (savedInterval) {
     select.value = savedInterval;
     setReloadInterval(parseInt(savedInterval, 10));
   }
-  if (intervalSaved) intervalInput.value = intervalSaved;
+  intervalInput.value = intervalSaved || String(CONFIG.defaults.lastInterval);
   if (countrySaved) countrySelect.value = countrySaved;
   if (continentSaved) continentSelect.value = continentSaved;
-  if(CQZoneSaved) cqZoneSelect.value = CQZoneSaved
-  if(ITUZoneSaved) ITUZoneSelect.value = ITUZoneSaved
+  if (CQZoneSaved) cqZoneSelect.value = CQZoneSaved;
+  if (ITUZoneSaved) ITUZoneSelect.value = ITUZoneSaved;
 
   const ITUZoneOutlineSaved = sessionStorage.getItem("ITUZoneOutline");
   if (ITUZoneOutlineSaved === "true") {
@@ -604,133 +618,41 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (cb) cb.checked = true;
   }
 
-  loadSpots();
-
-
   select.addEventListener("change", () => {
-    
     const interval = parseInt(select.value, 10);
     sessionStorage.setItem("reloadInterval", interval);
     setReloadInterval(interval);
   });
 
-
-  const params = new URLSearchParams(window.location.search);
-
-  if(savedCountry){
-    countrySelect.value = savedCountry;
+  // lastInterval changes the server-side time window, so it needs a real
+  // refetch (Update forces the same full refresh). Every other filter is a
+  // pure client-side re-render of the cached spots — see renderMapFilters().
+  function onIntervalChange() {
+    persistFilterState();
+    fetchSpots();
   }
-  if(savedContinent){
-    continentSelect.value = savedContinent
+  function onInstantFilterChange() {
+    persistFilterState();
+    renderMapFilters();
   }
-  if (!intervalSaved) intervalInput.value = getQueryParam("lastInterval") || String(CONFIG.defaults.lastInterval);
 
-  //band filter
-  const band = document.getElementById("bandFilter").value;
+  update.addEventListener("click", onIntervalChange);
+  intervalInput.addEventListener("change", onIntervalChange);
 
-  // Don't send CBs to server
-  if (band && band !== "CBs") {
-    params.set("band", band);
-  } else {
-    params.delete("band");
-  }
-  
-  update.addEventListener("click", function() {
-    const params = new URLSearchParams(window.location.search);
-
-    const minInterval = document.getElementById("lastInterval").value;
-    sessionStorage.setItem("lastInterval", minInterval);
-    localStorage.setItem("lastInterval", minInterval);
-    if (minInterval) params.set("lastInterval", minInterval); else params.delete("lastInterval");
-
-      // date/hour inputs removed; do not read or store them
-      // no numSpots param — site only uses lastInterval for server filtering
-
-    const band = document.getElementById("bandFilter").value;
-    if (band) params.set("band", band); else params.delete("band");
-
-    // const country = document.getElementById("countryFilter").value;
-    // sessionStorage.setItem("country", document.getElementById("countryFilter").value);
-    // if (country) params.set("country", country); else params.delete("country");
-    const country = document.getElementById("countryFilter").value;
-    sessionStorage.setItem("country", country);
-
-    // Do NOT pass "nonUS" to the backend — client filters it
-    if (country && country !== "nonUS") {
-      params.set("country", country);
-    } else {
-      params.delete("country");
-    }
-
-
-    //CQ Zone outline
-    const cqOutlineCheckbox = document.getElementById("cqOutline");
-    if (cqOutlineCheckbox.checked) {
-      if (cqZoneBordersLayer) map.addLayer(cqZoneBordersLayer);
-      if (cqZoneLabelsLayer)  map.addLayer(cqZoneLabelsLayer);
-    } else {
-      if (cqZoneBordersLayer) map.removeLayer(cqZoneBordersLayer);
-      if (cqZoneLabelsLayer)  map.removeLayer(cqZoneLabelsLayer);
-    }
-
-    //ITU Zone outline
-    const ituOutlineCheckbox = document.getElementById("ituOutline");
-    if (ituOutlineCheckbox.checked) {
-      if (ituZoneBordersLayer) map.addLayer(ituZoneBordersLayer);
-      if (ituZoneLabelsLayer)  map.addLayer(ituZoneLabelsLayer);
-    } else {
-      if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
-      if (ituZoneLabelsLayer)  map.removeLayer(ituZoneLabelsLayer);
-    }
-    sessionStorage.setItem("ITUZoneOutline", ituOutlineCheckbox.checked);
-
-
-    const continent = document.getElementById("continentFilter").value;
-    sessionStorage.setItem("continent", document.getElementById("continentFilter").value);
-    if(continent) params.set("continent", continent); else params.delete("continent");
-    
-    const cqZone = document.getElementById("cqZoneFilter").value;
-    sessionStorage.setItem("cqzone", document.getElementById("cqZoneFilter").value);
-    if(cqZone) params.set("cqzone", cqZone); else params.delete("cqzone");
-
-    const ITUZone = document.getElementById("ITUZoneFilter").value;
-    sessionStorage.setItem("ITUzone", document.getElementById("ITUZoneFilter").value);
-    if(ITUZone) params.set("ITUzone", ITUZone); else params.delete("ITUzone");
-
-    sessionStorage.setItem("CQZoneOutline", cqOutlineCheckbox.value);
-    if(cqOutlineCheckbox) params.set("CQZoneOutline", cqOutlineCheckbox); else params.delete("CQZoneOutline");
-
-    const newUrl = `${window.location.pathname}?${params.toString()}`;
-    window.history.replaceState(null, "", newUrl);
-
-    // Now load spots with new params
-    loadSpots();
-    //window.location.reload();
+  [
+    "bandFilter", "countryFilter", "continentFilter", "cqZoneFilter", "ITUZoneFilter",
+    "cqOutline", "ituOutline", "modeWSPR", "modeFT8", "modeFT4"
+  ].forEach(id => {
+    document.getElementById(id).addEventListener("change", onInstantFilterChange);
   });
 
   // Sync lastInterval from table iframe via localStorage storage event
   window.addEventListener("storage", (e) => {
     if (e.key === "lastInterval" && e.newValue) {
-      document.getElementById("lastInterval").value = e.newValue;
-      loadSpots();
+      intervalInput.value = e.newValue;
+      fetchSpots();
     }
   });
 
-  //auto reload-on select
-  // countrySelect.addEventListener("change", () =>{
-  //   const newCountry = countrySelect.value;
-  //   const url = new URL(window.location.href)
-
-  //   if(newCountry){
-  //     url.searchParams.set("country", newCountry);
-  //   } else{
-  //     url.searchParams.delete("country")
-  //   }
-  //   window.location.href = url.toString();
-  // })
-  //bandSelect.addEventListener("change", () => {
-  //loadSpots();
-  //});
-
-
+  fetchSpots();
 });
