@@ -1,0 +1,39 @@
+# Wizard help for `smd tui` / `frc-dashboard config` (ADD-A-CLIENT §8).
+
+[server.bind]
+title          = "Listen address"
+help           = """0.0.0.0 serves the dashboard to the station LAN; 127.0.0.1
+restricts it to this host (reach it through an SSH tunnel)."""
+example        = "0.0.0.0"
+
+[server.port]
+title          = "HTTP port"
+help           = "Browse to http://<host>:<port>/ . 8000/8081/8082 are already used by sigmond services on W3USR-06."
+example        = "5000"
+validator_hint = "1-65535, unused"
+
+[server.workers]
+title  = "gunicorn worker processes"
+hidden = true
+
+[server.threads]
+title  = "Threads per worker"
+hidden = true
+
+[server.timeout_sec]
+title  = "Request timeout (s)"
+hidden = true
+
+[station.callsign]
+title   = "Receiver callsign override"
+help    = "Blank uses sigmond's STATION_REPORTER_ID (e.g. W3USR/06)."
+example = "W3USR/06"
+
+[station.grid_square]
+title   = "Receiver grid override"
+help    = "Blank uses sigmond's STATION_GRID. Sets the receiver marker on the map."
+example = "FN21ej"
+
+[app.root]
+title  = "Dashboard app checkout"
+hidden = true

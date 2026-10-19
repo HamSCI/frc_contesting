@@ -1,0 +1,17 @@
+# frc-dashboard configuration — see config/help.toml for field docs.
+# Station identity defaults to /etc/sigmond/coordination.env (STATION_*);
+# MongoDB credentials come from /etc/frc-contesting/mongodb.env.
+
+[server]
+bind = "0.0.0.0"
+port = 5000
+workers = 2
+threads = 4
+timeout_sec = 120
+
+[station]
+callsign = ""
+grid_square = ""
+
+[app]
+root = ""

@@ -38,11 +38,12 @@ This documentation serves to:
 | February 27, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Milestone 1 audit (#32-#41), #36/#38/#40/#41 fixes, polyline removal, lastInterval sync, documentation | Liam Miller |
 | March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | 404 error diagnosis (OSM tile layer vs offline basemap conflict) | Liam Miller |
 | March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Issue #37 re-fix: offline basemap, favicon, shadow 404, label a11y, lastInterval cross-iframe sync | Liam Miller |
+| October 8, 2026 | Claude Opus 5.5 | claude-opus-5-5 | sigmond modules: frc-spot-store (ka9q sink → MongoDB) + frc-dashboard, deployed on W3USR-06 | Owen Ruzanski |
 
 ### Current Model
 
-**Model**: Claude Sonnet 4.6
-**Model ID**: claude-sonnet-4-6
+**Model**: Claude Opus 5.5
+**Model ID**: claude-opus-5-5
 **Context Window**: Large (suitable for entire codebase analysis)
 
 ---
@@ -327,11 +328,23 @@ MongoDB collection: `wspr_db.spots`
   band: "20m",                 // Band designation
   mode: "wspr",                // Mode: "wspr", "ft8", or "ft4"
   snr: -15,                    // Signal-to-noise ratio in dB
-  drift: 0,                    // Frequency drift in Hz
+  drift: 0,                    // Frequency drift in Hz/minute
+  power: 23,                   // Transmit power in dBm (WSPR only)
+  dt: -0.70,                   // Decode time offset in seconds (WSPR only)
+  sync: 0.78,                  // Decoder sync quality metric (WSPR only)
+  jobtype: 2,                  // Decoder pass/job type (WSPR only)
   date: "260107",              // Date in YYMMDD format
   time: "1430"                 // Time in HHMM UTC format
 }
 ```
+
+**Note**: `power`, `dt`, `sync`, and `jobtype` were added to `storedb/storedb.py`'s
+parser on August 3, 2026. Before that date, the parser also mislabeled columns —
+`snr` actually held the decoder's sync-quality metric, and `drift` actually held
+the `dt` time-offset value; the real SNR was discarded under a meaningless `db`
+key, and power/drift/jobtype were never captured. Documents ingested before the
+fix keep those old, mislabeled field values — there's no retroactive migration
+for already-stored spots.
 
 **Important**: This schema is defined by WSPRDaemon and cannot be modified. The dashboard must work with this format.
 
@@ -623,6 +636,33 @@ For questions about this project or the use of AI assistance, please refer to th
 
 ---
 
+### Session 13: sigmond Modules — ka9q Spot Store + Dashboard (W3USR-06)
+**Date**: October 8, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: Run the dashboard on a HamSCI sigmond / ka9q-radio station instead of WSPRDaemon. Keep the existing MongoDB schema and dashboard logic unchanged.
+**Status**: Complete; deployed and verified on W3USR-06 (unattended overnight session)
+
+**Activities**:
+- Surveyed W3USR-06 (Debian 13 Proxmox guest): radiod + `wspr-recorder` (WSPR) + `psk-recorder` (FT8/FT4) already write every decoded spot to sigmond's shared sink `/var/lib/sigmond/sink.db` (`pending_uploads`, `target_db` `wspr`/`psk`). `hs-uploader` reads it with `delete_on_commit = false`, and `smd admin storage trim` ages rows out (about 1 h psk, 24 h wspr).
+- Installed MongoDB 8.0.32 (from the bookworm repo; MongoDB ships no 8.0 server package for trixie). It binds to 127.0.0.1, has a 0.5 GB WiredTiger cache, and runs with auth on. Users: `frc` (readWrite `wspr_db`) and `mongoadmin`; credentials are in `/etc/frc-contesting/`. It is pinned to sigmond's "other" CPU set to stay off radiod's cores.
+- New sigmond client `sigmond/frc-spot-store/`. It tails the sink by row id (read-only) and translates rows to the `wspr_db.spots` schema: FT8 uses `tx_call` (not the message addressee `rx_call`), `RR73` and blank grids are skipped, WSPR drift is converted from Hz/s to Hz/min, and FST4W/MSK144 are skipped. It bulk-upserts on a unique `spot_key`, keeping the strongest duplicate. The cursor advances only after MongoDB acknowledges a batch. A 30-day TTL applies on `ts`. It reports per-target trim gaps and serves a §13 control socket.
+- New sigmond client `sigmond/frc-dashboard/`. It supervises gunicorn running the unchanged `web-ft:app`, feeds `RECEIVER_CALLSIGN`/`RECEIVER_GRIDSQUARE` from sigmond `STATION_REPORTER_ID`/`STATION_GRID` and `MONGODB_*` from the shared env file, probes HTTP and MongoDB, and serves a §13 control socket. Port 5000.
+- Both clients implement CLIENT-CONTRACT v0.8: `deploy.toml`, templated `@.service` plus alias unit, `version`/`inventory`/`validate`/`status`/`config`/`daemon`, `env/default.env`, and `<client>-config.toml`. `smd admin diag drop-in` is fully green. Both are enabled in `/etc/sigmond/topology.toml` (backup kept); `smd status` and `smd restart` work.
+- Bugs found and fixed during deployment: a partial unique index forced a collection scan on every upsert (mongod at 100% CPU; switched to a sparse index); in-batch duplicates were dropped silently; a thread-unsafe counter dict; a gunicorn 26 control socket under a read-only `$HOME`; phantom sigmond instances from config file naming.
+- Independent code review (subagent) found 10 issues; fixed a malformed sink row stalling ingest, sink rebuild/inode replacement, inventory crash paths, wrong `deploy.toml` render source, a non-idempotent `setup-mongodb.sh`, a blocking dashboard probe, table-scanning sink bounds, and a hard `ReadWritePaths`.
+- Verified: 10 unit tests pass; a MongoDB outage test showed the cursor held and ingest resumed with no loss; headless-Chrome screenshots of `/map`, `/table` and `/` with live ka9q data and no console errors; endpoint timing (15 min window: 0.06 s map / 0.23 s table).
+
+**Known limitations**:
+- FT8/FT4 `snr` is null: psk-recorder's `decode_ft8` emits an uncalibrated score (stored as `score`). A `jt9` trial (same day) gave real SNR but was rolled back. It needed a sandbox drop-in, grew memory about 29 MB/min, and triggered a host OOM that killed `timestd-core-recorder` (auto-restarted). Details are in `sigmond/README.md`. Drift is unavailable for FT8/FT4 from either decoder.
+- The `/tbspots` CQ-zone lookup is about 1 s per 6k spots, so multi-hour FT8 windows are slow. That is existing dashboard logic and was left unchanged.
+- The dashboard's own `MongoClient` has no timeout, so requests hang about 30 s while MongoDB is down.
+
+**Files Added**: `sigmond/` (README.md, scripts/, frc-spot-store/, frc-dashboard/)
+**Files Modified**: `CLAUDE.md`, `README.md` (pointer to sigmond/README.md)
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -637,6 +677,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 1.7 | February 27, 2026 | Added Session 10: Milestone 1 audit, #36/#38/#40/#41 fixes, polyline removal, lastInterval sync, doc updates | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 1.8 | March 1, 2026 | Added Session 11: 404 error diagnosis — OSM tile layer conflict with offline basemap | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 1.9 | March 1, 2026 | Added Session 12: Issue #37 complete — offline basemap, favicon, shadow fix, label a11y, lastInterval cross-iframe sync | Claude Sonnet 4.6 (claude-sonnet-4-6) |
+| 2.0 | October 8, 2026 | Added Session 13: sigmond modules (frc-spot-store, frc-dashboard) for ka9q-radio stations | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

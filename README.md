@@ -621,6 +621,16 @@ To add a new client-side filter:
 
 ## Deployment
 
+### On a HamSCI sigmond / ka9q-radio station (recommended)
+
+On a station managed by [sigmond](https://github.com/HamSCI/sigmond)
+(radiod + wspr-recorder + psk-recorder), two sigmond clients replace the
+WSPRDaemon + `storedb` path. `frc-spot-store` copies WSPR/FT8/FT4 spots from
+sigmond's sink into MongoDB, and `frc-dashboard` serves this app on port 5000.
+MongoDB is installed and secured automatically. See
+[sigmond/README.md](sigmond/README.md) for install steps, the field mapping
+and operating notes.
+
 ### Production Deployment with Gunicorn
 
 Install gunicorn into the virtual environment and run with 4 worker processes, binding to all interfaces:

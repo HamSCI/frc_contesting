@@ -1,0 +1,54 @@
+# Wizard help for `smd tui` / `frc-spot-store config` (ADD-A-CLIENT §8).
+
+[sink.path]
+title  = "sigmond sink database"
+hidden = true
+
+[sink.poll_interval_sec]
+title  = "Sink poll interval (s)"
+hidden = true
+
+[sink.batch_size]
+title  = "Rows per MongoDB batch"
+hidden = true
+
+[sink.start_at]
+title          = "First-start position"
+help           = """Only used the very first time (no cursor saved yet).
+"oldest" backfills everything still in the sink (about 24 h of WSPR,
+about 1 h of FT8/FT4); "now" starts with new spots only."""
+example        = "oldest"
+validator_hint = "oldest | now"
+
+[modes.wspr]
+title = "Store WSPR spots"
+help  = "Classic 2-minute WSPR (mode W2) decoded by wspr-recorder."
+
+[modes.ft8]
+title = "Store FT8 spots"
+help  = "FT8 decoded by psk-recorder. Spots without a grid locator are skipped."
+
+[modes.ft4]
+title = "Store FT4 spots"
+help  = "FT4 decoded by psk-recorder. Spots without a grid locator are skipped."
+
+[mongodb.collection]
+title  = "MongoDB collection"
+hidden = true
+
+[mongodb.retention_days]
+title          = "Days of spots to keep"
+help           = """MongoDB deletes spots older than this (TTL index on `ts`).
+FT8 is roughly 100-150 MB/day uncompressed on a busy receiver. 0 keeps forever."""
+example        = "30"
+validator_hint = "integer >= 0"
+
+[station.rx_callsign]
+title   = "Receiver callsign override"
+help    = """Shown as the receiving station in the dashboard. Leave blank to
+use sigmond's STATION_REPORTER_ID (e.g. W3USR/06)."""
+example = "W3USR/06"
+
+[state.dir]
+title  = "State directory"
+hidden = true

@@ -1,0 +1,41 @@
+[Unit]
+Description=frc-dashboard — FRC contesting/DXing dashboard web UI (%i)
+Documentation=https://github.com/HamSCI/frc_contesting
+After=network.target mongod.service frc-spot-store@%i.service
+Wants=mongod.service
+StartLimitIntervalSec=300
+StartLimitBurst=20
+
+[Service]
+Type=simple
+User=frc
+Group=frc
+SupplementaryGroups=sigmond
+# CLIENT-CONTRACT §4: station identity + per-instance env, both optional.
+EnvironmentFile=-/etc/sigmond/coordination.env
+EnvironmentFile=-/etc/frc-contesting/mongodb.env
+EnvironmentFile=-/etc/frc-dashboard/env/%i.env
+Environment=MALLOC_ARENA_MAX=2
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/local/bin/frc-dashboard daemon --instance %i
+
+# Read-only web app: serves files from the checkout, talks to MongoDB on
+# 127.0.0.1.  Nothing on disk is written.
+RuntimeDirectory=frc-dashboard
+RuntimeDirectoryMode=0750
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+Nice=5
+MemoryMax=600M
+MemorySwapMax=0
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=frc-dashboard
+
+[Install]
+WantedBy=multi-user.target

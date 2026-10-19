@@ -115,12 +115,18 @@ def fetch_spots_for_map(last_interval=15):
             - band: Amateur radio band
             - mode: Digital mode (wspr/ft8/ft4)
             - snr: Signal-to-noise ratio in dB
-            - drift: Frequency drift in Hz
+            - drift: Frequency drift in Hz/minute
+            - power: Transmit power in dBm (WSPR only; may be absent for older
+              documents ingested before storedb.py captured this field)
+            - dt: Decode time offset in seconds (WSPR only)
+            - sync: Decoder sync quality metric (WSPR only)
             - time: Timestamp in "YYMMDD HHMM" format
 
     Notes:
         - Invalid grid squares default to 0,0 coordinates (equator/prime meridian)
         - Client-side filtering handles band/country/zone filtering
+        - power/dt/sync are None for documents stored before this field set
+          was added to storedb.py's parser
     """
     collection = current_app.config['SPOTS_COLLECTION']
     query = _build_time_query(last_interval)
@@ -150,6 +156,9 @@ def fetch_spots_for_map(last_interval=15):
             "rx_lon": rxlon,
             "rx_sign": doc.get('rx_callsign'),
             "snr": doc.get("snr"),
+            "power": doc.get("power"),
+            "dt": doc.get("dt"),
+            "sync": doc.get("sync"),
             "time": f"{doc.get('date')} {doc.get('time')}",
             "tx_lat": txlat,
             "tx_lon": txlon,

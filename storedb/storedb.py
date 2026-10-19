@@ -40,10 +40,19 @@ def frequency_to_band(freq_mhz):
 
 SPOTS_FILE = '/dev/shm/wsprdaemon/uploads/wsprnet/spots.txt'
 
+# wsprd decode line format (space-separated):
+#   date time sync snr dt freq call grid power drift jobtype
+# e.g. "260803 1406  0.78  -6 -0.70  7.0400199 KC3SDJ  EN90  23  0  2"
+#
+# NOTE: previously this parser mislabeled columns — "sync" (index 2) was
+# stored as "snr", and "dt" (index 4) was stored as "drift". The real snr
+# was discarded under a meaningless "db" key, and power/drift/jobtype were
+# never captured at all. Fixed here; only affects spots ingested after this
+# change — already-stored documents keep their old (mislabeled) fields.
 with open(SPOTS_FILE, 'r') as f:
     for line in f:
         parts = line.strip().split()
-        if len(parts) < 8:
+        if len(parts) < 10:
             continue
 
         freq_mhz = float(parts[5])
@@ -52,12 +61,15 @@ with open(SPOTS_FILE, 'r') as f:
         document = {
             "date":        parts[0],
             "time":        parts[1],
-            "snr":         float(parts[2]),
-            "db":          int(parts[3]),
-            "drift":       float(parts[4]),
+            "sync":        float(parts[2]),
+            "snr":         int(parts[3]),
+            "dt":          float(parts[4]),
             "frequency":   freq_mhz,
             "callsign":    callsign,
             "grid":        parts[7],
+            "power":       int(parts[8]),
+            "drift":       int(parts[9]),
+            "jobtype":     int(parts[10]) if len(parts) > 10 else None,
             "rx_callsign": receiver_callsign,
             "mode":        "wspr",
             "band":        frequency_to_band(freq_mhz),

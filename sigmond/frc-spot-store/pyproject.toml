@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frc-spot-store"
+version = "0.1.0"
+description = "sigmond client: store ka9q-radio WSPR/FT8/FT4 spots from the sigmond sink in MongoDB for the FRC contesting dashboard"
+requires-python = ">=3.11"
+license = { text = "GPL-3.0-or-later" }
+dependencies = ["pymongo>=4.0"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+frc-spot-store = "frc_spot_store.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

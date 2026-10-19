@@ -1,0 +1,12 @@
+[Unit]
+Description=frc-dashboard (single-instance alias for frc-dashboard@default)
+Requires=frc-dashboard@default.service
+After=frc-dashboard@default.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+
+[Install]
+WantedBy=multi-user.target

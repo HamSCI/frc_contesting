@@ -1,0 +1,24 @@
+# frc-spot-store configuration — see config/help.toml for field docs.
+# Station identity comes from /etc/sigmond/coordination.env and MongoDB
+# credentials from /etc/frc-contesting/mongodb.env; neither belongs here.
+
+[sink]
+path = "/var/lib/sigmond/sink.db"
+poll_interval_sec = 5.0
+batch_size = 2000
+start_at = "oldest"
+
+[modes]
+wspr = true
+ft8 = true
+ft4 = true
+
+[mongodb]
+collection = "spots"
+retention_days = 30
+
+[station]
+rx_callsign = ""
+
+[state]
+dir = "/var/lib/frc-spot-store"

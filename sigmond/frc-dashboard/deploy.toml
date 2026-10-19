@@ -1,0 +1,68 @@
+# frc-dashboard deploy manifest — sigmond CLIENT-CONTRACT §5.
+#
+# Serves the Frankford Radio Club contesting/DXing dashboard (the Flask app
+# at the root of the frc_contesting repository — map, table and combined
+# views) from the wspr_db.spots MongoDB collection that frc-spot-store fills
+# with ka9q-radio WSPR / FT8 / FT4 spots.  The app runs unmodified under
+# gunicorn; this client adds sigmond lifecycle, station identity and the
+# §13 control socket around it.
+
+[package]
+name             = "frc-dashboard"
+version          = "0.1.0"
+contract_version = "0.8"
+description      = "FRC contesting/DXing dashboard: band openings map + region table from ka9q spots (port 5000)"
+license          = "GPL-3.0-or-later"
+
+[contract.config]
+init = ["/usr/local/bin/frc-dashboard", "config", "init"]
+edit = ["/usr/local/bin/frc-dashboard", "config", "edit"]
+
+[build]
+steps = [
+    "/opt/git/sigmond/frc-dashboard/scripts/install.sh --build-only",
+]
+produces = [
+    "/opt/git/sigmond/frc-dashboard/venv/bin/frc-dashboard",
+]
+
+[install]
+user  = "frc"
+group = "frc"
+
+[[install.steps]]
+kind = "link"
+src  = "/opt/git/sigmond/frc-dashboard/venv/bin/frc-dashboard"
+dst  = "/usr/local/bin/frc-dashboard"
+
+[[install.steps]]
+kind = "link"
+src  = "systemd/frc-dashboard@.service"
+dst  = "/etc/systemd/system/frc-dashboard@.service"
+
+[[install.steps]]
+kind = "link"
+src  = "systemd/frc-dashboard.service"
+dst  = "/etc/systemd/system/frc-dashboard.service"
+
+[[install.steps]]
+kind      = "render"
+src       = "config/frc-dashboard-config.toml.template"
+dst       = "/etc/frc-dashboard/frc-dashboard-config.toml"
+mode      = "0644"
+owner     = "root:frc"
+if_absent = true
+
+[systemd]
+units           = ["frc-dashboard.service"]
+templated_units = ["frc-dashboard@.service"]
+
+[[deps.pypi]]
+name    = "flask"
+version = ">=2.0"
+venv    = "/opt/git/sigmond/frc-dashboard/venv"
+
+[[deps.pypi]]
+name    = "gunicorn"
+version = ">=21.0"
+venv    = "/opt/git/sigmond/frc-dashboard/venv"

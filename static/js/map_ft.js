@@ -377,8 +377,9 @@ async function fetchSpots() {
       txMarker.bindPopup(`
         <b>Received Spot by ${spot.rx_sign}</b><br>
         <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a><br>
-        <b>SNR:</b> ${spot.snr} dB<br>
-        <b>Drift:</b> ${spot.drift}<br>
+        ${spot.snr != null ? `<b>SNR:</b> ${spot.snr} dB<br>` : ''}
+        ${spot.drift != null ? `<b>Drift:</b> ${spot.drift} Hz/min<br>` : ''}
+        ${spot.power != null ? `<b>Power:</b> ${spot.power} dBm<br>` : ''}
         <b>Freq:</b> ${spot.frequency} MHz<br>
         <b>Time:</b> ${parseWsprTime(spot.time)}<br>
         <b>Band:</b> ${spot.band} <br>
@@ -391,8 +392,9 @@ async function fetchSpots() {
         <b>Receiver</b><br>
         <b>RX:</b> ${spot.rx_sign}<br>
         <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a><br>
-        <b>SNR:</b> ${spot.snr} dB<br>
-        <b>Drift:</b> ${spot.drift}<br>
+        ${spot.snr != null ? `<b>SNR:</b> ${spot.snr} dB<br>` : ''}
+        ${spot.drift != null ? `<b>Drift:</b> ${spot.drift} Hz/min<br>` : ''}
+        ${spot.power != null ? `<b>Power:</b> ${spot.power} dBm<br>` : ''}
         <b>Freq:</b> ${spot.frequency} MHz<br>
         <b>Time:</b> ${parseWsprTime(spot.time)}<br>
         <b>Band:</b> ${spot.band}</br>

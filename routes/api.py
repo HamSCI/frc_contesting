@@ -29,7 +29,9 @@ def spots():
         lastInterval (str): Minutes to look back (default: "15")
 
     Returns:
-        JSON: Array of spot objects with full TX/RX details
+        JSON: Array of spot objects with full TX/RX details, including
+        signal metrics (snr, drift, power, dt, sync) — see
+        services.spots.fetch_spots_for_map for the full field list.
 
     Example:
         GET /spots?lastInterval=30

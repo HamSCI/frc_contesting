@@ -1,0 +1,66 @@
+# frc-spot-store deploy manifest — sigmond CLIENT-CONTRACT §5.
+#
+# Stores WSPR / FT8 / FT4 spots decoded from ka9q-radio (radiod) by
+# wspr-recorder and psk-recorder into MongoDB (wspr_db.spots) for the
+# Frankford Radio Club contesting dashboard (frc-dashboard).  It is a
+# read-only consumer of sigmond's shared sink (/var/lib/sigmond/sink.db).
+
+[package]
+name             = "frc-spot-store"
+version          = "0.1.0"
+contract_version = "0.8"
+description      = "Store ka9q WSPR/FT8/FT4 spots from the sigmond sink in MongoDB (FRC dashboard)"
+license          = "GPL-3.0-or-later"
+
+[contract.config]
+init = ["/usr/local/bin/frc-spot-store", "config", "init"]
+edit = ["/usr/local/bin/frc-spot-store", "config", "edit"]
+
+[build]
+steps = [
+    "/opt/git/sigmond/frc-spot-store/scripts/install.sh --build-only",
+]
+produces = [
+    "/opt/git/sigmond/frc-spot-store/venv/bin/frc-spot-store",
+]
+
+[install]
+user  = "frc"
+group = "frc"
+
+[[install.steps]]
+kind = "link"
+src  = "/opt/git/sigmond/frc-spot-store/venv/bin/frc-spot-store"
+dst  = "/usr/local/bin/frc-spot-store"
+
+[[install.steps]]
+kind = "link"
+src  = "systemd/frc-spot-store@.service"
+dst  = "/etc/systemd/system/frc-spot-store@.service"
+
+[[install.steps]]
+kind = "link"
+src  = "systemd/frc-spot-store.service"
+dst  = "/etc/systemd/system/frc-spot-store.service"
+
+[[install.steps]]
+kind      = "render"
+src       = "config/frc-spot-store-config.toml.template"
+dst       = "/etc/frc-spot-store/frc-spot-store-config.toml"
+mode      = "0644"
+owner     = "root:frc"
+if_absent = true
+
+[systemd]
+units           = ["frc-spot-store.service"]
+templated_units = ["frc-spot-store@.service"]
+
+[[deps.apt]]
+name = "mongodb-org-server"
+note = "MongoDB 8.0 from repo.mongodb.org; installed + secured by ../scripts/setup-mongodb.sh"
+
+[[deps.pypi]]
+name    = "pymongo"
+version = ">=4.0"
+venv    = "/opt/git/sigmond/frc-spot-store/venv"
+

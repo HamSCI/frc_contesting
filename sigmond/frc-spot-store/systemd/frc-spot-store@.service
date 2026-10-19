@@ -1,0 +1,43 @@
+[Unit]
+Description=frc-spot-store — WSPR/FT8/FT4 spots from sigmond sink into MongoDB (%i)
+Documentation=https://github.com/HamSCI/frc_contesting
+After=network.target mongod.service
+Wants=mongod.service
+StartLimitIntervalSec=300
+StartLimitBurst=20
+
+[Service]
+Type=simple
+User=frc
+Group=frc
+SupplementaryGroups=sigmond
+# CLIENT-CONTRACT §4: station identity + per-instance env, both optional.
+EnvironmentFile=-/etc/sigmond/coordination.env
+EnvironmentFile=-/etc/frc-contesting/mongodb.env
+EnvironmentFile=-/etc/frc-spot-store/env/%i.env
+Environment=MALLOC_ARENA_MAX=2
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/local/bin/frc-spot-store daemon --instance %i
+
+RuntimeDirectory=frc-spot-store
+RuntimeDirectoryMode=0750
+StateDirectory=frc-spot-store
+StateDirectoryMode=0750
+ProtectSystem=strict
+ProtectHome=yes
+# Read-only consumer of the sink; the WAL -shm sidecar still needs write.
+ReadWritePaths=-/var/lib/sigmond
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+Nice=10
+MemoryMax=300M
+MemorySwapMax=0
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=frc-spot-store
+
+[Install]
+WantedBy=multi-user.target

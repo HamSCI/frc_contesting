@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frc-dashboard"
+version = "0.1.0"
+description = "sigmond client: serve the FRC contesting/DXing dashboard (Flask app at the frc_contesting repo root) from ka9q spots in MongoDB"
+requires-python = ">=3.11"
+license = { text = "GPL-3.0-or-later" }
+# Runtime deps of the Flask app itself (see ../../requirements.txt; geopandas
+# and geopy are listed there but not imported by the app, so not pulled in).
+dependencies = [
+    "flask>=2.0",
+    "gunicorn>=21.0",
+    "pymongo>=4.0",
+    "maidenhead>=1.1",
+    "shapely>=1.8",
+    "python-dotenv>=0.19",
+]
+
+[project.scripts]
+frc-dashboard = "frc_dashboard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

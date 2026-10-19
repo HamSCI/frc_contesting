@@ -1,0 +1,12 @@
+[Unit]
+Description=frc-spot-store (single-instance alias for frc-spot-store@default)
+Requires=frc-spot-store@default.service
+After=frc-spot-store@default.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+
+[Install]
+WantedBy=multi-user.target
