@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" class="waterfall-page">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contest Band Waterfalls</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="waterfall-page">
+
+  <div class="panel-header">
+    <h1 class="page-title" id="title">Contest Band Waterfalls</h1>
+    <div class="status-bar">
+      Spectrum:&nbsp;<span id="wf-status-dot" class="status-dot status-checking"></span><span id="wf-status-label">Starting…</span>
+      &nbsp;&nbsp;|&nbsp;&nbsp;<span id="wf-updated">Last row: —</span>
+    </div>
+  </div>
+
+  <div id="controls">
+    <label class="check-field" for="wf-auto">
+      <input id="wf-auto" type="checkbox" checked> Auto contrast
+    </label>
+
+    <div class="field">
+      <label for="wf-floor">Floor (dB)</label>
+      <input id="wf-floor" type="number" value="-130" step="1" disabled>
+    </div>
+
+    <div class="field">
+      <label for="wf-range">Range (dB)</label>
+      <input id="wf-range" type="number" value="35" min="5" max="90" step="1">
+    </div>
+
+    <div class="field">
+      <label for="wf-palette">Palette</label>
+      <select id="wf-palette">
+        <option value="spectrum">Spectrum</option>
+        <option value="heat">Heat</option>
+        <option value="gray">Grayscale</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="wf-layout">Layout</label>
+      <select id="wf-layout">
+        <option value="grid">Grid</option>
+        <option value="stack">Stacked</option>
+      </select>
+    </div>
+
+    <button id="wf-pause" class="btn-secondary" type="button">Pause</button>
+  </div>
+
+  <div id="wf-message" class="wf-message" hidden></div>
+
+  <div id="wf-grid" class="wf-grid"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/waterfall.js"></script>
+
+</body>
+</html>

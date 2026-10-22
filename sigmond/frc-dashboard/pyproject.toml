@@ -19,6 +19,11 @@ dependencies = [
     "python-dotenv>=0.19",
 ]
 
+[project.optional-dependencies]
+# Waterfall tab (radiod spectrum channels).  scripts/install.sh installs the
+# station's /opt/git/sigmond/ka9q-python checkout instead when present.
+waterfall = ["ka9q-python>=3.6", "numpy"]
+
 [project.scripts]
 frc-dashboard = "frc_dashboard.cli:main"
 

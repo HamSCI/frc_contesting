@@ -13,12 +13,15 @@
     <div class="dash-tabs">
       <button class="dash-tab-btn active" data-target="map-frame">Map</button>
       <button class="dash-tab-btn" data-target="table-frame">Table</button>
+      <button class="dash-tab-btn" data-target="waterfall-frame">Waterfall</button>
     </div>
   </nav>
 
   <div class="dash-frames">
     <iframe id="map-frame" class="dash-frame active" src="/map"></iframe>
     <iframe id="table-frame" class="dash-frame" src="/table"></iframe>
+    <!-- Loaded on first click: it opens radiod spectrum channels while watched. -->
+    <iframe id="waterfall-frame" class="dash-frame" data-src="/waterfall"></iframe>
   </div>
 
   <script src="js/dashboard.js"></script>

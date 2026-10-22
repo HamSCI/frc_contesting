@@ -15,3 +15,14 @@ grid_square = ""
 
 [app]
 root = ""
+
+[waterfall]
+enabled = true
+radiod_status = ""
+bands = "160m,80m,40m,20m,15m,10m"
+bins = 800
+poll_sec = 2.0
+averaging = 2
+idle_timeout_sec = 60
+history_rows = 300
+

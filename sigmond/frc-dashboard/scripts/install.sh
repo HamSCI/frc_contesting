@@ -23,6 +23,14 @@ echo "[$CLIENT] building venv in $REPO/venv"
 [ -x "$REPO/venv/bin/python" ] || "$PY" -m venv "$REPO/venv"
 "$REPO/venv/bin/pip" install -q --upgrade pip setuptools wheel
 "$REPO/venv/bin/pip" install -q -e "$REPO"
+# Waterfall tab: radiod spectrum channels via ka9q-python.  Prefer the
+# station's shared checkout (what every other sigmond client uses) so the
+# wire protocol matches the installed radiod; fall back to PyPI.
+if [ -d /opt/git/sigmond/ka9q-python ]; then
+  "$REPO/venv/bin/pip" install -q -e /opt/git/sigmond/ka9q-python
+else
+  "$REPO/venv/bin/pip" install -q ka9q-python
+fi
 [ "$BUILD_ONLY" = 1 ] && exit 0
 
 [ "$(id -u)" = 0 ] || { echo "install needs root (sudo)" >&2; exit 1; }

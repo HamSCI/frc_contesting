@@ -183,6 +183,20 @@ def cmd_validate(args) -> int:
         except Exception as e:
             issue('fail', f'MongoDB ping failed: {e}')
 
+    w = cfg.get('waterfall', {})
+    if w.get('enabled', True):
+        from .waterfall import BAND_EDGES
+        try:
+            import ka9q  # noqa: F401
+        except ImportError:
+            issue('warn', 'waterfall enabled but ka9q-python is not installed in this venv')
+        unknown = [b.strip() for b in str(w.get('bands', '')).split(',')
+                   if b.strip() and b.strip() not in BAND_EDGES]
+        if unknown:
+            issue('warn', f'waterfall.bands has unknown bands {unknown}; known: {list(BAND_EDGES)}')
+        if not (w.get('radiod_status') or station_env('SIGMOND_RADIOD_STATUS')):
+            issue('warn', 'waterfall enabled but no radiod status address (SIGMOND_RADIOD_STATUS)')
+
     live = control_get('/status')
     if live and live.get('state') not in ('running', 'starting'):
         issue('warn', f"daemon state {live.get('state')}: {live.get('pipeline', {}).get('last_error')}")

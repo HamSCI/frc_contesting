@@ -39,6 +39,18 @@ DEFAULTS: dict = {
         # Blank → the frc_contesting checkout that contains this client
         'root': '',
     },
+    'waterfall': {
+        # Contest-band waterfalls from radiod spectrum channels (ka9q-python).
+        # Channels exist only while someone has the Waterfall tab open.
+        'enabled': True,
+        'radiod_status': '',        # blank → SIGMOND_RADIOD_STATUS
+        'bands': '160m,80m,40m,20m,15m,10m',
+        'bins': 800,                # max per band; actual is FFT-size optimised
+        'poll_sec': 2.0,            # one waterfall row per poll
+        'averaging': 2,             # FFTs per row; 2 x 6 bands / 2 s = 0 radiod drops
+        'idle_timeout_sec': 60,     # remove radiod channels after this idle time
+        'history_rows': 300,
+    },
 }
 
 

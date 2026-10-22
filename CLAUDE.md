@@ -39,6 +39,7 @@ This documentation serves to:
 | March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | 404 error diagnosis (OSM tile layer vs offline basemap conflict) | Liam Miller |
 | March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Issue #37 re-fix: offline basemap, favicon, shadow 404, label a11y, lastInterval cross-iframe sync | Liam Miller |
 | October 8, 2026 | Claude Opus 5.5 | claude-opus-5-5 | sigmond modules: frc-spot-store (ka9q sink → MongoDB) + frc-dashboard, deployed on W3USR-06 | Owen Ruzanski |
+| October 19, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Waterfall tab: live contest-band waterfalls from radiod spectrum channels | Owen Ruzanski |
 
 ### Current Model
 
@@ -663,6 +664,33 @@ For questions about this project or the use of AI assistance, please refer to th
 
 ---
 
+### Session 14: Waterfall Tab — Live Contest-Band Waterfalls (W3USR-06)
+**Date**: October 19, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: Add a dashboard tab with a waterfall of each contest band (160/80/40/20/15/10 m) from the station's ka9q-radio receiver. Nothing committed.
+**Status**: Complete; deployed and verified on W3USR-06
+
+**Activities**:
+- Evaluated embedding ka9q-web (one audio and one spectrum channel per session, so six full UIs) against ka9q-python `SpectrumStream` (spectrum-only radiod channels). Chose `SpectrumStream`, owned by the `frc-dashboard` supervisor; gunicorn has several workers, so the channels can't live in Flask.
+- `sigmond/frc-dashboard/src/frc_dashboard/waterfall.py`: `WaterfallManager` keeps one spectrum channel per band, quantises rows to uint8 and keeps 300 rows of history. It starts on demand in the background and removes the channels after 60 s with no viewer. It serves `/x/frc-dashboard/waterfall` on the §13 control socket and adds a `[waterfall]` config section.
+- Flask: `routes/waterfall.py` (`/waterfall` page; `/api/waterfall` relays to the supervisor's unix socket), `templates/waterfall.html`, `static/js/waterfall.js` (canvas waterfalls, auto/manual contrast, palettes, hover readout, FT8/FT4/WSPR markers), `.wf-*` styles. A Waterfall tab in `both.html`; `dashboard.js` lazy-loads it and messages frames so it pauses while hidden.
+- Verified radiod returns spectrum bins in low-to-high order: the WWV 10 MHz carrier landed at the exact bin, and an `fftshift` would have mirrored every waterfall.
+
+**radiod impact (important)**: the first version made radiod drop blocks on every channel (33,582 `filter_drops` in 2.8 min). Measured causes:
+1. A non-5-smooth wideband FFT size: 20 m at 437.5 Hz bins means `129.6e6/437.5 = 296228.57`.
+2. All bands polled in the same instant.
+3. Too many FFTs per second.
+
+The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real sample rate, the band start-ups are staggered across the poll interval, and the defaults are 2 averaged FFTs per row with one row every 2 s. The A/B test on the deployed service showed 0 drops idle, 0 drops streaming and 0 idle again, with radiod CPU 93% → 94%. The test runs themselves caused about 5,300 hf-timestd sidecar gaps between 18:20 and 19:10 UTC (0 before; 1 in 19:10–19:20). hf-timestd confirmed the final settings independently: 0 gaps in 19:20–19:50, which covers the deployed A/B test and the screenshot runs with all six bands streaming. Full table in `sigmond/README.md` § Waterfall tab.
+
+**Verification**: 12 dashboard tests (6 new waterfall tests plus planner cases) and 10 spot-store tests pass; `validate` is clean. Headless-Chrome screenshots at 1500 px and 600 px; idle release confirmed.
+
+**Files Added**: `routes/waterfall.py`, `templates/waterfall.html`, `static/js/waterfall.js`, `sigmond/frc-dashboard/src/frc_dashboard/waterfall.py`, `sigmond/frc-dashboard/tests/test_waterfall.py`
+**Files Modified**: `routes/__init__.py`, `templates/both.html`, `static/js/dashboard.js`, `static/css/style.css`, frc-dashboard `config.py`/`control.py`/`daemon.py`/`cli.py`/`pyproject.toml`/`deploy.toml`/`scripts/install.sh`/`config/*`, `sigmond/README.md`, `README.md`, `CLAUDE.md`
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -678,6 +706,7 @@ For questions about this project or the use of AI assistance, please refer to th
 | 1.8 | March 1, 2026 | Added Session 11: 404 error diagnosis — OSM tile layer conflict with offline basemap | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 1.9 | March 1, 2026 | Added Session 12: Issue #37 complete — offline basemap, favicon, shadow fix, label a11y, lastInterval cross-iframe sync | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 2.0 | October 8, 2026 | Added Session 13: sigmond modules (frc-spot-store, frc-dashboard) for ka9q-radio stations | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.1 | October 19, 2026 | Added Session 14: Waterfall tab (radiod spectrum channels) and radiod cost findings | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

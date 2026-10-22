@@ -35,6 +35,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - **Geographic filtering** by country, continent, CQ zone, and ITU zone
 - **Mode filtering** supporting WSPR, FT8, and FT4
 - **Tabular view** showing band openings by geographic region
+- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations
 - **Auto-reload capability** with configurable intervals
 - **Contest bands mode** focusing on the 6 primary contest bands
 - **Session persistence** for filter settings across page reloads
@@ -349,6 +350,29 @@ Serve receiver station configuration to the frontend.
 ```bash
 curl "http://localhost:5000/config"
 ```
+
+#### GET /api/waterfall
+
+Live spectrum rows for the Waterfall tab. These come from radiod spectrum
+channels opened by the `frc-dashboard` sigmond service, which this route
+relays to over its control socket. Without that service, for example under
+`python web-ft.py`, the route returns 503. See
+[sigmond/README.md](sigmond/README.md#waterfall-tab).
+
+**Query Parameters:**
+- `since` (int): last row sequence number already received (default: 0 = all history)
+
+**Response Format:**
+```json
+{
+  "running": true, "seq": 1234, "db_min": -150.0, "db_max": -60.0, "poll_sec": 2.0,
+  "bands": {
+    "20m": {"lo_hz": 14000000, "hi_hz": 14350282, "bins": 798, "rbw_hz": 438.957,
+             "rows": [[1233, 1792437000.12, "<base64 uint8 row>"]]}
+  }
+}
+```
+While the channels are starting, the response is `{"running": false, "starting": true}`.
 
 ---
 

@@ -22,7 +22,7 @@ import urllib.request
 from pathlib import Path
 
 from . import __version__
-from .config import app_environment, app_root, station
+from .config import app_environment, app_root, station, station_env
 from .control import start_control_server
 
 log = logging.getLogger('frc-dashboard')
@@ -49,6 +49,8 @@ class Daemon:
         self.last_error: str | None = None
         self.restarts = 0
         self._mongo = None
+        from .waterfall import WaterfallManager
+        self.waterfall = WaterfallManager(cfg, station_env('SIGMOND_RADIOD_STATUS'))
 
     @property
     def port(self) -> int:
@@ -82,6 +84,7 @@ class Daemon:
                     'latest_spot': self.latest_spot,
                 },
                 'station': {'callsign': call, 'grid_square': grid},
+                'waterfall': self.waterfall.status(),
                 'app_root': str(self.root),
                 'pipeline': {
                     'last_success_age_s': None if self.last_probe is None else round(now - self.last_probe, 1),
@@ -171,6 +174,14 @@ class Daemon:
             self.last_probe = time.time()
             self.last_error = err
 
+    def _waterfall_request(self, query: dict) -> tuple[int, dict]:
+        try:
+            since = int(query.get('since', 0))
+        except ValueError:
+            since = 0
+        snap = self.waterfall.snapshot(since)
+        return (200 if snap.get('running') or snap.get('starting') else 503), snap
+
     def _probe_loop(self) -> None:
         """Health probes on their own thread so a slow HTTP/MongoDB answer
         never delays gunicorn supervision or shutdown."""
@@ -189,7 +200,8 @@ class Daemon:
         if not (self.root / 'web-ft.py').exists():
             log.error('dashboard app not found under %s (set [app].root)', self.root)
             return 1
-        control = start_control_server(CONTROL_SOCKET, self.snapshot, self.metrics)
+        control = start_control_server(CONTROL_SOCKET, self.snapshot, self.metrics,
+                                       extra={'/x/frc-dashboard/waterfall': self._waterfall_request})
         if control is None:
             log.warning('control socket %s unavailable; continuing without it', CONTROL_SOCKET)
 
@@ -210,8 +222,10 @@ class Daemon:
                 healthy_since = time.time()
             elif time.time() - healthy_since > 120:
                 backoff = 5.0           # stayed up a while: reset restart backoff
+            self.waterfall.tick()
             self.stop.wait(1.0)
 
+        self.waterfall.shutdown()       # remove our spectrum channels from radiod
         log.info('stopping gunicorn')
         if self.child and self.child.poll() is None:
             self.child.terminate()

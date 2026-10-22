@@ -66,3 +66,9 @@ venv    = "/opt/git/sigmond/frc-dashboard/venv"
 name    = "gunicorn"
 version = ">=21.0"
 venv    = "/opt/git/sigmond/frc-dashboard/venv"
+
+[[deps.git]]
+name       = "ka9q-python"
+url        = "https://github.com/HamSCI/ka9q-python"
+install_to = "/opt/git/sigmond/ka9q-python"
+why        = "Waterfall tab: radiod spectrum channels (SpectrumStream)"

@@ -37,3 +37,41 @@ example = "FN21ej"
 [app.root]
 title  = "Dashboard app checkout"
 hidden = true
+
+[waterfall.enabled]
+title = "Waterfall tab"
+help  = """Live spectrum waterfalls of the contest bands, from radiod spectrum
+channels.  The channels exist only while someone has the Waterfall tab open
+and are removed after idle_timeout_sec.  Each band costs radiod CPU, so turn
+this off on a station whose radiod is already near its limit."""
+
+[waterfall.radiod_status]
+title  = "radiod status address"
+hidden = true
+
+[waterfall.bands]
+title          = "Bands shown"
+help           = "Comma-separated subset of 160m,80m,40m,20m,15m,10m."
+example        = "160m,80m,40m,20m,15m,10m"
+
+[waterfall.bins]
+title          = "Bins per band"
+help           = "Horizontal resolution.  radiod CPU grows with bins x bands."
+example        = "800"
+
+[waterfall.poll_sec]
+title  = "Seconds per waterfall row"
+hidden = true
+
+[waterfall.averaging]
+title  = "FFTs averaged per row"
+hidden = true
+
+[waterfall.idle_timeout_sec]
+title  = "Idle timeout (s)"
+hidden = true
+
+[waterfall.history_rows]
+title  = "Rows kept per band"
+hidden = true
+

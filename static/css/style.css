@@ -608,3 +608,189 @@ th, td {
 .dash-frame.active {
   display: block;
 }
+
+
+/* -------------------------------------------------------------
+   11. WATERFALL VIEW (waterfall.html + waterfall.js)
+   ------------------------------------------------------------- */
+
+.waterfall-page {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 100%;
+}
+
+.wf-message {
+  margin: 0 24px 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.wf-grid {
+  display: grid;
+  /* min(): never wider than the viewport on phones */
+  grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
+  gap: 16px;
+  margin: 0 24px 24px;
+}
+
+.wf-grid > * {
+  min-width: 0;              /* canvases are 800 px internally; don't let that size the track */
+}
+
+.wf-grid.wf-stack {
+  grid-template-columns: 1fr;
+}
+
+.wf-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px 8px;
+  min-width: 0;
+}
+
+.wf-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.wf-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  align-self: center;
+}
+
+.wf-band {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.wf-range,
+.wf-stats {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.wf-stats {
+  margin-left: auto;
+}
+
+.wf-markers {
+  position: relative;
+  height: 36px;              /* up to three stacked labels */
+}
+
+.wf-marker {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--accent);
+  white-space: nowrap;
+  padding-bottom: 3px;
+}
+
+.wf-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1px;
+  height: 36px;              /* reaches the canvas from any label row */
+  background: linear-gradient(var(--accent), transparent);
+  opacity: 0.6;
+}
+
+.wf-markers {
+  overflow: hidden;
+}
+
+.wf-canvas-wrap {
+  position: relative;
+}
+
+.wf-canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 220px;
+  background: #000;
+  border-radius: var(--radius-sm);
+  cursor: crosshair;
+}
+
+.wf-stack .wf-canvas {
+  height: 160px;
+}
+
+.wf-tip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.wf-axis {
+  position: relative;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.wf-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.wf-tick-first { transform: none; }
+.wf-tick-last  { transform: translateX(-100%); }
+.wf-tick-first::before { left: 0; }
+.wf-tick-last::before  { left: auto; right: 0; }
+
+.wf-tick::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 1px;
+  height: 3px;
+  background: var(--text-dim);
+}
+
+@media (max-width: 560px) {
+  .wf-grid {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 16px 16px;
+  }
+  .waterfall-page #controls {
+    margin: 12px 16px;
+  }
+  .waterfall-page .panel-header {
+    padding: 12px 16px 0;
+  }
+  .wf-stats {
+    margin-left: 0;
+  }
+}

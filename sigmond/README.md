@@ -117,14 +117,75 @@ and duplicate decodes (the strongest SNR is kept).
   (copied from its own `smd-cpu-affinity.conf` drop-ins), so they stay off
   radiod's cores. Re-run the installers after `smd admin diag cpu-affinity --apply`.
 
+## Waterfall tab
+
+The dashboard's **Waterfall** tab shows a live waterfall of each contest band
+(160/80/40/20/15/10 m), newest row at the top and 10 minutes of history.
+
+```
+radiod ──spectrum channels (status mcast)──▶ frc-dashboard supervisor (ka9q-python SpectrumStream)
+                                                   │  /x/frc-dashboard/waterfall  (control socket)
+browser ◀── /api/waterfall (Flask relay) ◀─────────┘
+```
+
+* **Source.** One radiod *spectrum* channel per band, through
+  ka9q-python's `SpectrumStream`. These are spectrum-only, with no audio
+  demodulator, unlike embedding ka9q-web, which opens an audio channel per
+  session. The supervisor owns the channels because gunicorn runs several workers.
+* **Only while watched.** The tab's iframe loads on first click and stops
+  polling when hidden. The supervisor removes the channels 60 s after the last
+  request (`idle_timeout_sec`). `frc-dashboard status --json` shows the
+  current `waterfall.state`.
+* **Browser side.** Rows are uint8 values over -150 to -60 dB. Contrast
+  (auto noise floor or manual), palette and layout are applied in the browser.
+  Hover shows frequency, level and age. The FT8, FT4 and WSPR dial frequencies
+  are marked on each axis.
+
+### radiod cost: read before changing `[waterfall]`
+
+Measured on W3USR-06 (RX-888 at 129.6 MS/s, radiod about 90% of one core).
+"Drops" means radiod `filter_drops` summed over **all** of its channels,
+including WSPR, FT8 and hf-timestd.
+
+| Configuration (6 bands unless noted) | radiod drops |
+|---|---|
+| idle (no spectrum channels) | 0 |
+| 1,600–2,000 bins, 0.5 s, aligned polls | about 120 gaps in hf-timestd's 10-min sidecars |
+| 800 bins, avg 4, 1 s, aligned polls, 20 m at 437.5 Hz bins | **+33,582 in 2.8 min** |
+| 20 m alone at 437.5 Hz bins (296,228.57-point FFT) | +7,022 / min |
+| 20 m alone at 400 Hz bins (324,000-point FFT) | 0 |
+| FFT-friendly bins, avg 4, 1 s, aligned polls | +147 / 72 s |
+| FFT-friendly bins, avg 4, 1 s, **staggered** polls | +3 / 72 s |
+| FFT-friendly bins, **avg 2, 2 s, staggered** (the defaults) | **0** (2.8 min A/B vs idle; radiod CPU 93% to 94%; hf-timestd sidecars 0 gaps over 30 min) |
+
+Above radiod's 200 Hz crossover, each frame is an FFT of `samprate / rbw`
+points over the raw front-end samples. So:
+
+1. **FFT size.** `waterfall.plan_band()` picks the bin width so that
+   `samprate / rbw` is a 5-smooth integer (prime factors only 2, 3 and 5).
+   The sample rate is read from radiod's status, so this also works at other
+   RX-888 rates.
+2. **Staggered polls.** The bands start `poll_sec / n_bands` apart, so
+   their FFTs never run in the same instant.
+3. **Load.** The default is 2 averaged FFTs per row and one row every 2 s.
+   Raising `averaging`, `bins` or the band count, or lowering `poll_sec`,
+   adds radiod load. Re-measure drops if you change any of them.
+
+To turn the tab off: `[waterfall] enabled = false` in
+`/etc/frc-dashboard/frc-dashboard-config.toml`, then `smd restart frc-dashboard`.
+
 ## Files
 
 ```
 sigmond/
 ├── scripts/            setup-mongodb.sh, ensure-user.sh, cpu-affinity.sh (shared)
 ├── frc-spot-store/     deploy.toml, pyproject.toml, src/frc_spot_store/, systemd/, config/, tests/
-└── frc-dashboard/      deploy.toml, pyproject.toml, src/frc_dashboard/,  systemd/, config/
+└── frc-dashboard/      deploy.toml, pyproject.toml, src/frc_dashboard/ (incl. waterfall.py), systemd/, config/, tests/
 ```
+
+Waterfall front end (repo root): `routes/waterfall.py`, `templates/waterfall.html`,
+`static/js/waterfall.js`, the `.wf-*` styles in `static/css/style.css`, and the
+tab in `templates/both.html` + `static/js/dashboard.js`.
 
 Credentials: `/etc/frc-contesting/mongodb.env` (`frc` user, readWrite on
 `wspr_db`, mode 0640 root:frc) and `/etc/frc-contesting/mongodb-admin.env`

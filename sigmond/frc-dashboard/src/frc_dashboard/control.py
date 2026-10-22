@@ -4,6 +4,8 @@ CLIENT-CONTRACT §13 control surface: HTTP/JSON over a unix socket.
     curl --unix-socket /run/frc-dashboard/control.sock http://./status
 
 Handlers only read a snapshot callable; they never touch MongoDB or the sink.
+Client-specific extras live under /x/frc-dashboard/... (contract §13.3) and
+are passed in as ``extra = {path: handler(query_dict) -> (code, obj)}``.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ import socketserver
 import threading
 from http.server import BaseHTTPRequestHandler
 from typing import Callable
+from urllib.parse import parse_qs, urlsplit
 
 
 class _Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
@@ -22,7 +25,8 @@ class _Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     allow_reuse_address = True
 
 
-def _make_handler(snapshot: Callable[[], dict], metrics: Callable[[dict], str]):
+def _make_handler(snapshot: Callable[[], dict], metrics: Callable[[dict], str],
+                  extra: dict | None = None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):  # keep the journal quiet
             pass
@@ -40,6 +44,15 @@ def _make_handler(snapshot: Callable[[], dict], metrics: Callable[[dict], str]):
             self.wfile.write(data)
 
         def do_GET(self):
+            url = urlsplit(self.path)
+            if extra and url.path in extra:
+                query = {k: v[-1] for k, v in parse_qs(url.query).items()}
+                try:
+                    code, obj = extra[url.path](query)
+                except Exception as e:
+                    code, obj = 500, {'error': f'{type(e).__name__}: {e}'}
+                self._send(code, json.dumps(obj, default=str))
+                return
             snap = snapshot()
             if self.path == '/healthz':
                 self._send(200, '{"ok": true}')
@@ -57,13 +70,14 @@ def _make_handler(snapshot: Callable[[], dict], metrics: Callable[[dict], str]):
 
 
 def start_control_server(path: str, snapshot: Callable[[], dict],
-                         metrics: Callable[[dict], str]) -> _Server | None:
+                         metrics: Callable[[dict], str],
+                         extra: dict | None = None) -> _Server | None:
     """Bind the socket (mode 0660, group sigmond when possible) in a thread."""
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if os.path.exists(path):
             os.unlink(path)
-        server = _Server(path, _make_handler(snapshot, metrics))
+        server = _Server(path, _make_handler(snapshot, metrics, extra))
     except OSError:
         return None
     try:
