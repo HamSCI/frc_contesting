@@ -6,7 +6,7 @@
  * - Loading and displaying propagation spots on a world map
  * - Client-side filtering by band, country, continent, CQ zone, ITU zone, and mode
  * - Real-time updates with configurable auto-reload intervals
- * - Band-specific colored markers (star icons) for visual identification
+ * - Canvas-drawn spot symbols: colour = band, shape = mode (spot_symbols.js)
  * - Geographic lookups using Turf.js point-in-polygon operations
  * - Session storage for filter persistence across page reloads
  *
@@ -16,39 +16,16 @@
  *
  * Dependencies:
  * - Leaflet.js (map library)
- * - Leaflet.ExtraMarkers (colored star markers)
+ * - spot_symbols.js (canvas spot symbols)
  * - Turf.js (geospatial analysis - point in polygon)
  * - GeoJSON data files (countries, continents, CQ zones, ITU zones)
  */
-
-// async function loadCqZones() {
-//   try {
-//     const res = await fetch("js/cqzones.geojson");
-//     const data = await res.json();
-//     cqZoneFeat = data.features;
-//     console.log("Loaded", cqZoneFeat.length, "CQ zones");
-//     if (cqZoneBordersLayer) {
-//         map.removeLayer(cqZoneBordersLayer);
-//     }
-    
-//     // Draw outline of all CQ Zones
-//     cqZoneBordersLayer = L.geoJSON(cqZoneFeat, {
-//         style: {
-//             color: "black",      // outline color
-//             weight: .5,         // thin lines
-//             fillOpacity: 0       // no fill, outline only
-//         }
-//     }).addTo(map);
-//   } catch (e) {
-//     console.error("Failed to load CQ zones", e);
-//   }
-// }
 
   async function loadCqZones() {
     try {
       const res = await fetch("js/cqzones.geojson");
       const data = await res.json();
-      cqZoneFeat = data.features;
+      cqZoneFeat = withBBoxes(data.features);
       console.log("Loaded", cqZoneFeat.length, "CQ zones");
 
       // Remove old layer if it exists
@@ -117,10 +94,16 @@ for (let i = 1; i <= 90; i++) {
   opt.textContent = i;
   select2.appendChild(opt);
 }
-var map = L.map('map').setView(CONFIG.map.initialView, CONFIG.map.initialZoom);
+// preferCanvas: the basemap, zone outlines and spot symbols are all drawn on
+// canvas, which keeps up with zoom/pan where thousands of DOM pins did not (#68).
+var map = L.map('map', { preferCanvas: true }).setView(CONFIG.map.initialView, CONFIG.map.initialZoom);
 
-// Disable marker shadows globally for performance
+// Disable marker shadows globally (the receiver pin is the only DOM marker)
 L.Icon.Default.prototype.createShadow = function () { return null; };
+
+// Spot symbols get their own canvas so redrawing them never re-rasterises the
+// basemap polygons underneath.
+const spotRenderer = L.canvas({ padding: 0.5 });
 
 //cq zone overlay
 let cqZoneBordersLayer = null;
@@ -283,11 +266,30 @@ async function renderITUZones() {
 let bandCountsOut = {};
 
 
-// Cached, metadata-tagged markers from the last /spots fetch. Every filter
-// except lastInterval (mode, country, continent, CQ/ITU zone, band) is
-// applied purely from this cache in renderMapFilters() — no refetch, since
-// the server only ever respects lastInterval (confirmed in services/spots.py).
+// Spot records from the last /spots fetch, each with its canvas symbol and
+// every attribute a filter needs (band, country, continent, zones, mode).
+// Every filter except lastInterval is applied purely from this cache in
+// renderMapFilters() - no refetch, since the server only ever respects
+// lastInterval (confirmed in services/spots.py).
 let spotRecords = [];
+let spotLayer = null;       // L.featureGroup of the visible symbols
+let rxMarker = null;        // one receiver marker, not one per spot (#68)
+
+const SPOT_STYLE = { radius: 5, weight: 1, color: '#1b1b1b', opacity: 0.9, fillOpacity: 0.85 };
+
+function spotPopupHtml(rec) {
+  const s = rec.spot;
+  return `
+    <b>Received Spot by ${s.rx_sign}</b><br>
+    <b>TX:</b> <a href="https://qrz.com/db/${s.tx_sign}">${s.tx_sign}</a><br>
+    ${s.snr != null ? `<b>SNR:</b> ${s.snr} dB<br>` : ''}
+    ${s.drift != null ? `<b>Drift:</b> ${s.drift} Hz/min<br>` : ''}
+    ${s.power != null ? `<b>Power:</b> ${s.power} dBm<br>` : ''}
+    <b>Freq:</b> ${s.frequency} MHz<br>
+    <b>Time:</b> ${parseWsprTime(s.time)}<br>
+    <b>Band:</b> ${CONFIG.bandLabel(rec.band)}<br>
+    <b>Mode:</b> ${(s.mode || '').toUpperCase()}`;
+}
 
 async function fetchSpots() {
   setStatus('checking', 'Checking…');
@@ -299,84 +301,48 @@ async function fetchSpots() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const spots = await res.json();
 
-    // Clear markers from the previous fetch
-    spotRecords.forEach(rec => {
-      map.removeLayer(rec.txMarker);
-      map.removeLayer(rec.rxMarker);
-    });
-    spotRecords = [];
-
-    // One star icon per band, in the band's colour from CONFIG.bands.
-    const markers = {};
-    // (ExtraMarkers only draws the SVG when `icon` is non-empty; no glyph font is loaded.)
-    const iconFor = band => markers[band] || (markers[band] = L.ExtraMarkers.icon({
-      icon: 'spot-glyph',
-      svg: true,
-      markerColor: CONFIG.bandColor(band),
-      shape: 'star',
-      prefix: '',
-      shadowSize: [0, 0],
-    }));
-
+    // Build the complete new record set first; the old symbols stay on the
+    // map until the new layer is ready, so a refresh never blanks it (#68).
+    const t0 = performance.now();
+    const records = [];
+    let rx = null;
     spots.forEach(spot => {
       if (
         isNaN(spot.tx_lat) || isNaN(spot.tx_lon) ||
-        isNaN(spot.rx_lat) || isNaN(spot.rx_lon) ||
         spot.tx_lat < -90 || spot.tx_lat > 90 ||
-        spot.tx_lon < -180 || spot.tx_lon > 180 ||
-        spot.rx_lat < -90 || spot.rx_lat > 90 ||
-        spot.rx_lon < -180 || spot.rx_lon > 180
+        spot.tx_lon < -180 || spot.tx_lon > 180
       ) {
         return; // skip invalid coordinates
       }
+      if (!rx && !isNaN(spot.rx_lat) && !isNaN(spot.rx_lon)) rx = [spot.rx_lat, spot.rx_lon];
 
-      // Precompute everything a filter could need, once, so re-filtering
-      // later is just property comparisons — no repeat Turf.js lookups.
-      const bandName = frequencyToBand(spot.frequency) || 'unknown';
-      const icon = iconFor(bandName);
-
-      const txMarker = L.marker([spot.tx_lat, spot.tx_lon], { icon });
-      txMarker.bindPopup(`
-        <b>Received Spot by ${spot.rx_sign}</b><br>
-        <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a><br>
-        ${spot.snr != null ? `<b>SNR:</b> ${spot.snr} dB<br>` : ''}
-        ${spot.drift != null ? `<b>Drift:</b> ${spot.drift} Hz/min<br>` : ''}
-        ${spot.power != null ? `<b>Power:</b> ${spot.power} dBm<br>` : ''}
-        <b>Freq:</b> ${spot.frequency} MHz<br>
-        <b>Time:</b> ${parseWsprTime(spot.time)}<br>
-        <b>Band:</b> ${CONFIG.bandLabel(bandName)}<br>
-        <b>Mode:</b>  ${spot.mode.toUpperCase()}
-
-      `);
-
-      const rxMarker = L.marker([spot.rx_lat, spot.rx_lon]);
-      rxMarker.bindPopup(`
-        <b>Receiver</b><br>
-        <b>RX:</b> ${spot.rx_sign}<br>
-        <b>TX:</b> <a href="https://qrz.com/db/${spot.tx_sign}">${spot.tx_sign}</a><br>
-        ${spot.snr != null ? `<b>SNR:</b> ${spot.snr} dB<br>` : ''}
-        ${spot.drift != null ? `<b>Drift:</b> ${spot.drift} Hz/min<br>` : ''}
-        ${spot.power != null ? `<b>Power:</b> ${spot.power} dBm<br>` : ''}
-        <b>Freq:</b> ${spot.frequency} MHz<br>
-        <b>Time:</b> ${parseWsprTime(spot.time)}<br>
-        <b>Band:</b> ${CONFIG.bandLabel(bandName)}<br>
-        <b>Mode:</b>  ${spot.mode.toUpperCase()}
-
-      `);
-
-      spotRecords.push({
-        txMarker,
-        rxMarker,
-        band: bandName,
-        country: lookupCountry(spot.tx_lat, spot.tx_lon),
-        continent: lookupContinent(spot.tx_lat, spot.tx_lon),
-        cqZone: lookupCqZone(spot.tx_lat, spot.tx_lon),
-        ituZone: lookupITUZone(spot.tx_lat, spot.tx_lon),
-        mode: (spot.mode || "").toLowerCase(),
+      // Everything a filter could need, computed once (geo lookups cached).
+      const band = frequencyToBand(spot.frequency) || 'unknown';
+      const mode = (spot.mode || "").toLowerCase();
+      const rec = { spot, band, mode, ...lookupGeo(spot.tx_lat, spot.tx_lon), shown: false };
+      rec.marker = new SpotMarker([spot.tx_lat, spot.tx_lon], {
+        ...SPOT_STYLE,
+        renderer: spotRenderer,
+        fillColor: CONFIG.bandColor(band),
+        shape: 'circle',
       });
+      rec.marker.rec = rec;
+      records.push(rec);
     });
+    const t1 = performance.now();
 
+    const oldLayer = spotLayer;
+    spotRecords = records;
+    spotLayer = L.featureGroup().addTo(map);
+    spotLayer.on('click', e => {
+      L.popup().setLatLng(e.layer.getLatLng()).setContent(spotPopupHtml(e.layer.rec)).openOn(map);
+    });
     renderMapFilters();
+    if (oldLayer) map.removeLayer(oldLayer);
+    console.log(`spots: ${records.length} records in ${(t1 - t0).toFixed(0)} ms, ` +
+                `rendered in ${(performance.now() - t1).toFixed(0)} ms`);
+
+    updateReceiverMarker(rx, records.length);
     setStatus('connected', 'Connected');
     setLastUpdated();
   } catch (e) {
@@ -385,8 +351,19 @@ async function fetchSpots() {
   }
 }
 
-// Pure client-side re-filter of the cached spotRecords — toggles marker
-// visibility and rebuilds the spot-count control. No network involved.
+function updateReceiverMarker(latlng, count) {
+  if (!latlng) return;
+  const html = `<b>Receiver ${CONFIG.station.callsign}</b><br>${CONFIG.station.gridSquare || ''}<br>` +
+               `${count} spot${count === 1 ? '' : 's'} in the window`;
+  if (!rxMarker) {
+    rxMarker = L.marker(latlng, { zIndexOffset: 1000, title: 'Receiver' }).bindPopup(html).addTo(map);
+  } else {
+    rxMarker.setLatLng(latlng).setPopupContent(html);
+  }
+}
+
+// Pure client-side re-filter of the cached spotRecords - adds/removes symbols
+// from the canvas spot layer and rebuilds the spot-count control.
 function renderMapFilters() {
   const selectedBand = document.getElementById("bandFilter").value;
   const selectedCountry = document.getElementById("countryFilter").value;
@@ -437,13 +414,10 @@ function renderMapFilters() {
 
     const visible = otherFiltersOk && bandOk;
 
-    if (visible) {
-      mapped++;
-      if (!map.hasLayer(rec.txMarker)) rec.txMarker.addTo(map);
-      if (!map.hasLayer(rec.rxMarker)) rec.rxMarker.addTo(map);
-    } else {
-      if (map.hasLayer(rec.txMarker)) map.removeLayer(rec.txMarker);
-      if (map.hasLayer(rec.rxMarker)) map.removeLayer(rec.rxMarker);
+    if (visible) mapped++;
+    if (visible !== rec.shown) {
+      if (visible) spotLayer.addLayer(rec.marker); else spotLayer.removeLayer(rec.marker);
+      rec.shown = visible;
     }
   });
 

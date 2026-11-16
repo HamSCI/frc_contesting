@@ -13,6 +13,22 @@ let ITUZoneFeat   = [];
 // ── GeoJSON data loaders ──────────────────────────────────────────────────
 
 /**
+ * Give every feature a [minLon, minLat, maxLon, maxLat] bbox, once, so the
+ * point-in-polygon lookups below can skip features that cannot contain the
+ * point (#68).  The country file alone has ~550k vertices.
+ */
+function withBBoxes(features) {
+  for (const f of features) {
+    if (!f.bbox) f.bbox = turf.bbox(f);
+  }
+  return features;
+}
+
+function inBBox(lon, lat, b) {
+  return !b || (lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3]);
+}
+
+/**
  * Load country boundary polygons from GeoJSON file.
  *
  * Fetches the countries.geojson file (~14MB) containing boundary polygons
@@ -25,7 +41,7 @@ async function loadCountryPolygons() {
   try {
     const res = await fetch("js/countries.geojson");
     const data = await res.json();
-    countryFeat = data.features;
+    countryFeat = withBBoxes(data.features);
     console.log("Loaded", countryFeat.length, "country polygons");
   } catch (err) {
     console.error("Failed to load countries.geojson", err);
@@ -45,7 +61,7 @@ async function loadContinentPolygons() {
   try {
     const res = await fetch("js/continents.geojson");
     const data = await res.json();
-    continentFeat = data.features;
+    continentFeat = withBBoxes(data.features);
     console.log("Loaded", continentFeat.length, "continent polygons");
   } catch (e) {
     console.error("Failed to load continent GeoJSON", e);
@@ -65,7 +81,7 @@ async function loadITUZones() {
   try {
     const res = await fetch("js/ituzones.geojson");
     const data = await res.json();
-    ITUZoneFeat = data.features;
+    ITUZoneFeat = withBBoxes(data.features);
     console.log("Loaded", ITUZoneFeat.length, "ITU Zones");
   } catch (e) {
     console.error("Failed to load ITU Zones", e);
@@ -88,7 +104,7 @@ async function loadITUZones() {
 function lookupCountry(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of countryFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
+    if (inBBox(lon, lat, feature.bbox) && turf.booleanPointInPolygon(pt, feature)) {
       return feature.properties.name || "Unknown";
     }
   }
@@ -108,7 +124,7 @@ function lookupCountry(lat, lon) {
 function lookupContinent(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of continentFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
+    if (inBBox(lon, lat, feature.bbox) && turf.booleanPointInPolygon(pt, feature)) {
       return feature.properties.continent || "Unknown";
     }
   }
@@ -131,7 +147,7 @@ function lookupContinent(lat, lon) {
 function lookupCqZone(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of cqZoneFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
+    if (inBBox(lon, lat, feature.bbox) && turf.booleanPointInPolygon(pt, feature)) {
       return String(feature.properties.cq_zone_number);
     }
   }
@@ -151,11 +167,31 @@ function lookupCqZone(lat, lon) {
 function lookupITUZone(lat, lon) {
   const pt = turf.point([lon, lat]);
   for (const feature of ITUZoneFeat) {
-    if (turf.booleanPointInPolygon(pt, feature)) {
+    if (inBBox(lon, lat, feature.bbox) && turf.booleanPointInPolygon(pt, feature)) {
       return String(feature.properties.itu_zone_number);
     }
   }
   return "Unknown";
+}
+
+// All four lookups for one TX location, cached by position (#68).  Spots come
+// from Maidenhead grid squares, so a refresh mostly repeats locations already
+// seen; the cache lives for the page, across refreshes.
+const _geoCache = new Map();
+
+function lookupGeo(lat, lon) {
+  const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  let geo = _geoCache.get(key);
+  if (!geo) {
+    geo = {
+      country: lookupCountry(lat, lon),
+      continent: lookupContinent(lat, lon),
+      cqZone: lookupCqZone(lat, lon),
+      ituZone: lookupITUZone(lat, lon),
+    };
+    _geoCache.set(key, geo);
+  }
+  return geo;
 }
 
 
