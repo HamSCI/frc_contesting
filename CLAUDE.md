@@ -44,6 +44,7 @@ This documentation serves to:
 | November 15, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen deployed to W3USR-06; encoding/AGC/retune fixes | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Project board backlog #59–#74 (branch dashboard-backlog), overnight | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live CW/RTTY decoding in the listen bar (branch cw-rtty-decoder) | Owen Ruzanski |
+| November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live FT8/FT4 decoding in the listen bar (branch ft8-decoder) | Owen Ruzanski |
 
 ### Current Model
 
@@ -805,6 +806,50 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 
 ---
 
+### Session 19: Live FT8 and FT4 Decoding in the Listen Bar (branch `ft8-decoder`)
+**Date**: November 16, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: Decode FT8 and FT4 in the browser from the click-to-listen audio, alongside CW/RTTY (Session 18). There is no station or supervisor change; Flask gains `/api/time`. Not deployed.
+
+**Activities**:
+- `static/js/ft8.js` ports the decoder in ft8_lib (Kārlis Goba, MIT; notice kept in the file), the library the station's `decode_ft8` is built from:
+  - the monitor (Hann STFT, 2x time and frequency oversampling, 0.5 dB uint8 cells);
+  - Costas sync search and Gray-mapped soft bits;
+  - LDPC(174,91) belief propagation, CRC-14 and the 77-bit unpacking (standard, free text, telemetry, nonstandard calls).
+- The LDPC and CRC tables were converted by script from `constants.c`, not retyped. The FFT is a small mixed-radix one, because the frames are 3840 (FT8) and 1152 (FT4) points.
+- Additions over ft8_lib:
+  - SNR in 2500 Hz: the tone power over the noise floor, where the floor is the 10th percentile of cells within ±250 Hz. That follows the passband and still works on a crowded band. A per-column time percentile failed for strong signals, because the quiet ends of a slot are only ~11 % of it.
+  - DT relative to the nominal 0.5 s.
+  - The WSJT-X call hashes, so `<...>` shows a call once it has been heard.
+  - An encoder, used by the tests.
+  - `FtxReceiver`, which slices streamed audio into UTC slots. Arrival times map to the sample clock (the fastest chunk over 8 s sets it). It builds the waterfall per symbol and decodes at slot end.
+- **Clock.** This PC's clock turned out to be 2.3 s slow (Windows Time not running). That put every DT near −1.8 s and hid all FT4 signals, since ft8_lib only searches FT4 DT −1.1…+0.56 s. Fixes:
+  - `GET /api/time` lets the browser time slots against the server (best of 5 round trips, synced at page load). A receiver restarts if a sync lands mid-slot.
+  - The remaining audio delay is learnt from the median DT of a slot with enough decodes and is carried across retunes.
+  - The live FT4 search is widened to DT +1.7 s; the 7.5 s slot has room.
+- `decode_ui.js`:
+  - Auto picks FT8/FT4 on a band's dial (USB), and both can be forced.
+  - Decodes print WSJT-X style (UTC, dB, DT, audio Hz, message): CQs green, the station's own call orange.
+  - The status line shows the slot countdown, the last slot's count, and any timing or clock correction.
+  - The decode box now appends nodes instead of rewriting its text.
+- **Verification**:
+  - Real 20 m audio was recorded through `/api/listen` on W3USR-06 and sliced into UTC slots. The station's `decode_ft8` and the port give identical messages: **169/169 FT8 over 8 slots, 47/47 FT4 over 9 slots**.
+  - Fed through `FtxReceiver` with the recorded arrival times (plus 300–400 ms of extra jitter), it gives the same decodes, ±1–2 marginal ones per slot.
+  - Synthetic GFSK: FT8 decodes to −18 dB (4/6) and FT4 to −14 dB. SNR is within ±2 dB, and DT within one search step.
+  - Headless Chrome on a dev copy (frc-dev on 127.0.0.1:5001, as before): about 20 FT8 decodes per slot and 4–7 FT4 per slot live, DT about +0.1, no JS errors.
+  - Cost: about 2.7 ms per FT8 symbol while listening, plus 50–80 ms at slot end.
+- **Tests**: `tests/ft8.test.js`:
+  - pack/unpack;
+  - multi-signal synthetic slots (frequency, DT and SNR checked);
+  - noise-only;
+  - the live slicer with jitter, a clock 1.4 s off and FT4 0.7 s late;
+  - two real slots in `tests/data/` checked against `decode_ft8`'s output.
+
+**Not done**: WSPR (needs a Fano decoder and 2-minute slots), contest message types ft8_lib skips (ARRL Field Day 0.3/0.4, RTTY Roundup i3=3, EU VHF, WWROF i3=5, DXpedition 0.1; these print nothing), and A-priori/multi-pass subtraction (WSJT-X decodes about 3 dB deeper).
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -825,6 +870,7 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 | 2.3 | November 15, 2026 | Added Session 16: click-to-listen deployed to W3USR-06; encoding, AGC and retune fixes | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.4 | November 16, 2026 | Added Session 17: issues #59–#74 on branch dashboard-backlog | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.5 | November 16, 2026 | Added Session 18: live CW/RTTY decoding (branch cw-rtty-decoder) | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.6 | November 16, 2026 | Added Session 19: live FT8/FT4 decoding (branch ft8-decoder) | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

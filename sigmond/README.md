@@ -251,6 +251,17 @@ Clicking a waterfall plays that frequency in the browser.
   radiod LIFETIME refreshed every 10 s, so it self-destructs if the supervisor dies.
 * **Bandwidth.** About 24 kB/s per listener. Latency is about 0.5–1 s
   (0.4 s jitter buffer, capped at 2 s).
+* **Live decoding** (browser only, nothing on the station). The listen bar
+  decodes what you hear: CW in CW mode, RTTY in a band's RTTY segment, and
+  FT8/FT4 on their dial frequencies (Auto), or one forced from the menu.
+  FT8/FT4 (`static/js/ft8.js`) is a port of ft8_lib, the library behind the
+  station's own `decode_ft8`. On real 20 m slots recorded through this path
+  it gives exactly the same messages (169 FT8 + 47 FT4). It decodes each
+  15 s / 7.5 s UTC slot as it ends, adds SNR (2500 Hz) and DT, and fills in
+  hashed calls (`<...>`) once their full call has been heard. Slots are timed
+  against the server's clock (`/api/time`), because a browser's clock can be
+  seconds off; any remaining audio delay is measured from the decodes and
+  removed.
 
 To turn it off: `[listen] enabled = false`, then `smd restart frc-dashboard`.
 

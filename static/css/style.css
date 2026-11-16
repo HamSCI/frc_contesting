@@ -1704,6 +1704,19 @@ th, td {
   color: #c8f7c5;
 }
 
+/* FT8 / FT4: one line per decode, WSJT-X style; more of them on screen. */
+.dec-text.dec-ftx {
+  height: 15em;
+  white-space: pre;
+  overflow-x: auto;
+  font-size: 13px;
+}
+
+.dec-text .dec-slot { color: var(--text-dim); }
+.dec-text .dec-cq { color: #7ee787; font-weight: 600; }
+.dec-text .dec-me { color: #ffb86b; font-weight: 600; }
+.dec-text .dec-hdr { color: var(--text-dim); }
+
 /* Passband of the channel being listened to, drawn over its waterfall. */
 .wf-listen {
   position: absolute;

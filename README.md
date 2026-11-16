@@ -38,7 +38,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - **Tabular view** showing band openings by geographic region
 - **Bands view**: one card per band with a station-centred direction map, an Open/Marginal/Closed status, a 60-min spot-rate sparkline and a mini waterfall
 - **States view**: US states and Canadian provinces heard per band, and which are missing (ARRL Sweepstakes)
-- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations, with a UTC time axis, 5-60 min span, per-viewer band order/zoom (CW/SSB/RTTY segments); click one to listen (USB/LSB/CW/AM), with live **CW and RTTY decoding** in the browser
+- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations, with a UTC time axis, 5-60 min span, per-viewer band order/zoom (CW/SSB/RTTY segments); click one to listen (USB/LSB/CW/AM), with live **CW, RTTY, FT8 and FT4 decoding** in the browser
 - **Space weather** (optional, needs internet at the server): NOAA SWPC X-ray, solar wind, IMF, Kp, SFI, protons, R/S/G scales and alerts on every tab, plus an aurora overlay
 - **Local PSWS**: this station's own WWV/WWVH Doppler (hf-timestd), farthest spot per band and band noise floors; no internet needed
 - **Auto-reload** every 5 min by default, without reloading the page
@@ -413,6 +413,11 @@ sigmond service.
 - `POST /api/listen/tune` takes `{"sid", "freq_hz", "mode"}`. `/keepalive` and `/close` take `{"sid"}`.
 - `GET /api/listen/audio?sid=…` streams raw signed 16-bit little-endian mono PCM at 12 kHz until closed.
 
+#### GET /api/time
+
+`{"t_ms": <server UTC time in ms>}`, uncached. The browser's FT8/FT4 decoder times its slots against
+this instead of the browser's own clock (best of five round trips).
+
 #### GET /api/spacewx and GET /api/aurora
 
 Space-weather context (optional; the server fetches NOAA SWPC products and caches them, browsers never
@@ -554,14 +559,14 @@ frc_contesting/
 │   └── legacy_templates/      # Old HTML templates
 ├── routes/                    # Flask route blueprints
 │   ├── views.py               # HTML page routes (/, /map, /table, /bands, /states)
-│   ├── api.py                 # JSON API routes (/spots, /tbspots, /config, /api/spacewx, /api/aurora, /api/psws)
+│   ├── api.py                 # JSON API routes (/spots, /tbspots, /config, /api/time, /api/spacewx, /api/aurora, /api/psws)
 │   └── waterfall.py           # /waterfall, /api/waterfall and /api/listen/* (relay to the sigmond supervisor)
 ├── services/                  # Backend business logic
 │   ├── spots.py               # MongoDB queries & spot processing
 │   ├── geo.py                 # CQ zone point-in-polygon lookups
 │   ├── spacewx.py             # NOAA SWPC space-weather fetch/cache (optional)
 │   └── psws.py                # Local PSWS: hf-timestd Doppler, spot indicators
-├── tests/                     # pytest: spacewx and psws services; node: CW/RTTY decoders (no network)
+├── tests/                     # pytest: spacewx and psws services; node: CW/RTTY and FT8/FT4 decoders (no network)
 ├── utils/                     # Shared utilities
 │   └── bands.py               # Frequency → band name conversion
 ├── static/                    # Frontend assets
@@ -582,6 +587,7 @@ frc_contesting/
 │   │   ├── waterfall.js       # Waterfall view
 │   │   ├── listen.js          # Click-to-listen audio
 │   │   ├── decoders.js        # CW and RTTY decoders (pure DSP, browser + Node)
+│   │   ├── ft8.js             # FT8/FT4 decoder: port of ft8_lib (MIT), plus live UTC slot slicing
 │   │   ├── decode_ui.js       # Live decode panel in the listen bar
 │   │   ├── spacewx.js         # Space-weather + Local PSWS strip (dashboard header)
 │   │   ├── dashboard.js       # Tabs and the address bar

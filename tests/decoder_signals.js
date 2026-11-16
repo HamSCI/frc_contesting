@@ -97,4 +97,39 @@ function rttySignal(text, { center = 1500, shift = 170, baud = 45.45, markHigh =
   return x;
 }
 
-module.exports = { RATE, rng, addNoise, feedInChunks, cwSignal, baudot, rttySignal };
+// ── FT8 / FT4 ──────────────────────────────────────────────────────────────
+
+function erf(x) {                                            // Abramowitz & Stegun 7.1.26
+  const s = Math.sign(x), a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a);
+  return s * y;
+}
+
+/** WSJT-X GFSK frequency pulse (bt = 2 for FT8, 1 for FT4), t in symbols. */
+function gfskPulse(bt, t) {
+  const c = Math.PI * Math.sqrt(2 / Math.LN2);
+  return 0.5 * (erf(c * bt * (t + 0.5)) - erf(c * bt * (t - 0.5)));
+}
+
+/**
+ * Add one FT8/FT4 transmission of `tones` into the slot buffer x, GFSK like
+ * WSJT-X: tone 0 at f0 Hz, keyed `start` s after the slot boundary.
+ */
+function addFtx(x, tones, { protocol = "ft8", f0 = 1000, start = 0.5, amp = 0.1, phase = 0 } = {}) {
+  const sym = protocol === "ft4" ? 0.048 : 0.160, bt = protocol === "ft4" ? 1 : 2;
+  const df = 1 / sym, nn = tones.length, ns = Math.round(sym * RATE);
+  const tone = j => tones[Math.max(0, Math.min(nn - 1, j))];
+  const s0 = Math.round(start * RATE);
+  let ph = phase;
+  for (let i = 0; i < nn * ns; i++) {
+    const t = i / ns, j0 = Math.floor(t);
+    let f = f0;
+    for (let j = j0 - 2; j <= j0 + 2; j++) f += df * tone(j) * gfskPulse(bt, t - j - 0.5);
+    ph += 2 * Math.PI * f / RATE;
+    const k = s0 + i;
+    if (k >= 0 && k < x.length) x[k] += amp * Math.sin(ph);
+  }
+  return x;
+}
+
+module.exports = { RATE, rng, addNoise, feedInChunks, cwSignal, baudot, rttySignal, addFtx, gfskPulse };

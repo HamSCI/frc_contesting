@@ -5,6 +5,8 @@ Provides REST endpoints for fetching spot data in JSON format,
 consumed by the frontend JavaScript (map_ft.js, table_ft.js).
 """
 
+import time
+
 from flask import Blueprint, current_app, jsonify, request
 
 import maidenhead
@@ -23,6 +25,16 @@ def config():
         'receiver_callsign': current_app.config.get('RECEIVER_CALLSIGN', 'Unknown'),
         'receiver_grid': current_app.config.get('RECEIVER_GRIDSQUARE', 'Unknown'),
     })
+
+
+@api_bp.route('/api/time')
+def server_time():
+    """The server's clock (UTC ms).  The FT8/FT4 decoder (ft8.js) times its
+    15 s / 7.5 s slots against this rather than the browser's own clock,
+    which is often seconds off; a ka9q station is NTP- or GPS-disciplined."""
+    resp = jsonify({'t_ms': time.time() * 1000})
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
 
 
 @api_bp.route('/spots')
