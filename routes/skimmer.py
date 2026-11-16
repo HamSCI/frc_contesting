@@ -1,5 +1,5 @@
 """
-Skimmer tab: a CW skimmer on one band (all CW signals decoded at once,
+CW skimmer page (/cws; not a dashboard tab yet): a CW skimmer on one band (all CW signals decoded at once,
 callsigns calling CQ spotted in Reverse Beacon Network format).
 
 The radiod IQ channel and the decoder run in the frc-dashboard sigmond
@@ -25,9 +25,11 @@ def _unavailable(e):
                              'it runs inside the frc-dashboard sigmond service'}), 503
 
 
+@skimmer_bp.route('/cws')
 @skimmer_bp.route('/skimmer')
 def skimmer_view():
-    """Skimmer view: band spectrum, every decoded signal, and spots."""
+    """Skimmer view: band spectrum, every decoded signal, and spots.  Reached
+    at /cws; deliberately not linked from the dashboard tabs yet."""
     return render_template('skimmer.html')
 
 

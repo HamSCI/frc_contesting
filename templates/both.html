@@ -16,7 +16,6 @@
       <button class="dash-tab-btn" data-target="bands-frame" data-view="bands" title="Every band at a glance: activity, direction and a mini waterfall">Bands</button>
       <button class="dash-tab-btn" data-target="states-frame" data-view="states" title="US states and Canadian provinces heard, and which are missing (ARRL Sweepstakes)">States</button>
       <button class="dash-tab-btn" data-target="waterfall-frame" data-view="waterfall">Waterfall</button>
-      <button class="dash-tab-btn" data-target="skimmer-frame" data-view="skimmer" title="CW skimmer: every CW signal on one band decoded at once, CQ spots in RBN format">Skimmer</button>
     </div>
     <label class="dash-setting" for="bandLabels" title="How bands are labelled on every tab">Band labels
       <select id="bandLabels">
@@ -45,8 +44,6 @@
     <iframe id="bands-frame" class="dash-frame" data-view="bands" data-src="/bands{{ qs }}"></iframe>
     <!-- Loaded on first use: it opens radiod spectrum channels while watched. -->
     <iframe id="waterfall-frame" class="dash-frame" data-view="waterfall" data-src="/waterfall{{ qs }}"></iframe>
-    <!-- Loaded on first use: it opens a radiod IQ channel and the skimmer while watched. -->
-    <iframe id="skimmer-frame" class="dash-frame" data-view="skimmer" data-src="/skimmer{{ qs }}"></iframe>
   </div>
 
   <script src="js/config.js"></script>

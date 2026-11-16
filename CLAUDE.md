@@ -916,6 +916,8 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 - 15 new pytest tests: synthetic multi-signal IQ, two stations 120 Hz apart, a QSO with a 12 dB weaker partner, masks, noise-only, confirmation rules, RBN layout and the telnet feed. All 37 dashboard tests pass on the station venv.
 - Headless Chrome on a dev copy (dev Flask on :5001 plus a `skimmer serve` socket): the tab, live data and the band change to 40 m all work, with no JS errors, at 1500 px and 600 px.
 
+**Later the same day**: deployed to W3USR-06 as a hidden page. There is no tab button; the page is reached at `/cws` (also `/skimmer`).
+
 **Not done / next**:
 - Sensitivity below about −6 dB, which needs a duration-aware (semi-Markov) segmentation.
 - Busted calls on fast hand-sent CW.

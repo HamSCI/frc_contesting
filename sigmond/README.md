@@ -268,11 +268,13 @@ To turn it off: `[listen] enabled = false`, then `smd restart frc-dashboard`.
 To turn the tab off: `[waterfall] enabled = false` in
 `/etc/frc-dashboard/frc-dashboard-config.toml`, then `smd restart frc-dashboard`.
 
-## Skimmer tab (CW skimmer)
+## CW skimmer (`/cws`)
 
 Decodes every CW signal in the bottom 70 kHz of one band at once (the band
-is chosen on the tab), and spots callsigns that call CQ, in Reverse Beacon
-Network format. Spots appear only on this tab, not on the map or table.
+is chosen on the page), and spots callsigns that call CQ, in Reverse Beacon
+Network format. It is reached at `http://<station>:5000/cws`. It is not a
+dashboard tab yet (the tab code is in place, but its button was removed
+from `templates/both.html` for now), and spots are not on the map or table.
 
 * **Path.** One radiod IQ channel (preset `iq`, 96 kHz, ±46 kHz) through
   ka9q-python, received by a `RadiodStream` in the supervisor and passed over

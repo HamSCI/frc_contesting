@@ -1,8 +1,8 @@
 /**
  * HamSCI PSWS Contesting Dashboard - combined view tab switching (dashboard.js)
  *
- * Toggles between the Map, Table, Bands, States, Waterfall and Skimmer iframes
- * embedded in both.html.
+ * Toggles between the Map, Table, Bands, States and Waterfall iframes embedded
+ * in both.html.  (The CW skimmer is not a tab yet: it is at /cws.)
  * Each iframe independently loads its own page; this shell only manages
  * visibility and the address bar.
  *
