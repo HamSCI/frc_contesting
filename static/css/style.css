@@ -1648,6 +1648,62 @@ th, td {
 
 #ls-error { margin-top: -4px; }
 
+/* Live CW / RTTY decoding (decode_ui.js) */
+.dec-block {
+  flex-basis: 100%;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.dec-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.dec-rtty-opts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dec-rtty-opts[hidden] { display: none; }
+
+.dec-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dec-status {
+  font-family: var(--font-mono);
+  flex: 1;
+  min-width: 200px;
+}
+
+.dec-bar .btn-secondary {
+  padding: 4px 10px;
+  min-height: 26px;
+  font-size: 12px;
+}
+
+.dec-text {
+  margin: 6px 0 0;
+  height: 7.5em;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #070a10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font: 14px/1.45 var(--font-mono);
+  color: #c8f7c5;
+}
+
 /* Passband of the channel being listened to, drawn over its waterfall. */
 .wf-listen {
   position: absolute;

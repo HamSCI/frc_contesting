@@ -38,7 +38,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - **Tabular view** showing band openings by geographic region
 - **Bands view**: one card per band with a station-centred direction map, an Open/Marginal/Closed status, a 60-min spot-rate sparkline and a mini waterfall
 - **States view**: US states and Canadian provinces heard per band, and which are missing (ARRL Sweepstakes)
-- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations, with a UTC time axis, 5-60 min span, per-viewer band order/zoom (CW/SSB/RTTY segments); click one to listen (USB/LSB/CW/AM)
+- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations, with a UTC time axis, 5-60 min span, per-viewer band order/zoom (CW/SSB/RTTY segments); click one to listen (USB/LSB/CW/AM), with live **CW and RTTY decoding** in the browser
 - **Space weather** (optional, needs internet at the server): NOAA SWPC X-ray, solar wind, IMF, Kp, SFI, protons, R/S/G scales and alerts on every tab, plus an aurora overlay
 - **Local PSWS**: this station's own WWV/WWVH Doppler (hf-timestd), farthest spot per band and band noise floors; no internet needed
 - **Auto-reload** every 5 min by default, without reloading the page
@@ -561,7 +561,7 @@ frc_contesting/
 │   ├── geo.py                 # CQ zone point-in-polygon lookups
 │   ├── spacewx.py             # NOAA SWPC space-weather fetch/cache (optional)
 │   └── psws.py                # Local PSWS: hf-timestd Doppler, spot indicators
-├── tests/                     # pytest: spacewx and psws services (no network)
+├── tests/                     # pytest: spacewx and psws services; node: CW/RTTY decoders (no network)
 ├── utils/                     # Shared utilities
 │   └── bands.py               # Frequency → band name conversion
 ├── static/                    # Frontend assets
@@ -581,6 +581,8 @@ frc_contesting/
 │   │   ├── states.js          # States / provinces view
 │   │   ├── waterfall.js       # Waterfall view
 │   │   ├── listen.js          # Click-to-listen audio
+│   │   ├── decoders.js        # CW and RTTY decoders (pure DSP, browser + Node)
+│   │   ├── decode_ui.js       # Live decode panel in the listen bar
 │   │   ├── spacewx.js         # Space-weather + Local PSWS strip (dashboard header)
 │   │   ├── dashboard.js       # Tabs and the address bar
 │   │   ├── countries.geojson  # Country boundaries (14MB, for filtering)

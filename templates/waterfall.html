@@ -94,7 +94,7 @@
     </details>
   </div>
 
-  <p class="ls-hint">Click any waterfall to listen there. Use &larr; / &rarr; to tune by 100 Hz (Shift: 1 kHz), Esc to stop.</p>
+  <p class="ls-hint">Click any waterfall to listen there; CW and RTTY are decoded live. Use &larr; / &rarr; to tune by 100 Hz (Shift: 1 kHz), Esc to stop.</p>
 
   <div id="ls-panel" class="ls-panel" hidden>
     <span class="ls-icon" aria-hidden="true">&#128266;</span>
@@ -116,6 +116,39 @@
     <label class="ls-volume" for="ls-volume">Vol <input id="ls-volume" type="range" min="0" max="200" value="100"></label>
     <span class="ls-state" id="ls-state"></span>
     <button id="ls-stop" type="button" class="btn-primary">Stop</button>
+
+    <!-- Live CW / RTTY decoding of this audio, in the browser (decode_ui.js) -->
+    <div class="dec-block">
+      <div class="dec-bar">
+        <label for="dec-mode">Decode</label>
+        <select id="dec-mode" title="Auto: CW in CW mode, RTTY in a band's RTTY segment, nothing on phone">
+          <option value="auto">Auto</option>
+          <option value="cw">CW</option>
+          <option value="rtty">RTTY</option>
+          <option value="off">Off</option>
+        </select>
+        <span id="dec-rtty-opts" class="dec-rtty-opts" hidden>
+          <label for="dec-baud" class="visually-hidden">Baud</label>
+          <select id="dec-baud" title="RTTY speed">
+            <option value="45.45">45.45 Bd</option>
+            <option value="50">50 Bd</option>
+            <option value="75">75 Bd</option>
+          </select>
+          <label for="dec-shift" class="visually-hidden">Shift</label>
+          <select id="dec-shift" title="RTTY shift">
+            <option value="170">170 Hz</option>
+            <option value="425">425 Hz</option>
+            <option value="850">850 Hz</option>
+          </select>
+          <label class="dec-check" title="Swap mark and space (try this if RTTY prints garbage)">
+            <input type="checkbox" id="dec-reverse"> Reverse</label>
+        </span>
+        <span id="dec-status" class="dec-status"></span>
+        <button id="dec-copy" type="button" class="btn-secondary" title="Select the decoded text (and copy it)">Copy</button>
+        <button id="dec-clear" type="button" class="btn-secondary">Clear</button>
+      </div>
+      <pre id="dec-text" class="dec-text" aria-live="polite"></pre>
+    </div>
   </div>
   <div id="ls-error" class="wf-message" hidden></div>
 
@@ -126,6 +159,8 @@
   <script src="js/config.js"></script>
   <script src="js/viewstate.js"></script>
   <script src="js/waterfall.js"></script>
+  <script src="js/decoders.js"></script>
+  <script src="js/decode_ui.js"></script>
   <script src="js/listen.js"></script>
 
 </body>

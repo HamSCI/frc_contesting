@@ -43,6 +43,7 @@ This documentation serves to:
 | October 21, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen audio on the Waterfall tab | Owen Ruzanski |
 | November 15, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen deployed to W3USR-06; encoding/AGC/retune fixes | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Project board backlog #59–#74 (branch dashboard-backlog), overnight | Owen Ruzanski |
+| November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live CW/RTTY decoding in the listen bar (branch cw-rtty-decoder) | Owen Ruzanski |
 
 ### Current Model
 
@@ -772,6 +773,36 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 
 **Open decisions for the developer**: deploy before the Nov 18 freeze or after the contest? Whether to build on hf-timestd's internal SQLite schema or agree on an interface with its maintainers. MUF data source and terms (KC2G/GIRO) for FR-SWX-07. Whether AE should stay the default map.
 
+**Later the same day**: `dashboard-backlog` was deployed to W3USR-06 production (backup `/opt/git/sigmond/frc-pre-backlog-backup-202611161421.tar`). The board was updated: 11 issues → Done; #65/#67/#69/#73/#74 → In progress, each with a status comment.
+
+---
+
+### Session 18: Live CW and RTTY Decoding in the Listen Bar (branch `cw-rtty-decoder`)
+**Date**: November 16, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: The first step of a KiwiSDR-style receiver: decode CW and RTTY live from the click-to-listen audio, in the browser. There is no station or supervisor change. Not deployed.
+
+**Activities**:
+- `static/js/decoders.js` (pure DSP; runs in the browser and in Node):
+  - **CwDecoder** finds the strongest tone, then takes a *coherent* I/Q average over about ⅓ of a dot and its magnitude. Averaging magnitudes left a ~500 Hz noise bandwidth, and fixing that gained ~10 dB.
+  - The CW squelch and threshold come from 4-s percentiles of the envelope (noise = 30th percentile, signal = 95th; decode only above 12 dB). This fixed real-air noise being decoded as 60 WPM "E/I" between transmissions.
+  - CW speed is learned adaptively (fast for the first 12 elements), and it decodes letters, figures, punctuation and prosigns.
+  - **RttyDecoder** handles 45.45/50/75 Bd and 170/425/850 Hz shift. It finds the mark/space pair and detects start edges at the zero crossing, accepting the edge when either of the last two quarter-bit readings was clearly mark (a straddling reading near 0 used to lose edges and cascade). Bits are read over each bit's middle 60 %, and frames are checked against the start and stop bits. It decodes ITA2 Baudot with US figures, LTRS/FIGS and unshift-on-space.
+- `static/js/decode_ui.js` adds a decode area to the listen bar:
+  - Auto picks CW in CW mode, RTTY when the *signal* (1.5 kHz from the SSB dial) is in a band's RTTY segment, and nothing on phone.
+  - CW/RTTY/Off can be forced, and RTTY has baud, shift and Reverse settings.
+  - The status line shows tone/WPM/level, or mark/space and the error count. Text scrolls, retunes add a marker line, and Copy and Clear are provided.
+  - `listen.js` feeds every audio chunk to it, and its own Auto listen mode now picks LSB in RTTY segments.
+- **Tests**: `tests/decoders.test.js` + `tests/decoder_signals.js` (Node, synthetic):
+  - CW at 18/25/35 WPM, down to 3 dB SNR in 2.5 kHz.
+  - RTTY in LSB and USB polarity, down to 6 dB, with zero framing errors at 12–20 dB.
+  - Reverse-polarity behaviour and noise-only quietness.
+- **Real off-air check**: W3USR-06 listen audio was recorded and decoded offline. A 24 WPM 20 m CW exchange decoded as "G M H 5N 55N SC", matching a hand decode of the keying. No RTTY was on the air on that weekday afternoon, so real-air RTTY is still unverified.
+- **Browser**: on a dev copy on the station, the page decodes synthetic CW exactly, Auto chooses correctly, and live station audio reaches the decoder. There were no JS errors.
+
+**Next** (see the KiwiSDR-style tab discussion): a full-span waterfall tab, FT8/FT4/WSPR live decode text (from the recorders or ft8_lib on the tuned audio), and possibly server-side CW/RTTY so their decodes become spots (#67).
+
 ---
 
 ## Version History
@@ -793,6 +824,7 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 | 2.2 | October 21, 2026 | Added Session 15: click-to-listen audio (built; station deployment pending) | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.3 | November 15, 2026 | Added Session 16: click-to-listen deployed to W3USR-06; encoding, AGC and retune fixes | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.4 | November 16, 2026 | Added Session 17: issues #59–#74 on branch dashboard-backlog | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.5 | November 16, 2026 | Added Session 18: live CW/RTTY decoding (branch cw-rtty-decoder) | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

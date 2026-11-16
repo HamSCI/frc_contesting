@@ -51,6 +51,9 @@ const Listen = (() => {
   }
 
   function autoMode(bandName, freq) {
+    // RTTY segment (CONFIG.bands[].segments.rtty): LSB, the amateur RTTY convention.
+    const rtty = CONFIG.band(bandName).segments?.rtty;
+    if (rtty && freq >= rtty[0] * 1e6 && freq <= rtty[1] * 1e6) return "lsb";
     const phone = PHONE_START[bandName];
     if (phone && freq < phone) return "cw";
     return freq < 10e6 ? "lsb" : "usb";
@@ -169,6 +172,7 @@ const Listen = (() => {
         const f32 = new Float32Array(bytes.length / 2);
         for (let i = 0; i < f32.length; i++) f32[i] = view.getInt16(i * 2, true) / 32768;
         pushSamples(f32);
+        window.DecodeUI?.feed(f32);                   // live CW/RTTY decoding (decode_ui.js)
       }
     } catch (e) {
       if (e.name === "AbortError") return;
@@ -206,6 +210,7 @@ const Listen = (() => {
         }, KEEPALIVE_MS);
       }
       L.freq = freq; L.mode = mode;
+      window.DecodeUI?.retuned({ freq, mode, bandName: bandFor(freq)?.name });
       showError("");
       $("ls-panel").hidden = false;
       setLabel();
@@ -223,6 +228,7 @@ const Listen = (() => {
     clearInterval(L.keepalive);
     L.abort?.abort();
     clearRing();
+    window.DecodeUI?.stopped();
     if (L.ctx && L.ctx.state === "running") L.ctx.suspend();
     $("ls-panel").hidden = true;
     refreshOverlay();
