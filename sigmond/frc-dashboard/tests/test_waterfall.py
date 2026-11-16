@@ -117,6 +117,25 @@ def test_rows_are_quantised_and_filtered_by_since(manager):
     assert len(next(b for b in later['bands'].values() if b['rows'])['rows']) == 1
 
 
+def test_span_limits_rows_to_recent_history(manager):
+    start(manager)
+    s = FakeSpectrumStream.instances[0]
+    s.emit([-120, -120, -120, -120])
+    s.emit([-110, -110, -110, -110])
+    with manager.lock:
+        band = next(b for b in manager.bands.values() if b.rows)
+        seq, t, row = band.rows[0]
+        band.rows[0] = (seq, t - 900, row)            # first row is 15 min old
+    rows = lambda snap: next(b for b in snap['bands'].values() if b['rows'])['rows']
+    assert len(rows(manager.snapshot())) == 2
+    assert len(rows(manager.snapshot(span=600))) == 1
+
+
+def test_history_defaults_to_an_hour(manager):
+    assert manager.history == 1800
+    assert all(b.rows.maxlen == 1800 for b in manager.bands.values())
+
+
 def test_idle_timeout_removes_channels_and_restarts_on_demand(manager):
     start(manager)
     streams = list(FakeSpectrumStream.instances)

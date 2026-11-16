@@ -55,6 +55,7 @@ def waterfall_data():
 
     Query Parameters:
         since (int): last row sequence number the browser already has (default 0)
+        span (float): seconds of history wanted; older rows are left out
 
     Returns:
         JSON: {"running", "seq", "db_min", "db_max", "bands": {name: {lo_hz,
@@ -65,7 +66,12 @@ def waterfall_data():
     except ValueError:
         since = 0
     try:
-        status, payload = _control_get(f'/x/frc-dashboard/waterfall?since={since}')
+        span = max(0.0, float(request.args.get('span', '0')))
+    except ValueError:
+        span = 0.0
+    query = f'since={since}' + (f'&span={span:g}' if span else '')
+    try:
+        status, payload = _control_get(f'/x/frc-dashboard/waterfall?{query}')
     except (OSError, ValueError, IndexError) as e:
         return jsonify({'running': False,
                         'error': f'waterfall service unavailable ({e.__class__.__name__}); '

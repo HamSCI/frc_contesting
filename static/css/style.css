@@ -876,8 +876,152 @@ th, td {
   overflow: hidden;
 }
 
+/* canvas + UTC time axis side by side (#63) */
+.wf-body {
+  display: flex;
+  gap: 4px;
+}
+
 .wf-canvas-wrap {
   position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.wf-taxis {
+  position: relative;
+  width: 54px;
+  flex: none;
+}
+
+.wf-ttick {
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  padding-left: 6px;
+}
+
+.wf-ttick::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 4px;
+  height: 1px;
+  background: var(--text-dim);
+}
+
+.wf-ttick-now { transform: none; color: var(--text); }
+.wf-ttick-end { transform: translateY(-100%); }
+
+/* colour scale in each band header (#64) */
+.wf-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.wf-scale canvas {
+  width: 64px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+/* disabled inputs must look inactive (#64) */
+.controls-center input:disabled,
+.controls-center select:disabled,
+#controls input:disabled,
+#controls select:disabled,
+.wf-band-row input:disabled,
+.wf-band-row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* bands panel (#65) */
+.wf-bands-panel {
+  position: relative;
+}
+
+.wf-bands-panel summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.wf-bands-panel summary::-webkit-details-marker { display: none; }
+
+.wf-bands-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: min(460px, 92vw);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  padding: 12px;
+}
+
+.wf-bands-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.wf-bands-top select {
+  flex: 1;
+}
+
+.wf-band-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wf-band-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.wf-band-row-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.wf-band-row input[type="number"] {
+  width: 78px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  font: 12px var(--font-mono);
+}
+
+.wf-band-row .btn-secondary {
+  padding: 2px 8px;
+  min-height: 26px;
+}
+
+.wf-bands-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 .wf-canvas {

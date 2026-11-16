@@ -18,16 +18,16 @@
   </div>
 
   <div id="controls">
-    <label class="check-field" for="wf-auto">
+    <label class="check-field" for="wf-auto" title="Each band sets its own floor from its noise level (shown in its header)">
       <input id="wf-auto" type="checkbox" checked> Auto contrast
     </label>
 
-    <div class="field">
+    <div class="field" title="dB shown as the darkest colour, shared by every band. Manual mode only: with Auto contrast each band uses its own floor.">
       <label for="wf-floor">Floor (dB)</label>
-      <input id="wf-floor" type="number" value="-130" step="1" disabled>
+      <input id="wf-floor" type="number" value="" step="1" placeholder="auto" disabled>
     </div>
 
-    <div class="field">
+    <div class="field" title="dB span from the floor to the brightest colour; smaller = more contrast. Applies in Auto and manual mode.">
       <label for="wf-range">Range (dB)</label>
       <input id="wf-range" type="number" value="35" min="5" max="90" step="1">
     </div>
@@ -38,6 +38,16 @@
         <option value="spectrum">Spectrum</option>
         <option value="heat">Heat</option>
         <option value="gray">Grayscale</option>
+      </select>
+    </div>
+
+    <div class="field" title="Time shown, newest at the top. Spans longer than the history kept by the station fill in while you watch.">
+      <label for="wf-span">Span</label>
+      <select id="wf-span">
+        <option value="300">5 min</option>
+        <option value="600">10 min</option>
+        <option value="1800">30 min</option>
+        <option value="3600">60 min</option>
       </select>
     </div>
 
@@ -61,6 +71,27 @@
     </div>
 
     <button id="wf-pause" class="btn-secondary" type="button">Pause</button>
+
+    <!-- Per-viewer band order, visibility and zoom (#65); no radiod cost. -->
+    <details class="wf-bands-panel">
+      <summary class="btn-secondary">Bands…</summary>
+      <div class="wf-bands-pop">
+        <div class="wf-bands-top">
+          <label for="wf-seg">Segment</label>
+          <select id="wf-seg" title="Zoom every band to a contest segment (crops the full-band waterfall)">
+            <option value="full">Full band</option>
+            <option value="cw">CW</option>
+            <option value="ssb">SSB / phone</option>
+            <option value="rtty">RTTY</option>
+            <option value="custom">Custom…</option>
+          </select>
+          <button id="wf-bands-reset" type="button" class="btn-secondary">Reset</button>
+        </div>
+        <div id="wf-band-list" class="wf-band-list"></div>
+        <p class="wf-bands-note">Zoom crops each band's full-band row, so the resolution stays that of the full band
+          (e.g. ~625 Hz per bin on 80 m). Pick Custom… to type your own ranges.</p>
+      </div>
+    </details>
   </div>
 
   <p class="ls-hint">Click any waterfall to listen there. Use &larr; / &rarr; to tune by 100 Hz (Shift: 1 kHz), Esc to stop.</p>

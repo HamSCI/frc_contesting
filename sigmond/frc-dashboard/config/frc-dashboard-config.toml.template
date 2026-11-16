@@ -24,7 +24,7 @@ bins = 800
 poll_sec = 2.0
 averaging = 2
 idle_timeout_sec = 60
-history_rows = 300
+history_rows = 1800
 
 [listen]
 enabled = true

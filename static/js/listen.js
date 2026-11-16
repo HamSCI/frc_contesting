@@ -253,13 +253,15 @@ const Listen = (() => {
     for (const b of Object.values(state.bands || {})) {
       const el = b.listenEl;
       if (!el) continue;
-      const span = b.meta.bins * b.meta.rbw_hz;
-      if (!L.sid || !L.freq || L.freq < b.meta.lo_hz || L.freq > b.meta.lo_hz + span) {
+      // The displayed (possibly zoomed, #65) range of this band.
+      const v0 = b.view ? b.view.lo : b.meta.lo_hz;
+      const span = b.view ? b.view.hi - b.view.lo : b.meta.bins * b.meta.rbw_hz;
+      if (!L.sid || !L.freq || L.freq < v0 || L.freq > v0 + span) {
         el.hidden = true;
         continue;
       }
       const [lo, hi] = PASSBAND[L.mode] || PASSBAND.usb;
-      const left = (L.freq + lo - b.meta.lo_hz) / span * 100;
+      const left = (L.freq + lo - v0) / span * 100;
       const width = Math.max(0.4, (hi - lo) / span * 100);
       el.style.left = `${left}%`;
       el.style.width = `${width}%`;

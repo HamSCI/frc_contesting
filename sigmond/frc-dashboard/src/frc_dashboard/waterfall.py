@@ -113,7 +113,7 @@ class WaterfallManager:
         self.poll_sec = float(w.get('poll_sec', 2.0))
         self.averaging = int(w.get('averaging', 2)) or None
         self.idle_timeout = float(w.get('idle_timeout_sec', 60))
-        self.history = int(w.get('history_rows', 300))
+        self.history = int(w.get('history_rows', 1800))
         names = [b.strip() for b in str(w.get('bands', ','.join(BAND_EDGES))).split(',') if b.strip()]
         self.bands = {n: Band(n, *BAND_EDGES[n], rows=deque(maxlen=self.history))
                       for n in names if n in BAND_EDGES}
@@ -233,8 +233,13 @@ class WaterfallManager:
             self._stop()
 
     # ------------------------------------------------------------- reads
-    def snapshot(self, since: int = 0) -> dict:
-        """Rows newer than ``since`` for every band; starts channels on demand."""
+    def snapshot(self, since: int = 0, span: float | None = None) -> dict:
+        """Rows newer than ``since`` for every band; starts channels on demand.
+
+        ``span`` (seconds) also drops rows older than that, so a browser's
+        first request for a 5-min view doesn't download the whole history
+        (an hour of six bands is ~12 MB of JSON).
+        """
         if not self.enabled:
             return {'enabled': False, 'running': False, 'error': 'waterfall disabled in config'}
         if not self.radiod_status:
@@ -251,11 +256,12 @@ class WaterfallManager:
             if self.state == 'starting':
                 return {'enabled': True, 'running': False, 'starting': True,
                         'poll_sec': self.poll_sec}
+        oldest = time.time() - span if span else 0
         with self.lock:
             out = {}
             for b in self.bands.values():
                 rows = [[s, round(t, 2), base64.b64encode(r).decode()]
-                        for s, t, r in b.rows if s > since]
+                        for s, t, r in b.rows if s > since and t >= oldest]
                 out[b.name] = {**b.meta(), 'rows': rows,
                                'last_frame_age_s': round(time.time() - b.last_frame, 1) if b.last_frame else None}
             return {'enabled': True, 'running': True, 'seq': self.seq,

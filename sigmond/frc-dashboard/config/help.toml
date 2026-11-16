@@ -73,6 +73,10 @@ hidden = true
 
 [waterfall.history_rows]
 title  = "Rows kept per band"
+help   = """History the Waterfall tab can show when opened (1800 rows = 60 min at
+one row per 2 s).  Memory only, about 1.4 MB per band at 800 bins; it does
+not add radiod load.  History is lost when the channels are released after
+idle_timeout_sec with no viewer."""
 hidden = true
 
 [listen.enabled]

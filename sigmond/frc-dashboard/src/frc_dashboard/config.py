@@ -49,7 +49,7 @@ DEFAULTS: dict = {
         'poll_sec': 2.0,            # one waterfall row per poll
         'averaging': 2,             # FFTs per row; 2 x 6 bands / 2 s = 0 radiod drops
         'idle_timeout_sec': 60,     # remove radiod channels after this idle time
-        'history_rows': 300,
+        'history_rows': 1800,       # 60 min at 2 s/row; memory only (~1.4 MB/band), no radiod cost
     },
     'listen': {
         # Click-to-listen on the Waterfall tab: one radiod audio channel

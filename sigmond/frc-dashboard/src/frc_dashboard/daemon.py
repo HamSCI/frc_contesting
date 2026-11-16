@@ -182,7 +182,11 @@ class Daemon:
             since = int(query.get('since', 0))
         except ValueError:
             since = 0
-        snap = self.waterfall.snapshot(since)
+        try:
+            span = float(query['span']) if query.get('span') else None
+        except ValueError:
+            span = None
+        snap = self.waterfall.snapshot(since, span)
         return (200 if snap.get('running') or snap.get('starting') else 503), snap
 
     def _extra_endpoints(self) -> dict:
