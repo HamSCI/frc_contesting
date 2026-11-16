@@ -779,6 +779,112 @@ th, td {
   background: var(--text-dim);
 }
 
+/* Click-to-listen (listen.js) */
+.ls-hint {
+  margin: -4px 24px 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ls-panel {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 24px 14px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+.ls-panel[hidden] { display: none; }
+
+.ls-icon { font-size: 18px; }
+
+.ls-freq {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.ls-band,
+.ls-state {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ls-panel select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.ls-steps {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.ls-steps .btn-secondary {
+  padding: 6px 10px;
+  min-height: 30px;
+}
+
+.ls-volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ls-volume input { accent-color: var(--accent-strong); width: 110px; }
+
+#ls-stop { margin-left: auto; }
+
+#ls-error { margin-top: -4px; }
+
+/* Passband of the channel being listened to, drawn over its waterfall. */
+.wf-listen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.12);
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  border-right: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.wf-listen[hidden] { display: none; }
+
+.wf-listen-dial {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #ff3b3b;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 @media (max-width: 560px) {
   .wf-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -791,6 +897,12 @@ th, td {
     padding: 12px 16px 0;
   }
   .wf-stats {
+    margin-left: 0;
+  }
+  .ls-panel {
+    margin: 0 16px 12px;
+  }
+  #ls-stop {
     margin-left: 0;
   }
 }

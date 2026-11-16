@@ -5,7 +5,8 @@ CLIENT-CONTRACT §13 control surface: HTTP/JSON over a unix socket.
 
 Handlers only read a snapshot callable; they never touch MongoDB or the sink.
 Client-specific extras live under /x/frc-dashboard/... (contract §13.3) and
-are passed in as ``extra = {path: handler(query_dict) -> (code, obj)}``.
+are passed in as ``extra = {path: handler(query_dict) -> (code, obj)}``; a
+generator ``obj`` is streamed as raw bytes (listen audio).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import json
 import os
 import socketserver
 import threading
+import types
 from http.server import BaseHTTPRequestHandler
 from typing import Callable
 from urllib.parse import parse_qs, urlsplit
@@ -43,6 +45,22 @@ def _make_handler(snapshot: Callable[[], dict], metrics: Callable[[dict], str],
             self.end_headers()
             self.wfile.write(data)
 
+        def _stream(self, code: int, chunks):
+            """Raw byte stream until the generator ends or the client goes away."""
+            self.send_response(code)
+            self.send_header('Content-Type', 'application/octet-stream')
+            self.send_header('Cache-Control', 'no-store')
+            self.end_headers()
+            try:
+                for chunk in chunks:
+                    if chunk:
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+            finally:
+                chunks.close()
+
         def do_GET(self):
             url = urlsplit(self.path)
             if extra and url.path in extra:
@@ -51,7 +69,10 @@ def _make_handler(snapshot: Callable[[], dict], metrics: Callable[[dict], str],
                     code, obj = extra[url.path](query)
                 except Exception as e:
                     code, obj = 500, {'error': f'{type(e).__name__}: {e}'}
-                self._send(code, json.dumps(obj, default=str))
+                if isinstance(obj, types.GeneratorType):
+                    self._stream(code, obj)
+                else:
+                    self._send(code, json.dumps(obj, default=str))
                 return
             snap = snapshot()
             if self.path == '/healthz':

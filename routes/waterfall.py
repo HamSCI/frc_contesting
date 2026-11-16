@@ -7,13 +7,18 @@ several workers, so the channels cannot live in this Flask app; instead this
 blueprint relays requests to the supervisor's control socket.  When the
 dashboard runs without the supervisor (e.g. `python web-ft.py`), the API
 answers 503 and the page explains why.
+
+Click-to-listen audio (/api/listen/*) is relayed the same way: the
+supervisor owns the radiod audio channel and streams raw s16le 12 kHz mono,
+which this blueprint passes straight through to the browser.
 """
 
 import json
 import os
 import socket
+from urllib.parse import urlencode
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, Response, jsonify, render_template, request, stream_with_context
 
 waterfall_bp = Blueprint('waterfall', __name__)
 
@@ -67,3 +72,109 @@ def waterfall_data():
                                  'it runs inside the frc-dashboard sigmond service'}), 503
     return jsonify(payload), status
 
+
+# ── click-to-listen ─────────────────────────────────────────────────────────
+
+LISTEN_BASE = '/x/frc-dashboard/listen'
+CRLF = chr(13) + chr(10)
+HEADER_END = (CRLF + CRLF).encode()
+UNAVAILABLE = ('listening service unavailable; it runs inside the frc-dashboard '
+               'sigmond service')
+
+
+def _listen_call(action):
+    """Relay a JSON listen action (open/tune/keepalive/close) to the supervisor."""
+    # sendBeacon (used on page unload) posts text/plain, so parse leniently.
+    body = request.get_json(silent=True, force=True) or {}
+    params = {k: body[k] for k in ('sid', 'freq_hz', 'mode') if body.get(k) is not None}
+    try:
+        status, payload = _control_get(f'{LISTEN_BASE}/{action}?{urlencode(params)}')
+    except (OSError, ValueError, IndexError) as e:
+        return jsonify({'error': f'{UNAVAILABLE} ({e.__class__.__name__})'}), 503
+    return jsonify(payload), status
+
+
+@waterfall_bp.route('/api/listen/open', methods=['POST'])
+def listen_open():
+    """Start listening: body {"freq_hz", "mode": usb|lsb|cw|am} -> {"sid", ...}."""
+    return _listen_call('open')
+
+
+@waterfall_bp.route('/api/listen/tune', methods=['POST'])
+def listen_tune():
+    """Retune: body {"sid", "freq_hz", "mode"}."""
+    return _listen_call('tune')
+
+
+@waterfall_bp.route('/api/listen/keepalive', methods=['POST'])
+def listen_keepalive():
+    """Keep an idle listener alive (e.g. while audio is paused): body {"sid"}."""
+    return _listen_call('keepalive')
+
+
+@waterfall_bp.route('/api/listen/close', methods=['POST'])
+def listen_close():
+    """Stop listening and release the radiod channel: body {"sid"}."""
+    return _listen_call('close')
+
+
+@waterfall_bp.route('/api/listen/audio')
+def listen_audio():
+    """
+    Raw audio for one listener: signed 16-bit little-endian mono PCM at 12 kHz,
+    streamed until the browser disconnects or the listener is closed.
+
+    Query Parameters:
+        sid (str): listener id returned by /api/listen/open
+    """
+    sid = request.args.get('sid', '')
+    s = None
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(10.0)
+        s.connect(CONTROL_SOCKET)
+        req = f'GET {LISTEN_BASE}/audio?{urlencode({"sid": sid})} HTTP/1.0' + CRLF
+        s.sendall((req + 'Host: localhost' + CRLF + CRLF).encode())
+        head = b''
+        while HEADER_END not in head:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            head += chunk
+        head, _, first = head.partition(HEADER_END)
+        status = int(head.split(b' ', 2)[1])
+    except (OSError, ValueError, IndexError) as e:
+        if s is not None:
+            s.close()
+        return jsonify({'error': f'{UNAVAILABLE} ({e.__class__.__name__})'}), 503
+
+    if status != 200:
+        rest = first
+        try:
+            while chunk := s.recv(65536):
+                rest += chunk
+        finally:
+            s.close()
+        try:
+            return jsonify(json.loads(rest)), status
+        except ValueError:
+            return jsonify({'error': 'listen relay failed'}), 502
+
+    def relay():
+        try:
+            if first:
+                yield first
+            s.settimeout(30.0)
+            while True:
+                chunk = s.recv(16384)
+                if not chunk:
+                    return
+                yield chunk
+        except OSError:
+            return
+        finally:
+            s.close()              # browser gone -> supervisor sees the drop
+
+    return Response(stream_with_context(relay()), mimetype='application/octet-stream',
+                    headers={'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no',
+                             'X-Audio-Format': 's16le; rate=12000; channels=1'})

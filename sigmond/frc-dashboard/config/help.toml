@@ -75,3 +75,19 @@ hidden = true
 title  = "Rows kept per band"
 hidden = true
 
+[listen.enabled]
+title = "Click-to-listen"
+help  = """Lets Waterfall-tab users click a band to hear it (USB/LSB/CW/AM).
+Each listener gets one ordinary radiod audio channel at 12 kHz, released
+when they stop or leave the page."""
+
+[listen.max_listeners]
+title          = "Simultaneous listeners"
+help           = """Each listener holds one radiod audio channel and one
+gunicorn thread (2 workers x 4 threads by default) for its audio stream."""
+example        = "2"
+validator_hint = "1-4"
+
+[listen.idle_timeout_sec]
+title  = "Listener idle timeout (s)"
+hidden = true

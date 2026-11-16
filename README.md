@@ -35,7 +35,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - **Geographic filtering** by country, continent, CQ zone, and ITU zone
 - **Mode filtering** supporting WSPR, FT8, and FT4
 - **Tabular view** showing band openings by geographic region
-- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations
+- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations; click one to listen (USB/LSB/CW/AM)
 - **Auto-reload capability** with configurable intervals
 - **Contest bands mode** focusing on the 6 primary contest bands
 - **Session persistence** for filter settings across page reloads
@@ -373,6 +373,15 @@ relays to over its control socket. Without that service, for example under
 }
 ```
 While the channels are starting, the response is `{"running": false, "starting": true}`.
+
+#### POST /api/listen/open, /tune, /keepalive, /close and GET /api/listen/audio
+
+Click-to-listen for the Waterfall tab. These also relay to the `frc-dashboard`
+sigmond service.
+
+- `POST /api/listen/open` with `{"freq_hz": 14225000, "mode": "usb"}` (modes `usb`, `lsb`, `cw`, `am`) returns `{"sid", "freq_hz", "mode", "sample_rate": 12000}`. It returns 503 when all listening slots are in use.
+- `POST /api/listen/tune` takes `{"sid", "freq_hz", "mode"}`. `/keepalive` and `/close` take `{"sid"}`.
+- `GET /api/listen/audio?sid=…` streams raw signed 16-bit little-endian mono PCM at 12 kHz until closed.
 
 ---
 

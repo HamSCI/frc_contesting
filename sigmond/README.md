@@ -32,24 +32,62 @@ both pass.
 
 ## Install on a sigmond host
 
+**Before you start**, the station needs:
+
+* sigmond with radiod, `wspr-recorder` and `psk-recorder` running and writing
+  spots to `/var/lib/sigmond/sink.db`.
+* `STATION_REPORTER_ID` and `STATION_GRID` in `/etc/sigmond/coordination.env`.
+  Both services take the receiver call and grid from there.
+* Debian bookworm or trixie, with internet access during the first install.
+  `setup-mongodb.sh` downloads MongoDB 8.0 from repo.mongodb.org. After that the
+  station runs offline.
+
+The sigmond modules, the Waterfall tab and click-to-listen are on the
+`waterfall-displays` branch. They are not merged to `main` yet.
+
 ```bash
 # 1. Put this repo where sigmond discovers clients, and link the two clients
-sudo -u sigmond git clone <this repo> /opt/git/sigmond/frc-contesting
-ln -sfn /opt/git/sigmond/frc-contesting/sigmond/frc-spot-store /opt/git/sigmond/frc-spot-store
-ln -sfn /opt/git/sigmond/frc-contesting/sigmond/frc-dashboard  /opt/git/sigmond/frc-dashboard
+sudo -u sigmond git clone -b waterfall-displays https://github.com/HamSCI/frc_contesting.git \
+  /opt/git/sigmond/frc-contesting
+sudo ln -sfn /opt/git/sigmond/frc-contesting/sigmond/frc-spot-store /opt/git/sigmond/frc-spot-store
+sudo ln -sfn /opt/git/sigmond/frc-contesting/sigmond/frc-dashboard  /opt/git/sigmond/frc-dashboard
 
 # 2. Install (creates the `frc` user, installs + secures MongoDB on first run,
 #    builds venvs, links units/binaries, renders configs, pins CPUs off radiod)
 sudo /opt/git/sigmond/frc-spot-store/scripts/install.sh --enable
 sudo /opt/git/sigmond/frc-dashboard/scripts/install.sh --enable
 
-# 3. Check
+# 3. Optional: add both to /etc/sigmond/topology.toml so `smd status` lists them
+sudo smd component enable frc-spot-store frc-dashboard
+
+# 4. Check
 frc-spot-store validate --json && frc-spot-store status --json
 frc-dashboard  validate --json && frc-dashboard  status --json
 ```
 
-Optional: `sudo smd component enable frc-spot-store frc-dashboard` adds them
-to `/etc/sigmond/topology.toml` so `smd status` lists them.
+Then open `http://<station>:5000/`. Spots show up on the Map and Table tabs
+within one decode cycle.
+
+The dashboard venv installs ka9q-python from `/opt/git/sigmond/ka9q-python`
+when that checkout exists. Otherwise it installs it from PyPI. The Waterfall
+tab and click-to-listen need it.
+
+**On a new station**, watch radiod while the Waterfall tab is open. The
+defaults were measured on W3USR-06 (see [radiod cost](#radiod-cost-read-before-changing-waterfall)).
+Click-to-listen also needs radiod's `usb`, `lsb`, `cwu` and `am` presets.
+
+### Updating
+
+```bash
+cd /opt/git/sigmond/frc-contesting && sudo -u sigmond git pull
+sudo /opt/git/sigmond/frc-spot-store/scripts/install.sh --enable
+sudo /opt/git/sigmond/frc-dashboard/scripts/install.sh --enable
+```
+
+The installers never overwrite existing configs in `/etc/frc-*/` or the
+credentials in `/etc/frc-contesting/`. A section added in a newer release, such
+as `[listen]`, won't appear in an old config file. The code uses that section's
+defaults until you add it from `config/frc-dashboard-config.toml.template`.
 
 ## Data mapping (sink → `wspr_db.spots`)
 
@@ -170,6 +208,32 @@ points over the raw front-end samples. So:
 3. **Load.** The default is 2 averaged FFTs per row and one row every 2 s.
    Raising `averaging`, `bins` or the band count, or lowering `poll_sec`,
    adds radiod load. Re-measure drops if you change any of them.
+
+### Click to listen
+
+Clicking a waterfall plays that frequency in the browser.
+
+* **Tuning.** In Auto mode, clicks below each band's US phone segment tune
+  CW. Above it, the mode is LSB under 10 MHz and USB above. A click near an
+  FT8/FT4/WSPR dial frequency tunes that dial in USB. For SSB the click marks
+  the middle of the signal, so the dial is set 1.5 kHz to the side and rounded
+  to 100 Hz. Use the ±100 Hz / ±1 kHz buttons or ←/→ (Shift = 1 kHz) to adjust.
+* **Path.** Each listener gets one radiod audio channel through ka9q-python
+  `ensure_channel` (preset `usb`/`lsb`/`cwu`/`am`, 12 kHz, AGC on). This is the
+  same kind of channel the WSPR/FT8 recorders run, not a spectrum channel.
+  `RadiodStream` receives it in the supervisor, which streams s16le PCM over
+  the control socket (`/x/frc-dashboard/listen/audio`). Flask relays that at
+  `/api/listen/audio`, and the browser resamples it with a ScriptProcessor,
+  because AudioWorklet needs HTTPS and the dashboard is plain HTTP on the LAN.
+* **Limits and cleanup.** At most `[listen] max_listeners` (default 2)
+  channels exist at once. Each audio stream also holds one gunicorn thread.
+  A channel is removed when you press Stop, close the page (`sendBeacon`), or
+  after 15 s with no audio reader or keepalive. Each channel also carries a
+  radiod LIFETIME refreshed every 10 s, so it self-destructs if the supervisor dies.
+* **Bandwidth.** About 24 kB/s per listener. Latency is about 0.5–1 s
+  (0.4 s jitter buffer, capped at 2 s).
+
+To turn it off: `[listen] enabled = false`, then `smd restart frc-dashboard`.
 
 To turn the tab off: `[waterfall] enabled = false` in
 `/etc/frc-dashboard/frc-dashboard-config.toml`, then `smd restart frc-dashboard`.

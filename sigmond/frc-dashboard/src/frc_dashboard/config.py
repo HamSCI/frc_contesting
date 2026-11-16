@@ -51,6 +51,13 @@ DEFAULTS: dict = {
         'idle_timeout_sec': 60,     # remove radiod channels after this idle time
         'history_rows': 300,
     },
+    'listen': {
+        # Click-to-listen on the Waterfall tab: one radiod audio channel
+        # (USB/LSB/CW/AM, 12 kHz) per listening browser.
+        'enabled': True,
+        'max_listeners': 2,         # also bounds gunicorn threads held by audio streams
+        'idle_timeout_sec': 15,     # remove the channel this long after the browser goes away
+    },
 }
 
 

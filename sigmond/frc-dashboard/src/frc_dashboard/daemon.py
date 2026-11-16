@@ -50,7 +50,9 @@ class Daemon:
         self.restarts = 0
         self._mongo = None
         from .waterfall import WaterfallManager
+        from .listen import ListenManager
         self.waterfall = WaterfallManager(cfg, station_env('SIGMOND_RADIOD_STATUS'))
+        self.listen = ListenManager(cfg, station_env('SIGMOND_RADIOD_STATUS'))
 
     @property
     def port(self) -> int:
@@ -85,6 +87,7 @@ class Daemon:
                 },
                 'station': {'callsign': call, 'grid_square': grid},
                 'waterfall': self.waterfall.status(),
+                'listen': self.listen.status(),
                 'app_root': str(self.root),
                 'pipeline': {
                     'last_success_age_s': None if self.last_probe is None else round(now - self.last_probe, 1),
@@ -182,6 +185,23 @@ class Daemon:
         snap = self.waterfall.snapshot(since)
         return (200 if snap.get('running') or snap.get('starting') else 503), snap
 
+    def _extra_endpoints(self) -> dict:
+        L = self.listen
+        base = '/x/frc-dashboard/listen'
+
+        def audio(q):
+            gen = L.audio(q.get('sid'))
+            return (200, gen) if gen is not None else (404, {'error': 'unknown or expired listener'})
+
+        return {
+            '/x/frc-dashboard/waterfall': self._waterfall_request,
+            f'{base}/open':      lambda q: L.open(q.get('freq_hz'), q.get('mode')),
+            f'{base}/tune':      lambda q: L.tune(q.get('sid'), q.get('freq_hz'), q.get('mode')),
+            f'{base}/keepalive': lambda q: L.keepalive(q.get('sid')),
+            f'{base}/close':     lambda q: L.close(q.get('sid')),
+            f'{base}/audio':     audio,
+        }
+
     def _probe_loop(self) -> None:
         """Health probes on their own thread so a slow HTTP/MongoDB answer
         never delays gunicorn supervision or shutdown."""
@@ -201,7 +221,7 @@ class Daemon:
             log.error('dashboard app not found under %s (set [app].root)', self.root)
             return 1
         control = start_control_server(CONTROL_SOCKET, self.snapshot, self.metrics,
-                                       extra={'/x/frc-dashboard/waterfall': self._waterfall_request})
+                                       extra=self._extra_endpoints())
         if control is None:
             log.warning('control socket %s unavailable; continuing without it', CONTROL_SOCKET)
 
@@ -223,9 +243,11 @@ class Daemon:
             elif time.time() - healthy_since > 120:
                 backoff = 5.0           # stayed up a while: reset restart backoff
             self.waterfall.tick()
+            self.listen.tick()
             self.stop.wait(1.0)
 
         self.waterfall.shutdown()       # remove our spectrum channels from radiod
+        self.listen.shutdown()          # ...and any listening channels
         log.info('stopping gunicorn')
         if self.child and self.child.poll() is None:
             self.child.terminate()

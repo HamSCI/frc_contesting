@@ -171,6 +171,7 @@ function buildBand(meta) {
     <div class="wf-markers" data-role="markers"></div>
     <div class="wf-canvas-wrap">
       <canvas class="wf-canvas" width="${meta.bins}" height="${WF.HISTORY}"></canvas>
+      <div class="wf-listen" data-role="listen" hidden><span class="wf-listen-dial"></span></div>
       <div class="wf-tip" data-role="tip" hidden></div>
     </div>
     <div class="wf-axis" data-role="axis"></div>`;
@@ -188,12 +189,20 @@ function buildBand(meta) {
     markers: card.querySelector('[data-role="markers"]'),
     stats: card.querySelector('[data-role="stats"]'),
     tip: card.querySelector('[data-role="tip"]'),
+    listenEl: card.querySelector('[data-role="listen"]'),   // passband overlay (listen.js)
   };
   band.ctx.fillStyle = "#000";
   band.ctx.fillRect(0, 0, canvas.width, canvas.height);
   band.rowImg = band.ctx.createImageData(canvas.width, 1);
   buildAxis(band);
   attachHover(band);
+  // Click to listen (listen.js): tune a radiod audio channel to that spot.
+  canvas.addEventListener("click", ev => {
+    if (!window.Listen) return;
+    const r = canvas.getBoundingClientRect();
+    const x = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+    window.Listen.clickBand(band, band.meta.lo_hz + x * band.meta.bins * band.meta.rbw_hz, ev);
+  });
   return band;
 }
 
@@ -211,9 +220,10 @@ function attachHover(band) {
       const ago = Math.max(0, Math.round(Date.now() / 1000 - row.t));
       text += ` · ${byteToDb(row.data[bin]).toFixed(1)} dB · ${ago}s ago`;
     }
+    if (window.Listen?.enabled) text += " · click to listen";
     tip.textContent = text;
     tip.hidden = false;
-    tip.style.left = `${Math.min(r.width - 170, Math.max(0, ev.clientX - r.left + 12))}px`;
+    tip.style.left = `${Math.min(r.width - 260, Math.max(0, ev.clientX - r.left + 12))}px`;
     tip.style.top = `${Math.max(0, ev.clientY - r.top - 28)}px`;
   });
   canvas.addEventListener("mouseleave", () => { band.tip.hidden = true; });
@@ -233,6 +243,7 @@ function ensureBands(payload) {
     state.bands[name] = band;
     grid.appendChild(band.card);
   }
+  window.Listen?.refreshOverlay();
 }
 
 // ── drawing ────────────────────────────────────────────────────────────────

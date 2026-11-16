@@ -26,3 +26,7 @@ averaging = 2
 idle_timeout_sec = 60
 history_rows = 300
 
+[listen]
+enabled = true
+max_listeners = 2
+idle_timeout_sec = 15

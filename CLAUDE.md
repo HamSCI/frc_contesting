@@ -40,6 +40,7 @@ This documentation serves to:
 | March 1, 2026 | Claude Sonnet 4.6 | claude-sonnet-4-6 | Issue #37 re-fix: offline basemap, favicon, shadow 404, label a11y, lastInterval cross-iframe sync | Liam Miller |
 | October 8, 2026 | Claude Opus 5.5 | claude-opus-5-5 | sigmond modules: frc-spot-store (ka9q sink → MongoDB) + frc-dashboard, deployed on W3USR-06 | Owen Ruzanski |
 | October 19, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Waterfall tab: live contest-band waterfalls from radiod spectrum channels | Owen Ruzanski |
+| October 21, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen audio on the Waterfall tab | Owen Ruzanski |
 
 ### Current Model
 
@@ -691,6 +692,24 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 
 ---
 
+### Session 15: Click-to-Listen on the Waterfall Tab
+**Date**: October 21, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: Let users click a waterfall to hear that frequency in the browser. Nothing committed.
+**Status**: Built and unit-tested; **not yet deployed or tested on W3USR-06** (the station was unreachable from the developer PC's network this session)
+
+**Activities**:
+- `sigmond/frc-dashboard/src/frc_dashboard/listen.py`: `ListenManager` gives each listener one radiod audio channel via ka9q-python `ensure_channel` (`usb`/`lsb`/`cwu`/`am`, 12 kHz, AGC, F32) and receives it with `RadiodStream`. Samples are converted to s16le and buffered (2 s cap). Listeners are capped at `max_listeners` (default 2). A channel is removed on Stop, on page unload or after a 15 s idle timeout; a radiod LIFETIME is refreshed every 10 s as crash-safe cleanup.
+- The control socket can now stream raw bytes (an extra handler may return a generator). New endpoints: `/x/frc-dashboard/listen/{open,tune,keepalive,close,audio}`.
+- Flask `routes/waterfall.py`: `POST /api/listen/{open,tune,keepalive,close}` and a streaming `GET /api/listen/audio` relay.
+- `static/js/listen.js`: click-to-tune with auto mode (CW below the phone segment; LSB under 10 MHz, USB above; snaps to FT8/FT4/WSPR dials) and SSB click-to-dial offset. Playback uses a ScriptProcessor (AudioWorklet needs HTTPS), with resampling, a 0.4 s jitter buffer and auto-reconnect. A sticky listen bar offers mode, ±100 Hz/±1 kHz, volume and Stop; ←/→ and Esc work from the keyboard. A passband overlay is drawn on the waterfall.
+- Seven new unit tests (`tests/test_listen.py`); all 19 dashboard tests pass locally. JS syntax was checked with node.
+
+**To do on the station**: deploy; verify `ensure_channel`/preset names against the installed ka9q-python and radiod presets; measure radiod `filter_drops` with listeners open (expected negligible; these are ordinary audio channels); test audio end to end in a browser.
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -707,6 +726,7 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 | 1.9 | March 1, 2026 | Added Session 12: Issue #37 complete — offline basemap, favicon, shadow fix, label a11y, lastInterval cross-iframe sync | Claude Sonnet 4.6 (claude-sonnet-4-6) |
 | 2.0 | October 8, 2026 | Added Session 13: sigmond modules (frc-spot-store, frc-dashboard) for ka9q-radio stations | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.1 | October 19, 2026 | Added Session 14: Waterfall tab (radiod spectrum channels) and radiod cost findings | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.2 | October 21, 2026 | Added Session 15: click-to-listen audio (built; station deployment pending) | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 
