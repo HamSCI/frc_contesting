@@ -122,6 +122,8 @@ L.Icon.Default.prototype.createShadow = function () { return null; };
 // redrawing them never re-rasterises the basemap polygons underneath.
 map.createPane('basemap').style.zIndex = 250;
 map.createPane('night').style.zIndex = 350;
+map.createPane('aurora').style.zIndex = 360;
+map.getPane('aurora').style.pointerEvents = 'none';
 map.getPane('night').style.pointerEvents = 'none';
 map.createPane('spots').style.zIndex = 450;
 const spotRenderer = L.canvas({ padding: 0.5, pane: 'spots' });
@@ -325,6 +327,41 @@ function drawTerminator() {
   terminatorLayer = g.addTo(map);
 }
 setInterval(drawTerminator, 60 * 1000);
+
+// ── OVATION aurora overlay (#73) ───────────────────────────────────────────
+// Optional (default off): the server fetches SWPC's OVATION forecast; cells
+// with >= 10 % aurora probability are drawn as translucent green 1-deg cells.
+let auroraLayer = null;
+let auroraTimer = null;
+
+async function drawAurora() {
+  const on = document.getElementById("auroraToggle")?.checked;
+  clearTimeout(auroraTimer);
+  if (!on) {
+    if (auroraLayer) { map.removeLayer(auroraLayer); auroraLayer = null; }
+    return;
+  }
+  try {
+    const a = await (await fetch('/api/aurora')).json();
+    const g = L.layerGroup();
+    for (const [lon0, lat, pct] of a.cells || []) {
+      if (pct < 10) continue;
+      const lon = lon0 > 180 ? lon0 - 360 : lon0;
+      L.polygon([[lat - 0.5, lon - 0.5], [lat - 0.5, lon + 0.5], [lat + 0.5, lon + 0.5], [lat + 0.5, lon - 0.5]], {
+        pane: 'aurora', interactive: false, stroke: false, fillColor: '#3cff7a', fillOpacity: Math.min(0.6, pct / 100),
+      }).addTo(g);
+    }
+    if (auroraLayer) map.removeLayer(auroraLayer);
+    auroraLayer = g.addTo(map);
+    const el = document.getElementById("auroraToggle").closest(".check-field");
+    if (el) el.title = a.forecast ? `OVATION aurora forecast for ${a.forecast.replace('T', ' ').replace('Z', '')} UTC (NOAA SWPC)` :
+      'Aurora forecast unavailable (no internet at the server?)';
+  } catch (e) {
+    console.warn('aurora overlay unavailable', e);
+  }
+  // Nothing yet means the server has only just started fetching: look again soon.
+  auroraTimer = setTimeout(drawAurora, auroraLayer && auroraLayer.getLayers().length ? 15 * 60 * 1000 : 20 * 1000);
+}
 
 // Connection status helpers (#36 / #41)
 function setStatus(state, label) {
@@ -588,6 +625,7 @@ function mapState() {
     cqo: document.getElementById("cqOutline").checked ? "1" : "",
     ituo: document.getElementById("ituOutline").checked ? "1" : "",
     term: document.getElementById("terminatorToggle").checked ? "1" : "0",
+    aur: document.getElementById("auroraToggle").checked ? "1" : "",
     modes: modesParam(document.getElementById("modePills")),
     reload: document.getElementById("reloadInterval").value,
     at: moved ? `${c.lat.toFixed(2)},${c.lng.toFixed(2)},${map.getZoom()}` : "",
@@ -668,6 +706,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById("cqOutline").checked = flag(get(["cqo", "CQZoneOutline"], "cqo", ""));
   document.getElementById("ituOutline").checked = flag(get("ituo", "ituo", ""));
   document.getElementById("terminatorToggle").checked = get("term", "term", "1") !== "0";
+  document.getElementById("auroraToggle").checked = get("aur", "aur", "") === "1";
+  drawAurora();
   const modesSaved = get("modes", "modes", "");
   renderModePills(document.getElementById("modePills"), modesSaved ? modesSaved.split(",") : [], onMapFilterChange);
   if (modesSaved) setSelectedModes(document.getElementById("modePills"), modesSaved.split(","));
@@ -712,6 +752,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     const p = new URLSearchParams(window.location.search);
     p.delete("at");
     window.location.search = p.toString();
+  });
+  document.getElementById("auroraToggle").addEventListener("change", () => {
+    drawAurora();
+    persistFilterState();
   });
   document.getElementById("terminatorToggle").addEventListener("change", () => {
     drawTerminator();

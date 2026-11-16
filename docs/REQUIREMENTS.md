@@ -1,8 +1,8 @@
 # HamSCI Contesting and DXing Dashboard
 ## Requirements Document
 
-**Version:** 1.0
-**Date:** January 22, 2026
+**Version:** 1.1
+**Date:** November 16, 2026
 **Status:** Initial Draft
 
 ---
@@ -241,6 +241,22 @@ The dashboard SHALL answer the following key questions that amateur radio operat
 
 **Rationale:** The dashboard must be deployable at remote ham radio contest stations, field day sites, or emergency operations centers where internet access may be unreliable, restricted, or unavailable. All functionality must work with only local network connectivity between the browser, Flask server, and MongoDB database.
 
+### 3.10 Space-Weather Context (optional, internet required)
+
+These requirements cover optional context from NOAA SWPC. They do not relax FR-OFF-01 to FR-OFF-08: core functionality never depends on them.
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-SWX-01 | The system SHOULD show current space-weather context on every view: GOES X-ray flux and flare class, solar wind speed and density, IMF Bt and Bz, Kp with the G scale, F10.7, the ≥10 MeV proton flux, and the NOAA R/S/G scales | Should |
+| FR-SWX-02 | The system SHOULD show recent SWPC alerts, watches and warnings, and highlight a flare in progress (M class or above) | Should |
+| FR-SWX-03 | Space-weather data SHALL be fetched and cached by the dashboard server only; browsers SHALL NOT contact external services | Must |
+| FR-SWX-04 | Every space-weather value SHALL carry its age, and without internet access the display SHALL show the data as stale or unavailable without affecting any other function | Must |
+| FR-SWX-05 | The operator SHALL be able to disable all space-weather fetching (SPACEWX_ENABLED=0) | Must |
+| FR-SWX-06 | The map MAY show the OVATION aurora forecast as an optional overlay (default off) | May |
+| FR-SWX-07 | The system MAY show measured MUF(3000)F2/foF2 from nearby ionosondes, and D-RAP absorption as a map overlay | May |
+
+**Rationale:** Flares, geomagnetic storms and proton events explain sudden changes in what the bands are doing; showing them next to the spot data helps operators, and helps explain the data to scientists and the public. Because they need the internet, they are context only (FR-SWX-03 to FR-SWX-05 keep FR-OFF-01/07 intact).
+
 ---
 
 ## 4. Non-Functional Requirements
@@ -427,7 +443,7 @@ The following features are explicitly out of scope for the initial implementatio
 10. **Reverse Beacon Network (RBN):** Integrate CW skimmer data (optional, internet required)
 11. **PSK Reporter:** Merge with global digital mode reports (optional, internet required)
 12. **DX Cluster:** Real-time DX spot integration (optional, internet required)
-13. **Space Weather Data:** Solar flux, K-index, aurora alerts (optional, internet required)
+13. **Space Weather Data:** Solar flux, K-index, aurora alerts (optional, internet required). *Now specified in §3.10 (FR-SWX-01 to FR-SWX-07).*
 14. **VOACAP Integration:** Compare predictions with actual measurements (optional, internet required)
 15. **HFDL/WWV Doppler:** Integrate with other PSWS instruments (local network, no internet required)
 
@@ -600,6 +616,7 @@ The following items require team discussion and decisions:
 | Version | Date | Timestamp | Author | LLM Model | Changes |
 |---------|------|-----------|--------|-----------|---------|
 | 1.0 | January 22, 2026 | 2026-01-22T20:00:00Z | Nathaniel Frissell | Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) | Initial requirements document created from existing README, operator guide, workshop poster, and FRC proposal |
+| 1.1 | November 16, 2026 | 2026-11-16T05:30:00Z | Owen Ruzanski | Claude Opus 5.5 (claude-opus-5-5) | Added §3.10 Space-Weather Context (FR-SWX-01 to FR-SWX-07, optional and online-only; issue #73); §7.3 item 13 points to it |
 
 ---
 

@@ -7,6 +7,7 @@ consumed by the frontend JavaScript (map_ft.js, table_ft.js).
 
 from flask import Blueprint, current_app, jsonify, request
 
+from services.spacewx import spacewx
 from services.spots import fetch_spots_for_map, fetch_spots_for_table
 
 api_bp = Blueprint('api', __name__)
@@ -63,3 +64,22 @@ def tbspots():
     last_interval = request.args.get('lastInterval', '15')
     data = fetch_spots_for_table(last_interval=last_interval)
     return jsonify(data)
+
+
+@api_bp.route('/api/spacewx')
+def space_weather():
+    """
+    Space-weather summary from NOAA SWPC (#73): GOES X-ray class, protons,
+    Kp, solar wind, IMF Bt/Bz, F10.7, the R/S/G scales and recent alerts.
+
+    Fetched and cached on the server; values carry their own timestamps, so
+    without internet they go stale and the UI says so.  Returns
+    {"enabled": false} when SPACEWX_ENABLED=0.
+    """
+    return jsonify(spacewx.summary())
+
+
+@api_bp.route('/api/aurora')
+def aurora():
+    """OVATION aurora probability grid (cells >= 5 %: [lon, lat, percent])."""
+    return jsonify(spacewx.aurora())

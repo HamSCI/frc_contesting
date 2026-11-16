@@ -1036,6 +1036,122 @@ th, td {
   font: inherit;
 }
 
+/* Space-weather strip (#73) */
+.swx-strip {
+  flex: none;
+  background: #0e131d;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.swx-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 5px 20px;
+  cursor: pointer;
+}
+
+.swx-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.swx-label {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.swx-note b, .swx-note { color: #ffe08a; }
+.swx-warn b, .swx-warn { color: #ffb347; }
+.swx-bad b, .swx-bad  { color: #ff6b6b; }
+.swx-south            { color: #ff6b6b; }
+.swx-stale            { opacity: 0.5; }
+
+.swx-scale {
+  display: inline-block;
+  margin-right: 3px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: 600 11px var(--font-mono);
+}
+
+.swx-banner {
+  margin-left: auto;
+  color: #ffd36b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
+}
+
+.swx-strip.swx-flare {
+  background: rgba(239, 68, 68, 0.16);
+}
+
+.swx-spark polyline,
+.swx-bz polyline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.2;
+}
+
+.swx-grid {
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 1;
+}
+
+.swx-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  padding: 8px 20px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.swx-details[hidden] { display: none; }
+
+.swx-panel-title {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.swx-kp {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 40px;
+}
+
+.swx-kpbar {
+  width: 14px;
+  background: #2ecc71;
+}
+
+.swx-kpbar.swx-warn { background: #f2a900; }
+.swx-kpbar.swx-bad  { background: #ef4444; }
+
+.swx-alerts ul {
+  margin: 0;
+  padding-left: 16px;
+  max-width: 520px;
+}
+
+.swx-src {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .dash-frames {
   position: relative;
   flex: 1;
