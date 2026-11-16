@@ -7,8 +7,12 @@ consumed by the frontend JavaScript (map_ft.js, table_ft.js).
 
 from flask import Blueprint, current_app, jsonify, request
 
+import maidenhead
+
+from services.psws import spot_indicators, timestd_doppler
 from services.spacewx import spacewx
-from services.spots import fetch_spots_for_map, fetch_spots_for_table
+from services.spots import _build_time_query, fetch_spots_for_map, fetch_spots_for_table
+from utils.bands import frequency_to_band
 
 api_bp = Blueprint('api', __name__)
 
@@ -83,3 +87,32 @@ def space_weather():
 def aurora():
     """OVATION aurora probability grid (cells >= 5 %: [lon, lat, percent])."""
     return jsonify(spacewx.aurora())
+
+
+@api_bp.route('/api/psws')
+def psws():
+    """
+    Local PSWS measurements (#74), no internet needed: hf-timestd WWV/WWVH/CHU
+    Doppler and SNR, per-band spot count and farthest spot per 15 min, and
+    the per-band noise floor kept by the frc-dashboard supervisor.  Each part
+    reports "available": false (and is hidden by the UI) when its source is
+    missing.
+    """
+    from routes.waterfall import _control_get
+    try:
+        status, noise = _control_get('/x/frc-dashboard/noise', timeout=3.0)
+        if status != 200 or not any(noise.get('bands', {}).values()):
+            noise = {'available': False, **({'reason': 'no history yet'} if status == 200 else {})}
+        else:
+            noise = {'available': True, **noise}
+    except (OSError, ValueError, IndexError):
+        noise = {'available': False, 'reason': 'supervisor unavailable'}
+    return jsonify({
+        'timestd': timestd_doppler(),
+        'spots': spot_indicators(current_app.config['SPOTS_COLLECTION'],
+                                 current_app.config['RECEIVER_GRIDSQUARE'],
+                                 maidenhead.to_location, frequency_to_band,
+                                 _build_time_query),
+        'noise': noise,
+        'magnetometer': {'available': False},
+    })

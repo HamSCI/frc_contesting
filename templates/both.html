@@ -27,10 +27,12 @@
     <button id="copyLink" class="dash-link-btn" type="button" title="Copy a link to this exact view and settings">Copy link</button>
   </nav>
 
-  <!-- Space weather (#73): optional, server-fetched from NOAA SWPC; click to expand. -->
+  <!-- Space weather (#73): optional, server-fetched from NOAA SWPC; plus this
+       station's own PSWS measurements (#74). Click to expand. -->
   <div id="swx" class="swx-strip" hidden>
     <div id="swx-summary" class="swx-summary" role="button" tabindex="0" title="Space weather (click for details)"></div>
     <div id="swx-details" class="swx-details" hidden></div>
+    <div id="swx-local" class="swx-details swx-local" hidden></div>
   </div>
 
   <div class="dash-frames">

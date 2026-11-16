@@ -199,6 +199,7 @@ class Daemon:
 
         return {
             '/x/frc-dashboard/waterfall': self._waterfall_request,
+            '/x/frc-dashboard/noise':     lambda q: (200, self.waterfall.noise_history()),
             f'{base}/open':      lambda q: L.open(q.get('freq_hz'), q.get('mode')),
             f'{base}/tune':      lambda q: L.tune(q.get('sid'), q.get('freq_hz'), q.get('mode')),
             f'{base}/keepalive': lambda q: L.keepalive(q.get('sid')),

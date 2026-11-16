@@ -1,4 +1,6 @@
-// spacewx.js — space-weather strip in the dashboard header (#73).
+// spacewx.js — space-weather strip in the dashboard header (#73), with this
+// station's own PSWS measurements (#74: hf-timestd Doppler, spot-derived
+// indicators, band noise floors), which need no internet.
 // Loaded by both.html, so it shows on every tab.  Data comes only from this
 // server (/api/spacewx), which fetches and caches NOAA SWPC products; the
 // browser never contacts SWPC.  Optional context: offline, the strip says
@@ -36,11 +38,16 @@ const SpaceWx = (() => {
     return `<span class="swx-item ${cls}" title="${title}"><span class="swx-label">${label}</span> ${value}</span>`;
   }
 
+  let last = null, local = null;
+
   function render(d) {
+    last = d;
     const strip = el("swx");
     if (!strip) return;
-    if (!d || d.enabled === false) { strip.hidden = true; return; }
+    const haveLocal = local && ["timestd", "spots", "noise"].some(k => local[k]?.available);
+    if ((!d || d.enabled === false) && !haveLocal) { strip.hidden = true; return; }
     strip.hidden = false;
+    d = d && d.enabled !== false ? d : { enabled: false };
     const parts = [];
     if (d.xray) {
       const x = d.xray, st = stale(x.time, 900);
@@ -83,7 +90,8 @@ const SpaceWx = (() => {
       }).join("");
       parts.push(`<span class="swx-item" title="NOAA scales now: R radio blackout, S radiation storm, G geomagnetic storm">${sc}</span>`);
     }
-    if (!parts.length) {
+    parts.push(...localSummary());
+    if (!parts.length && d.enabled !== false) {
       // Nothing cached yet: the server has just started fetching (retry
       // soon), or every fetch failed (no internet at the server).
       const failed = Object.keys(d.errors || {}).length;
@@ -102,6 +110,98 @@ const SpaceWx = (() => {
     strip.classList.toggle("swx-flare", flare);
     renderDetails(d);
   }
+
+  // ── Local PSWS (#74) ──────────────────────────────────────────────────
+  function localSummary() {
+    const out = [];
+    const t = local?.timestd;
+    if (t?.available) {
+      const dist = t.series.filter(x => x.disturbed);
+      out.push(item("WWV Doppler", dist.length
+        ? `<b class="swx-warn">disturbed</b> (${[...new Set(dist.map(x => x.freq_mhz))].join(", ")} MHz)`
+        : "<b>quiet</b>",
+        "This station's hf-timestd measurement of the WWV/WWVH carriers: Doppler swings show ionospheric motion (sunrise/sunset, TIDs, flare onsets) within seconds. Click for plots.",
+        "swx-local"));
+    }
+    const sp = local?.spots;
+    if (sp?.available) {
+      let best = null;
+      const now = Date.now() / 1000;
+      for (const [band, bins] of Object.entries(sp.bands)) {
+        const b = bins[bins.length - 1];
+        if (b && now - b[0] < 1800 && (!best || CONFIG.band(band).lo > CONFIG.band(best[0]).lo)) best = [band, b];
+      }
+      if (best) out.push(item("Highest band", `<b>${CONFIG.bandShort(best[0])}</b> · ${best[1][2].toLocaleString()} km`,
+        "Highest-frequency band with spots at this station in the last 15-30 min, and its farthest spot (a crude open-band / skip indicator)", "swx-local"));
+    }
+    return out;
+  }
+
+  function lineSvg(seriesList, w, h, { sym = true, fmtY = v => v } = {}) {
+    const all = seriesList.flatMap(s => s.pts);
+    if (all.length < 2) return "—";
+    const t0 = Math.min(...all.map(p => p[0])), t1 = Math.max(...all.map(p => p[0]));
+    let lo = Math.min(...all.map(p => p[1])), hi = Math.max(...all.map(p => p[1]));
+    if (sym) { const m = Math.max(Math.abs(lo), Math.abs(hi), 1e-3); lo = -m; hi = m; }
+    if (hi === lo) hi = lo + 1;
+    const X = t => ((t - t0) / Math.max(1, t1 - t0) * w).toFixed(1);
+    const Y = v => (h - (v - lo) / (hi - lo) * h).toFixed(1);
+    const zero = sym ? `<line x1="0" x2="${w}" y1="${Y(0)}" y2="${Y(0)}" class="swx-grid"/>` : "";
+    return `<svg width="${w}" height="${h}" class="swx-lines">${zero}` +
+      seriesList.map(s => `<polyline points="${s.pts.map(p => `${X(p[0])},${Y(p[1])}`).join(" ")}" style="stroke:${s.color}"` +
+        `${s.dash ? ' stroke-dasharray="3 2"' : ""}><title>${s.label}</title></polyline>`).join("") +
+      `<text x="2" y="9" class="swx-axis">${fmtY(hi)}</text><text x="2" y="${h - 2}" class="swx-axis">${fmtY(lo)}</text></svg>`;
+  }
+
+  const FREQ_COLORS = { 2.5: "#991F24", 3.33: "#d46a19", 5: "#EE8918", 7.85: "#e0c000", 10: "#21A2DA",
+                        14.67: "#5AA429", 15: "#008B38", 20: "#8B1E89", 25: "#BB4A99" };
+
+  function renderLocal() {
+    const box = el("swx-local");
+    if (!box) return;
+    const parts = [];
+    const t = local?.timestd;
+    if (t?.available) {
+      const ser = t.series.map(x => ({ pts: x.series, color: FREQ_COLORS[x.freq_mhz] || "#aaa", dash: x.station !== "WWV",
+                                       label: `${x.station} ${x.freq_mhz} MHz` }));
+      const rows = t.series.map(x => `<li><span class="swx-dot" style="background:${FREQ_COLORS[x.freq_mhz] || "#aaa"}"></span>` +
+        `${x.station} ${x.freq_mhz} MHz: ${x.doppler_hz >= 0 ? "+" : ""}${x.doppler_hz.toFixed(3)} Hz · SNR ${x.snr_db ?? "—"} dB` +
+        `${x.disturbed ? ' <b class="swx-warn">disturbed</b>' : ""}</li>`).join("");
+      parts.push(`<div class="swx-panel"><div class="swx-panel-title">WWV/WWVH Doppler, last ${t.hours} h (hf-timestd; WWVH dashed)</div>` +
+        `${lineSvg(ser, 300, 70, { fmtY: v => `${v.toFixed(2)} Hz` })}<ul class="swx-list">${rows}</ul></div>`);
+    }
+    const sp = local?.spots;
+    if (sp?.available) {
+      const bands = CONFIG.sortBands(Object.keys(sp.bands)).filter(b => CONFIG.band(b).hf);
+      const ser = bands.map(b => ({ pts: sp.bands[b].map(([tt, , km]) => [tt, km]), color: CONFIG.bandColor(b), label: CONFIG.bandShort(b) }));
+      parts.push(`<div class="swx-panel"><div class="swx-panel-title">Farthest spot per band, last ${sp.hours} h (km, per 15 min)</div>` +
+        `${lineSvg(ser, 300, 70, { sym: false, fmtY: v => `${Math.round(v / 1000)}k` })}<div class="swx-legend">` +
+        bands.map(b => `<span><span class="swx-dot" style="background:${CONFIG.bandColor(b)}"></span>${CONFIG.bandShort(b)}</span>`).join("") +
+        `</div></div>`);
+    }
+    const n = local?.noise;
+    if (n?.available) {
+      const bands = CONFIG.sortBands(Object.keys(n.bands)).filter(b => n.bands[b].length);
+      const ser = bands.map(b => ({ pts: n.bands[b], color: CONFIG.bandColor(b), label: CONFIG.bandShort(b) }));
+      parts.push(`<div class="swx-panel"><div class="swx-panel-title">Band noise floor (dB, 1-min medians while the Waterfall runs)</div>` +
+        `${lineSvg(ser, 300, 70, { sym: false, fmtY: v => `${v.toFixed(0)}` })}</div>`);
+    }
+    box.innerHTML = parts.length
+      ? `<div class="swx-local-title">Local PSWS: this station's own measurements (no internet needed)</div>${parts.join("")}`
+      : "";
+    box.hidden = !parts.length || !el("swx").classList.contains("open");
+  }
+
+  async function pollLocal() {
+    try {
+      local = await (await fetch("/api/psws", { cache: "no-store" })).json();
+    } catch (e) {
+      local = null;
+    }
+    renderLocal();
+    render(last);
+  }
+
 
   function renderDetails(d) {
     const box = el("swx-details");
@@ -123,6 +223,7 @@ const SpaceWx = (() => {
       `<div class="swx-panel"><div class="swx-panel-title">IMF Bz, ±20 nT (kept by this server)</div>${bzSvg || "—"}</div>` +
       `<div class="swx-panel swx-alerts"><div class="swx-panel-title">SWPC alerts, last 24 h</div><ul>${alerts || "<li>none</li>"}</ul></div>` +
       `<p class="swx-src">Source: NOAA SWPC, fetched by this dashboard's server. Optional: without internet these values go stale; nothing else is affected.</p>`;
+    if (d.enabled === false) box.innerHTML = "";
   }
 
   async function poll() {
@@ -139,10 +240,13 @@ const SpaceWx = (() => {
     if (!strip) return;
     el("swx-summary").addEventListener("click", () => {
       const open = strip.classList.toggle("open");
-      el("swx-details").hidden = !open;
+      el("swx-details").hidden = !open || !el("swx-details").innerHTML;
+      el("swx-local").hidden = !open || !el("swx-local").innerHTML;
     });
     poll();
     setInterval(poll, POLL_MS);
+    pollLocal();
+    setInterval(pollLocal, 2 * POLL_MS);
   });
   return { poll };
 })();

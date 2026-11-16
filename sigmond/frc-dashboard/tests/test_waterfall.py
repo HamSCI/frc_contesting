@@ -131,6 +131,19 @@ def test_span_limits_rows_to_recent_history(manager):
     assert len(rows(manager.snapshot(span=600))) == 1
 
 
+def test_noise_history_one_point_per_minute(manager, monkeypatch):
+    start(manager)
+    s = FakeSpectrumStream.instances[0]
+    clock = [6000.0]
+    monkeypatch.setattr('frc_dashboard.waterfall.time.time', lambda: clock[0])
+    s.emit([-120, -110, -100, -90])      # minute 100: medians -100, -110
+    s.emit([-130, -120, -110, -100])
+    clock[0] = 6061.0                    # next minute closes the first
+    s.emit([-90, -90, -90, -90])
+    hist = next(v for v in manager.noise_history()['bands'].values() if v)
+    assert hist == [[6030.0, -100.0]]
+
+
 def test_history_defaults_to_an_hour(manager):
     assert manager.history == 1800
     assert all(b.rows.maxlen == 1800 for b in manager.bands.values())

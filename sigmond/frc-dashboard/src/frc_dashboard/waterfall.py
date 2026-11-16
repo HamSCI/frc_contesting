@@ -96,6 +96,11 @@ class Band:
     stream: object = None
     frames: int = 0
     last_frame: float = 0.0
+    # Noise-floor history (#74): median dB of each row, one point per minute,
+    # kept for 24 h.  Only while the channels run (someone is watching).
+    noise: deque = field(default_factory=lambda: deque(maxlen=1440))
+    noise_minute: int = -1
+    noise_acc: list = field(default_factory=list)
 
     def meta(self) -> dict:
         # The plotted span is exactly bins x rbw starting at lo_hz.
@@ -214,11 +219,19 @@ class WaterfallManager:
             scaled = (db - DB_MIN) * (255.0 / (DB_MAX - DB_MIN))
             row = scaled.clip(0, 255).astype('uint8').tobytes()
             now = time.time()
+            med = float(sorted(db)[len(db) // 2])
+            minute = int(now // 60)
             with self.lock:
                 self.seq += 1
                 band.rows.append((self.seq, now, row))
                 band.frames += 1
                 band.last_frame = now
+                if minute != band.noise_minute and band.noise_acc:
+                    acc = sorted(band.noise_acc)
+                    band.noise.append(((band.noise_minute + 0.5) * 60, round(acc[len(acc) // 2], 1)))
+                    band.noise_acc = []
+                band.noise_minute = minute
+                band.noise_acc.append(med)
         return on_spectrum
 
     def tick(self) -> None:
@@ -267,6 +280,12 @@ class WaterfallManager:
             return {'enabled': True, 'running': True, 'seq': self.seq,
                     'db_min': DB_MIN, 'db_max': DB_MAX, 'poll_sec': self.poll_sec,
                     'bands': out}
+
+    def noise_history(self) -> dict:
+        """Per-band noise floor (median dB per minute, last 24 h) for #74."""
+        with self.lock:
+            return {'enabled': self.enabled, 'running': self.running,
+                    'bands': {b.name: [list(p) for p in b.noise] for b in self.bands.values()}}
 
     def status(self) -> dict:
         with self.lock:
