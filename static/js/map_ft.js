@@ -114,6 +114,26 @@ const INITIAL = IS_AE
   : { center: CONFIG.map.initialView, zoom: CONFIG.map.initialZoom };
 map.setView(INITIAL.center, INITIAL.zoom);
 
+// Only a user gesture (or an at= from a link) counts as "moved": the frame's
+// size changes while it loads, so comparing against a computed initial view
+// would misfire and put a stray at= in the URL.
+let userMoved = false;
+map.on('dragstart', () => { userMoved = true; });
+['wheel', 'dblclick', 'keydown', 'touchstart'].forEach(ev =>
+  map.getContainer().addEventListener(ev, () => { userMoved = true; }, { passive: true }));
+map.getContainer().addEventListener('click', e => {
+  if (e.target.closest('.leaflet-control-zoom')) userMoved = true;
+});
+
+// Built inside a hidden tab, the map has no size yet (zoom 0): fit the disc
+// the first time it becomes visible, unless the user has moved it.
+if (IS_AE && !map.getSize().x) {
+  map.once('resize', () => {
+    INITIAL.zoom = Math.max(0, Math.floor(Math.log2(Math.min(map.getSize().x, map.getSize().y) * 0.9 / 256) * 4) / 4);
+    if (!userMoved) map.setView(INITIAL.center, INITIAL.zoom);
+  });
+}
+
 // Disable marker shadows globally (the receiver pin is the only DOM marker)
 L.Icon.Default.prototype.createShadow = function () { return null; };
 
@@ -613,8 +633,6 @@ const MAP_LEGACY = ["lastInterval", "continent", "cqzone", "ITUzone", "CQZoneOut
 
 function mapState() {
   const c = map.getCenter();
-  const moved = Math.abs(map.getZoom() - INITIAL.zoom) > 0.01 ||
-    Math.abs(c.lat - INITIAL.center[0]) > 0.5 || Math.abs(c.lng - INITIAL.center[1]) > 0.5;
   return {
     last: document.getElementById("lastInterval").value,
     band: bandSelToParam(bandSel),
@@ -628,7 +646,7 @@ function mapState() {
     aur: document.getElementById("auroraToggle").checked ? "1" : "",
     modes: modesParam(document.getElementById("modePills")),
     reload: document.getElementById("reloadInterval").value,
-    at: moved ? `${c.lat.toFixed(2)},${c.lng.toFixed(2)},${map.getZoom()}` : "",
+    at: userMoved ? `${c.lat.toFixed(2)},${c.lng.toFixed(2)},${map.getZoom()}` : "",
     proj: document.getElementById("projection").value,
   };
 }
@@ -696,7 +714,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Restore every setting (#61): URL first (a shared link wins, #62), then
   // this session, then the defaults.
   const get = (names, key, fallback) => ViewState.get(names, `map.${key}`, fallback);
-  intervalInput.value = get(["last", "lastInterval"], "last", String(CONFIG.defaults.lastInterval));
+  intervalInput.value = ViewState.get(["last", "lastInterval"], "map.last", String(CONFIG.defaults.lastInterval), "lastInterval");
   bandSel = bandSelFromParam(get("band", "band", ""));
   setSelect(countrySelect, get("country", "country", ""));
   setSelect(continentSelect, get(["cont", "continent"], "cont", ""));
@@ -711,10 +729,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   const modesSaved = get("modes", "modes", "");
   renderModePills(document.getElementById("modePills"), modesSaved ? modesSaved.split(",") : [], onMapFilterChange);
   if (modesSaved) setSelectedModes(document.getElementById("modePills"), modesSaved.split(","));
-  setSelect(select, get("reload", "reload", String(CONFIG.defaults.reload)));
+  setSelect(select, ViewState.get("reload", "map.reload", String(CONFIG.defaults.reload), "reload"));
   setReloadInterval(parseInt(select.value, 10));
   const at = (get("at", "at", "") || "").split(",").map(Number);
-  if (at.length === 3 && at.every(Number.isFinite)) map.setView([at[0], at[1]], at[2]);
+  if (at.length === 3 && at.every(Number.isFinite)) {
+    map.setView([at[0], at[1]], at[2]);
+    userMoved = true;                       // keep a linked view in the URL
+  }
   renderBandChips();
   persistFilterState();
 

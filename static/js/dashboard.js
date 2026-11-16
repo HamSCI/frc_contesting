@@ -35,7 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
     frames.forEach(f => {
       const active = f.id === targetId;
       f.classList.toggle("active", active);
-      if (active && f.dataset.src && !f.getAttribute("src")) f.src = f.dataset.src;
+      // A lazy frame gets today's settings, not the ones the page opened with.
+      if (active && f.dataset.src && !f.getAttribute("src")) f.src = f.dataset.src.split("?")[0] + window.location.search;
       try {
         f.contentWindow?.postMessage({ type: "frc-tab", active: targetId }, window.location.origin);
       } catch (e) { /* frame not loaded yet */ }

@@ -162,7 +162,7 @@ function setLastUpdated() {
     const st = {
       last: document.getElementById("lastInterval").value,
       thr: document.getElementById("threshold").value,
-      modes: modesParam(document.getElementById("modePills")),
+      tmodes: modesParam(document.getElementById("modePills")),
       reload: document.getElementById("reloadInterval").value,
       band: tableBandSel ? bandSelToParam(tableBandSel) : "",
     };
@@ -317,7 +317,9 @@ function setLastUpdated() {
   });
 
   // Sync lastInterval from map iframe via localStorage storage event
+  let tableReady = false;                     // settings restored (see DOMContentLoaded)
   window.addEventListener("storage", (e) => {
+    if (!tableReady) return;
     const reloadSelect = document.getElementById("reloadInterval");
     if (e.key === "lastInterval" && e.newValue && e.newValue !== document.getElementById("lastInterval").value) {
       document.getElementById("lastInterval").value = e.newValue;
@@ -342,18 +344,19 @@ function setLastUpdated() {
     // Restore every setting (#61): URL first (a shared link wins, #62), then
     // this session, then the defaults.  Auto Reload defaults to 5 min.
     const get = (names, key, fallback) => ViewState.get(names, `table.${key}`, fallback);
-    document.getElementById("lastInterval").value = get(["last", "lastInterval"], "last", String(CONFIG.defaults.lastInterval));
+    document.getElementById("lastInterval").value = ViewState.get(["last", "lastInterval"], "table.last", String(CONFIG.defaults.lastInterval), "lastInterval");
     document.getElementById("threshold").value = get("thr", "thr", String(CONFIG.defaults.threshold));
     const pills = document.getElementById("modePills");
-    const modesSaved = get("modes", "modes", "");
+    const modesSaved = get(["tmodes", "modes"], "tmodes", "");
     renderModePills(pills, modesSaved ? modesSaved.split(",") : [], onTableFilterChange);
     if (modesSaved) setSelectedModes(pills, modesSaved.split(","));
     initTableBands();
 
     const reloadSelect = document.getElementById("reloadInterval");
-    const reload = get("reload", "reload", String(CONFIG.defaults.reload));
+    const reload = ViewState.get("reload", "table.reload", String(CONFIG.defaults.reload), "reload");
     if ([...reloadSelect.options].some(o => o.value === reload)) reloadSelect.value = reload;
     setReloadInterval(Number(reloadSelect.value));
+    tableReady = true;
 
     fetchSpots();
 

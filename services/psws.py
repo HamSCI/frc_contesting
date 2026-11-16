@@ -71,6 +71,8 @@ def _timestd_query(path: str, hours: float) -> dict:
         need = {'channel', 'timestamp_utc', 'station_id', 'frequency_mhz', 'snr_db', 'doppler_hz'}
         if not need <= cols:
             return {'available': False, 'reason': 'hf-timestd schema not recognised'}
+        # hf-timestd stores timestamp_utc as ISO text with +00:00 (checked on
+        # W3USR-06: '2026-11-16T05:12:29.999994+00:00'), so a text compare works.
         cut = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
         channels = [r[0] for r in con.execute(
             'select distinct channel from (select channel from L1_metrology_measurements '
@@ -140,6 +142,12 @@ def _distance_km(a, b) -> float:
 def spot_indicators(collection, rx_grid: str, to_location, band_of, time_query) -> dict:
     """Per band and 15-min bin over the last SPOT_HOURS: spot count and farthest TX (km)."""
     def run():
+        try:
+            return _spot_bins()
+        except Exception as e:                  # MongoDB down: hide only this part
+            return {'available': False, 'reason': f'{type(e).__name__}'}
+
+    def _spot_bins():
         try:
             rx = to_location(rx_grid)
         except Exception:

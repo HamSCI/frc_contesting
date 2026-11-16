@@ -681,7 +681,11 @@ function initControls() {
     grid.classList.toggle("wf-stack", layout.value === "stack");
   });
   span.addEventListener("change", () => {
+    const longer = Number(span.value) > state.prefs.span;
     state.prefs.span = Number(span.value); savePrefs(); renderAll();
+    // The server may hold more history than we fetched: ask again from the
+    // start (addRows skips rows we already have).
+    if (longer) { state.seq = 0; resume(); }
   });
   pause.addEventListener("click", () => {
     state.paused = !state.paused;

@@ -25,12 +25,23 @@ const ViewState = {
     try { return sessionStorage.getItem(key); } catch (e) { return null; }
   },
 
-  /** URL param, else sessionStorage[key], else fallback. */
-  get(names, key, fallback) {
+  shared(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  },
+
+  /**
+   * URL param, else sessionStorage[key], else the value the other views share
+   * in localStorage[sharedKey] (lastInterval, reload, bandSel), else fallback.
+   * Reading the shared value matters: a view opened later must not write its
+   * defaults over what the other tabs (or browser tabs) are using.
+   */
+  get(names, key, fallback, sharedKey = null) {
     const fromUrl = this.param(...[].concat(names));
     if (fromUrl !== null) return fromUrl;
     const saved = key ? this.session(key) : null;
-    return saved !== null ? saved : fallback;
+    if (saved !== null) return saved;
+    const shared = sharedKey ? this.shared(sharedKey) : null;
+    return shared !== null && shared !== "" ? shared : fallback;
   },
 
   /**

@@ -39,6 +39,7 @@ const bv = {
   bandSel: null,
   wf: { seq: 0, bands: {}, dbMin: -150, dbMax: -60, pollSec: 2, timer: null },
   active: true,
+  ready: false,            // settings restored; ignore storage events before
   reloadTimer: null,
   lut: null,
 };
@@ -322,6 +323,7 @@ function renderWaterfalls() {
   const now = bv.wf.newest;
   for (const band of shownBands()) {
     const card = bv.cards[band], w = bv.wf.bands[band];
+    if (!card) continue;                 // cards not built yet (no spots loaded)
     if (!w) {
       card.wfmsg.hidden = false;
       card.wfmsg.textContent = bv.wf.error || (bv.wf.started ? "No waterfall for this band (the station's spectrum channels cover the contest bands)." : "Starting…");
@@ -427,9 +429,9 @@ async function pollWaterfall() {
     renderWaterfalls();
     bv.wf.timer = setTimeout(pollWaterfall, Math.max(1000, bv.wf.pollSec * 1000));
   } catch (e) {
+    bv.wf.timer = setTimeout(pollWaterfall, 10000);    // retry first, whatever rendering does
     bv.wf.error = `Waterfall unavailable: ${e.message}`;
     renderWaterfalls();
-    bv.wf.timer = setTimeout(pollWaterfall, 10000);
   }
 }
 
@@ -441,7 +443,7 @@ function persist() {
     reload: document.getElementById("reloadInterval").value,
     dist: document.getElementById("bvDist").value,
     bseg: document.getElementById("bvSeg").value,
-    modes: modesParam(document.getElementById("modePills")),
+    bmodes: modesParam(document.getElementById("modePills")),
     band: bv.bandSel ? bandSelToParam(bv.bandSel) : "",
   };
   try {
@@ -469,6 +471,7 @@ window.addEventListener("message", ev => {
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && bv.active) pollWaterfall(); });
 window.addEventListener("storage", e => {
+  if (!bv.ready) return;
   const reloadSel = document.getElementById("reloadInterval");
   if (e.key === "lastInterval" && e.newValue && e.newValue !== document.getElementById("lastInterval").value) {
     document.getElementById("lastInterval").value = e.newValue;
@@ -495,20 +498,21 @@ window.addEventListener("DOMContentLoaded", async () => {
   await loadLand();
 
   const get = (names, key, fallback) => ViewState.get(names, `bands.${key}`, fallback);
-  document.getElementById("lastInterval").value = get(["last", "lastInterval"], "last", String(CONFIG.defaults.lastInterval));
+  document.getElementById("lastInterval").value = ViewState.get(["last", "lastInterval"], "bands.last", String(CONFIG.defaults.lastInterval), "lastInterval");
   document.getElementById("bvDist").value = get("dist", "dist", "c") === "t" ? "t" : "c";
   document.getElementById("bvSeg").value = get("bseg", "bseg", "full");
   const pills = document.getElementById("modePills");
-  const modesSaved = get("modes", "modes", "");
+  const modesSaved = get(["bmodes", "modes"], "bmodes", "");
   renderModePills(pills, modesSaved ? modesSaved.split(",") : [], onFilterChange);
   if (modesSaved) setSelectedModes(pills, modesSaved.split(","));
   let band = ViewState.param("band");
   if (band === null) { try { band = localStorage.getItem("bandSel"); } catch (e) { band = null; } }
   bv.bandSel = bandSelFromParam(band);
   const reloadSel = document.getElementById("reloadInterval");
-  const reload = get("reload", "reload", String(CONFIG.defaults.reload));
+  const reload = ViewState.get("reload", "bands.reload", String(CONFIG.defaults.reload), "reload");
   if ([...reloadSel.options].some(o => o.value === reload)) reloadSel.value = reload;
   setReloadInterval(Number(reloadSel.value));
+  bv.ready = true;
 
   document.getElementById("updateButton").addEventListener("click", fetchSpots);
   document.getElementById("lastInterval").addEventListener("change", fetchSpots);

@@ -17,6 +17,9 @@ const SpaceWx = (() => {
   };
   const stale = (t, maxSec) => !t || Date.now() / 1000 - t > maxSec;
   const fmt = (v, d = 0) => (v === null || v === undefined ? "—" : Number(v).toFixed(d));
+  // Alert text comes from the internet: never put it into the page as HTML.
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  let retryTimer = null;
 
   function xrayLevel(cls) {
     const c = (cls || "A")[0];
@@ -96,7 +99,7 @@ const SpaceWx = (() => {
       // soon), or every fetch failed (no internet at the server).
       const failed = Object.keys(d.errors || {}).length;
       parts.push(`<span class="swx-item swx-stale">Space weather: ${failed ? "unavailable (no internet at the server?)" : "loading…"}</span>`);
-      if (!failed) setTimeout(poll, 5000);
+      if (!failed && !retryTimer) retryTimer = setTimeout(() => { retryTimer = null; poll(); }, 5000);
     }
     // Event banner: a flare in progress explains a sudden dayside fadeout.
     const flare = d.xray && /^[MX]/.test(d.xray.class || "") && !stale(d.xray.time, 900);
@@ -104,7 +107,7 @@ const SpaceWx = (() => {
     if (flare) banner = `<span class="swx-banner swx-bad">${d.xray.class} flare in progress: expect HF fadeout on the sunlit side</span>`;
     else if (d.alerts && d.alerts.length) {
       const a = d.alerts[0];
-      banner = `<span class="swx-banner" title="${a.headline} (${age(a.time)} ago)">${a.headline} · ${age(a.time)} ago</span>`;
+      banner = `<span class="swx-banner" title="${esc(a.headline)} (${age(a.time)} ago)">${esc(a.headline)} · ${age(a.time)} ago</span>`;
     }
     el("swx-summary").innerHTML = parts.join("") + banner;
     strip.classList.toggle("swx-flare", flare);
@@ -216,7 +219,7 @@ const SpaceWx = (() => {
       bzSvg = `<svg width="${w}" height="${h}" class="swx-bz"><line x1="0" x2="${w}" y1="${h / 2}" y2="${h / 2}" class="swx-grid"/>` +
         `<polyline points="${bz.map(([t, v]) => `${((t - t0) / Math.max(1, t1 - t0) * w).toFixed(1)},${y(v)}`).join(" ")}"/></svg>`;
     }
-    const alerts = (d.alerts || []).map(a => `<li>${new Date(a.time * 1000).toISOString().slice(11, 16)} UTC · ${a.headline}</li>`).join("");
+    const alerts = (d.alerts || []).map(a => `<li>${new Date(a.time * 1000).toISOString().slice(11, 16)} UTC · ${esc(a.headline)}</li>`).join("");
     box.innerHTML =
       `<div class="swx-panel"><div class="swx-panel-title">GOES X-ray, 6 h (log; lines at C1, M1)</div>${xraySpark(d.xray?.spark, 240, 40)}</div>` +
       `<div class="swx-panel"><div class="swx-panel-title">Kp, last 24 h (3-h values)</div><div class="swx-kp">${kpBars || "—"}</div></div>` +

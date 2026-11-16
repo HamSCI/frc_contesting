@@ -40,10 +40,11 @@ const STATE_NAMES = {};          // postal -> name, from the boundary file
 let stateFeat = [];
 const stateCache = new Map();
 
-const ST_DEFAULTS = { last: CONFIG.defaults.lastInterval, thr: CONFIG.defaults.threshold,
+const ST_DEFAULTS = { last: CONFIG.defaults.lastInterval, sthr: CONFIG.defaults.threshold,
                       reload: CONFIG.defaults.reload, ssort: "area" };
 let cachedSpots = [];
 let reloadTimer = null;
+let ready = false;                 // settings restored; ignore storage events before
 
 async function loadStates() {
   const res = await fetch("vendor/basemap/states-50m.json");
@@ -92,8 +93,8 @@ function columns() {
 function persist() {
   const st = {
     last: document.getElementById("lastInterval").value,
-    thr: document.getElementById("threshold").value,
-    modes: modesParam(document.getElementById("modePills")),
+    sthr: document.getElementById("threshold").value,
+    smodes: modesParam(document.getElementById("modePills")),
     reload: document.getElementById("reloadInterval").value,
     ssort: document.getElementById("stateSort").value,
     band: bandSel ? bandSelToParam(bandSel) : "",
@@ -196,6 +197,7 @@ function setReloadInterval(seconds) {
 }
 
 window.addEventListener("storage", e => {
+  if (!ready) return;
   const reloadSel = document.getElementById("reloadInterval");
   if (e.key === "lastInterval" && e.newValue && e.newValue !== document.getElementById("lastInterval").value) {
     document.getElementById("lastInterval").value = e.newValue;
@@ -219,18 +221,19 @@ window.addEventListener("DOMContentLoaded", async () => {
   await loadStates();
 
   const get = (names, key, fallback) => ViewState.get(names, `states.${key}`, fallback);
-  document.getElementById("lastInterval").value = get(["last", "lastInterval"], "last", String(CONFIG.defaults.lastInterval));
-  document.getElementById("threshold").value = get("thr", "thr", String(CONFIG.defaults.threshold));
+  document.getElementById("lastInterval").value = ViewState.get(["last", "lastInterval"], "states.last", String(CONFIG.defaults.lastInterval), "lastInterval");
+  document.getElementById("threshold").value = get(["sthr", "thr"], "sthr", String(CONFIG.defaults.threshold));
   document.getElementById("stateSort").value = get("ssort", "ssort", "area");
   const pills = document.getElementById("modePills");
-  const modesSaved = get("modes", "modes", "");
+  const modesSaved = get(["smodes", "modes"], "smodes", "");
   renderModePills(pills, modesSaved ? modesSaved.split(",") : [], () => { persist(); render(); });
   if (modesSaved) setSelectedModes(pills, modesSaved.split(","));
   initBands();
   const reloadSel = document.getElementById("reloadInterval");
-  const reload = get("reload", "reload", String(CONFIG.defaults.reload));
+  const reload = ViewState.get("reload", "states.reload", String(CONFIG.defaults.reload), "reload");
   if ([...reloadSel.options].some(o => o.value === reload)) reloadSel.value = reload;
   setReloadInterval(Number(reloadSel.value));
+  ready = true;
 
   document.getElementById("updateButton").addEventListener("click", fetchSpots);
   document.getElementById("lastInterval").addEventListener("change", fetchSpots);
