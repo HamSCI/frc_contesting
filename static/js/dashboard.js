@@ -11,6 +11,16 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Band label style (#66): Frequency, Wavelength or both, shared by every
+  // tab through localStorage (each frame relabels on the storage event).
+  const labels = document.getElementById("bandLabels");
+  if (labels) {
+    labels.value = CONFIG.bandLabelStyle();
+    labels.addEventListener("change", () => {
+      try { localStorage.setItem("bandLabels", labels.value); } catch (e) { /* storage unavailable */ }
+    });
+  }
+
   const tabButtons = document.querySelectorAll(".dash-tab-btn");
   const frames = document.querySelectorAll(".dash-frame");
 

@@ -15,6 +15,13 @@
       <button class="dash-tab-btn" data-target="table-frame">Table</button>
       <button class="dash-tab-btn" data-target="waterfall-frame">Waterfall</button>
     </div>
+    <label class="dash-setting" for="bandLabels" title="How bands are labelled on every tab">Band labels
+      <select id="bandLabels">
+        <option value="both">14 MHz · 20 m</option>
+        <option value="freq">14 MHz</option>
+        <option value="wl">20 m</option>
+      </select>
+    </label>
   </nav>
 
   <div class="dash-frames">
@@ -24,6 +31,7 @@
     <iframe id="waterfall-frame" class="dash-frame" data-src="/waterfall"></iframe>
   </div>
 
+  <script src="js/config.js"></script>
   <script src="js/dashboard.js"></script>
 
 </body>

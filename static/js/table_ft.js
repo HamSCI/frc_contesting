@@ -7,7 +7,7 @@
  *
  * Features:
  * - Regional grouping based on CQ zones
- * - Displays only the 6 contest bands (160m, 80m, 40m, 20m, 15m, 10m)
+ * - Displays only the 6 contest bands, highest frequency first (10m ... 160m)
  * - Highlights active bands with green background when threshold is met
  * - Mode filtering (WSPR/FT8/FT4)
  * - Auto-reload capability with configurable intervals
@@ -163,9 +163,10 @@ function setLastUpdated() {
         `Total Spots Displayed: ${total}`;
     let html = "<table><tr>";
 
-    // header row twice
-    bands.forEach(b => html += `<th class='band-header'>${b.replace("m","")}</th>`);
-    bands.forEach(b => html += `<th class='band-header'>${b.replace("m","")}</th>`);
+    // header row twice; labels and order (highest first) from CONFIG.bands (#66)
+    const head = b => `<th class='band-header' title='${CONFIG.bandTitle(b)}'>${CONFIG.bandLabel(b, { html: true })}</th>`;
+    bands.forEach(b => html += head(b));
+    bands.forEach(b => html += head(b));
     html += "</tr>";
 
     for (const [r1, r2] of CONFIG.regionPairs) {
@@ -184,7 +185,7 @@ function setLastUpdated() {
     }
   
     html += "</table>";
-    document.getElementById("title").textContent = `WSPR Table for ${call} PSWS Reciever`
+    document.getElementById("title").textContent = `WSPR Table for ${call} PSWS Receiver`
     document.getElementById("spotsTableContainer").innerHTML = html;
   }
   
@@ -293,6 +294,8 @@ function setLastUpdated() {
     if (e.key === "lastInterval" && e.newValue) {
       document.getElementById("lastInterval").value = e.newValue;
       fetchSpots();
+    } else if (e.key === "bandLabels") {
+      renderTable();
     }
   });
   window.addEventListener("DOMContentLoaded", async function(){

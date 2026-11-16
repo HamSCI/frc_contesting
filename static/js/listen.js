@@ -59,7 +59,7 @@ const Listen = (() => {
   /** Dial frequency for a click: the click marks the middle of the signal. */
   function dialFor(bandName, clickHz, mode) {
     // Clicks just above an FT8/FT4/WSPR dial frequency tune to that dial (USB).
-    for (const mhz of Object.values(WF.MARKERS[bandName] || {})) {
+    for (const mhz of Object.values(CONFIG.band(bandName).dials || {})) {
       const dial = mhz * 1e6;
       if (clickHz >= dial - 300 && clickHz <= dial + 3300) return { freq: dial, mode: "usb" };
     }
@@ -238,7 +238,7 @@ const Listen = (() => {
   function setLabel() {
     const band = bandFor(L.freq);
     $("ls-freq").textContent = `${(L.freq / 1e6).toFixed(L.mode === "cw" ? 5 : 4)} MHz`;
-    $("ls-band").textContent = band ? band.name : "";
+    $("ls-band").textContent = band ? CONFIG.bandLabel(band.name) : "";
     $("ls-mode").value = L.mode;
     $("ls-state").textContent = buffering ? "buffering…" : "live";
   }

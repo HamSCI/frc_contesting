@@ -155,68 +155,37 @@ spotCountControl.onAdd = function () {
   return this._div;
 };
 
-const bandOrder = [
-  '160m', '80m', '60m', '40m', '30m',
-  '20m', '17m', '15m', '12m', '10m',
-  '6m', '4m', '2m', '70cm', 'unknown'
-];
-
-const bandColorMap = {
-  '160m': 'black',
-  '80m': 'red',
-  '60m': 'orange-dark',
-  '40m': 'orange',
-  '30m': 'yellow',
-  '20m': 'green',
-  '17m': 'green-light',
-  '15m': 'cyan',
-  '12m': 'blue-dark',
-  '10m': 'blue-dark',
-  '6m': 'purple',
-  '4m': 'violet',
-  '2m': 'pink',
-  '70cm': 'white',
-  'unknown': 'green-dark'
-};
-
-const colorHexMap = {
-  "red": "991F24",
-  "orange-dark": "D43019",
-  "orange": "EE8918",
-  "yellow": "F5B72D",
-  "blue-dark": "183C52",
-  "blue": "106AB6",
-  "cyan": "21A2DA",
-  "purple": "4E2960",
-  "violet": "8B1E89",
-  "pink": "BB4A99",
-  "green-dark": "004B22",
-  "green": "008B38",
-  "green-light": "5AA429",
-  "black": "211D1E",
-  "white": "F5F4F5"
-};
-
+// Band colours, order and labels all come from CONFIG.bands (#66).
 spotCountControl.update = function (bandCounts) {
   const selectedBand = document.getElementById('bandFilter')?.value || '';
-  const lines = Object.entries(bandCounts)
-    .sort(([a], [b]) => bandOrder.indexOf(a) - bandOrder.indexOf(b))
-    .map(([band, count]) => {
-      const markerColor = bandColorMap[band] || 'black';
-      const hex = colorHexMap[markerColor] || '000000';
+  const lines = CONFIG.sortBands(Object.keys(bandCounts))
+    .map(band => {
       const activeClass = band === selectedBand ? ' active' : '';
-      return `<div class="spot-count-row${activeClass}" data-band="${band}"><span style="
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        margin-right: 6px;
-        border-radius: 50%;
-        background-color: #${hex};
-        border: 1px solid #333;
-      "></span><b>${band}</b>: ${count}</div>`;
+      return `<div class="spot-count-row${activeClass}" data-band="${band}" title="${CONFIG.bandTitle(band)}">` +
+        `<span class="band-dot" style="background-color:${CONFIG.bandColor(band)}"></span>` +
+        `<b>${CONFIG.bandLabel(band, { html: true })}</b>: ${bandCounts[band]}</div>`;
     });
   this._div.innerHTML = `<b>Spots:</b><br>${lines.join('')}`;
 };
+
+// Band dropdown options, highest frequency first, labelled per the viewer's
+// label style.  Rebuilt when the style changes (storage event).
+function buildBandOptions() {
+  const select = document.getElementById('bandFilter');
+  if (!select) return;
+  const value = select.value;
+  select.querySelectorAll('option[data-band]').forEach(o => o.remove());
+  CONFIG.bands.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.dataset.band = b.id;
+    opt.textContent = CONFIG.bandLabel(b.id);
+    opt.title = CONFIG.bandTitle(b.id);
+    select.appendChild(opt);
+  });
+  select.value = value;
+}
+buildBandOptions();
 
 // Add the control to the map ONCE
 spotCountControl.addTo(map);
@@ -337,23 +306,17 @@ async function fetchSpots() {
     });
     spotRecords = [];
 
-    //all possible color options
-    const markerColors = [
-      'red', 'orange-dark', 'orange', 'yellow', 'blue-dark',
-      'cyan', 'purple', 'violet', 'pink',
-      'green-dark', 'green', 'green-light',
-      'black', 'white'
-    ];
+    // One star icon per band, in the band's colour from CONFIG.bands.
     const markers = {};
-    markerColors.forEach(color => {
-      markers[color] = L.ExtraMarkers.icon({
-        icon: 'fa-coffee',
-        markerColor: color,
-        shape: 'star',
-        prefix: 'fa',
-        shadowSize: [0, 0],
-      });
-    });
+    // (ExtraMarkers only draws the SVG when `icon` is non-empty; no glyph font is loaded.)
+    const iconFor = band => markers[band] || (markers[band] = L.ExtraMarkers.icon({
+      icon: 'spot-glyph',
+      svg: true,
+      markerColor: CONFIG.bandColor(band),
+      shape: 'star',
+      prefix: '',
+      shadowSize: [0, 0],
+    }));
 
     spots.forEach(spot => {
       if (
@@ -370,8 +333,7 @@ async function fetchSpots() {
       // Precompute everything a filter could need, once, so re-filtering
       // later is just property comparisons — no repeat Turf.js lookups.
       const bandName = frequencyToBand(spot.frequency) || 'unknown';
-      const markerColor = bandColorMap[bandName] || 'black';
-      const icon = markers[markerColor] || markers['black'];
+      const icon = iconFor(bandName);
 
       const txMarker = L.marker([spot.tx_lat, spot.tx_lon], { icon });
       txMarker.bindPopup(`
@@ -382,7 +344,7 @@ async function fetchSpots() {
         ${spot.power != null ? `<b>Power:</b> ${spot.power} dBm<br>` : ''}
         <b>Freq:</b> ${spot.frequency} MHz<br>
         <b>Time:</b> ${parseWsprTime(spot.time)}<br>
-        <b>Band:</b> ${spot.band} <br>
+        <b>Band:</b> ${CONFIG.bandLabel(bandName)}<br>
         <b>Mode:</b>  ${spot.mode.toUpperCase()}
 
       `);
@@ -397,7 +359,7 @@ async function fetchSpots() {
         ${spot.power != null ? `<b>Power:</b> ${spot.power} dBm<br>` : ''}
         <b>Freq:</b> ${spot.frequency} MHz<br>
         <b>Time:</b> ${parseWsprTime(spot.time)}<br>
-        <b>Band:</b> ${spot.band}</br>
+        <b>Band:</b> ${CONFIG.bandLabel(bandName)}<br>
         <b>Mode:</b>  ${spot.mode.toUpperCase()}
 
       `);
@@ -492,7 +454,7 @@ function renderMapFilters() {
   if (spotInfo) {
     const countryName = selectedCountry || "all countries";
     const readableDate = `${document.getElementById("lastInterval").value || CONFIG.defaults.lastInterval} minutes`;
-    const bandName1 = selectedBand === "CBs" ? "Contest Bands" : (selectedBand || "All Bands");
+    const bandName1 = selectedBand === "CBs" ? "Contest Bands" : (selectedBand ? CONFIG.bandLabel(selectedBand) : "All Bands");
     spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${bandName1}`;
   }
 }
@@ -648,11 +610,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById(id).addEventListener("change", onInstantFilterChange);
   });
 
-  // Sync lastInterval from table iframe via localStorage storage event
+  // Sync lastInterval from table iframe via localStorage storage event, and
+  // relabel bands when the dashboard's label style changes (#66).
   window.addEventListener("storage", (e) => {
     if (e.key === "lastInterval" && e.newValue) {
       intervalInput.value = e.newValue;
       fetchSpots();
+    } else if (e.key === "bandLabels") {
+      buildBandOptions();
+      renderMapFilters();
     }
   });
 

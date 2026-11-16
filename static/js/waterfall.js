@@ -1,8 +1,9 @@
 /**
  * HamSCI PSWS Contesting Dashboard - contest band waterfalls (waterfall.js)
  *
- * Polls /api/waterfall for new spectrum rows (one per band per second) and
- * draws one scrolling waterfall per contest band, newest row at the top.
+ * Polls /api/waterfall for new spectrum rows (one per band every poll_sec,
+ * 2 s by default) and draws one scrolling waterfall per contest band, newest
+ * row at the top and the highest band first.
  * Rows arrive as base64 uint8 values spanning [db_min, db_max]; contrast and
  * palette are applied here, so they can change without refetching.
  *
@@ -15,15 +16,6 @@ const WF = {
   HISTORY: 300,              // rows kept per band (10 min at 1 row / 2 s)
   POLL_MS: 2000,             // replaced by the server's poll_sec
   RETRY_MS: 5000,
-  // Dial frequencies (MHz) marked on each band's axis for orientation.
-  MARKERS: {
-    "160m": { FT8: 1.840, WSPR: 1.8366 },
-    "80m":  { FT8: 3.573, FT4: 3.575, WSPR: 3.5686 },
-    "40m":  { FT8: 7.074, FT4: 7.0475, WSPR: 7.0386 },
-    "20m":  { FT8: 14.074, FT4: 14.080, WSPR: 14.0956 },
-    "15m":  { FT8: 21.074, FT4: 21.140, WSPR: 21.0946 },
-    "10m":  { FT8: 28.074, FT4: 28.180, WSPR: 28.1246 },
-  },
   PALETTES: {
     spectrum: [[0, "#000014"], [0.15, "#00007a"], [0.35, "#0050ff"], [0.55, "#00e0ff"],
                [0.7, "#40ff60"], [0.85, "#ffe000"], [1, "#ff2a00"]],
@@ -114,11 +106,7 @@ function decodeRow(b64) {
   return row;
 }
 
-function bandColor(name) {
-  const c = CONFIG.bandColorMap?.[name];
-  const hex = c && CONFIG.colorHexMap?.[c];
-  return hex ? `#${hex}` : "#888";
-}
+
 
 // ── band cards ─────────────────────────────────────────────────────────────
 
@@ -143,7 +131,7 @@ function buildAxis(band) {
   band.axis.innerHTML = html;
 
   // FT8/FT4/WSPR sit a few kHz apart: stack labels that would overlap.
-  const marks = Object.entries(WF.MARKERS[band.name] || {})
+  const marks = Object.entries(CONFIG.band(band.name).dials || {})
     .map(([label, mhz]) => ({ label, mhz, p: (mhz * 1e6 - lo) / span * 100 }))
     .filter(m => m.p >= 0 && m.p <= 100)
     .sort((a, b) => a.p - b.p);
@@ -163,8 +151,8 @@ function buildBand(meta) {
   card.className = "wf-card";
   card.innerHTML = `
     <header class="wf-card-head">
-      <span class="wf-swatch" style="background:${bandColor(meta.name)}"></span>
-      <span class="wf-band">${meta.name}</span>
+      <span class="wf-swatch" style="background:${CONFIG.bandColor(meta.name)}"></span>
+      <span class="wf-band" data-role="label" title="${CONFIG.bandTitle(meta.name)}">${CONFIG.bandLabel(meta.name, { html: true })}</span>
       <span class="wf-range">${(meta.lo_hz / 1e6).toFixed(3)}–${(meta.hi_hz / 1e6).toFixed(3)} MHz</span>
       <span class="wf-stats" data-role="stats">—</span>
     </header>
@@ -435,6 +423,13 @@ window.addEventListener("message", ev => {
   if (state.active) resume(); else clearTimeout(state.timer);
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) resume(); });
+// The dashboard's band label style changed (#66): relabel the panels.
+window.addEventListener("storage", ev => {
+  if (ev.key !== "bandLabels") return;
+  Object.values(state.bands).forEach(b => {
+    b.card.querySelector('[data-role="label"]').innerHTML = CONFIG.bandLabel(b.name, { html: true });
+  });
+});
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadPrefs();
