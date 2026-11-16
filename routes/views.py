@@ -4,7 +4,7 @@ Page-rendering routes for the HamSCI Dashboard.
 Serves HTML templates for the map view, table view, and combined view.
 """
 
-from flask import Blueprint, render_template, Response
+from flask import Blueprint, render_template, request, Response
 
 views_bp = Blueprint('views', __name__)
 
@@ -17,12 +17,17 @@ def favicon():
 @views_bp.route('/')
 def home():
     """
-    Root route: Combined view with map and table side-by-side using iframes.
+    Root route: the tabbed dashboard (Map / Table / Waterfall iframes).
+
+    The query string carries every view setting (#62, e.g.
+    ``/?view=table&last=60``); it is forwarded into each iframe's URL so a
+    shared or bookmarked link restores the same tab and settings.
 
     Returns:
-        HTML: Rendered both.html template showing dual-pane view
+        HTML: Rendered both.html template
     """
-    return render_template("both.html")
+    qs = request.query_string.decode("utf-8", "replace")
+    return render_template("both.html", qs=f"?{qs}" if qs else "")
 
 
 @views_bp.route('/map')

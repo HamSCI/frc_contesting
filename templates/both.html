@@ -11,9 +11,9 @@
   <nav class="dash-nav">
     <div class="dash-brand">HamSCI PSWS Dashboard<span class="dash-brand-sub">Contesting &amp; DXing</span></div>
     <div class="dash-tabs">
-      <button class="dash-tab-btn active" data-target="map-frame">Map</button>
-      <button class="dash-tab-btn" data-target="table-frame">Table</button>
-      <button class="dash-tab-btn" data-target="waterfall-frame">Waterfall</button>
+      <button class="dash-tab-btn active" data-target="map-frame" data-view="map">Map</button>
+      <button class="dash-tab-btn" data-target="table-frame" data-view="table">Table</button>
+      <button class="dash-tab-btn" data-target="waterfall-frame" data-view="waterfall">Waterfall</button>
     </div>
     <label class="dash-setting" for="bandLabels" title="How bands are labelled on every tab">Band labels
       <select id="bandLabels">
@@ -22,13 +22,15 @@
         <option value="wl">20 m</option>
       </select>
     </label>
+    <button id="copyLink" class="dash-link-btn" type="button" title="Copy a link to this exact view and settings">Copy link</button>
   </nav>
 
   <div class="dash-frames">
-    <iframe id="map-frame" class="dash-frame active" src="/map"></iframe>
-    <iframe id="table-frame" class="dash-frame" src="/table"></iframe>
-    <!-- Loaded on first click: it opens radiod spectrum channels while watched. -->
-    <iframe id="waterfall-frame" class="dash-frame" data-src="/waterfall"></iframe>
+    <!-- The page's query string (all view settings, #62) is passed to every frame. -->
+    <iframe id="map-frame" class="dash-frame active" data-view="map" src="/map{{ qs }}"></iframe>
+    <iframe id="table-frame" class="dash-frame" data-view="table" src="/table{{ qs }}"></iframe>
+    <!-- Loaded on first use: it opens radiod spectrum channels while watched. -->
+    <iframe id="waterfall-frame" class="dash-frame" data-view="waterfall" data-src="/waterfall{{ qs }}"></iframe>
   </div>
 
   <script src="js/config.js"></script>

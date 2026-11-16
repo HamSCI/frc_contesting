@@ -40,15 +40,36 @@ const state = {
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
+// Waterfall settings <-> URL params (#62): a shared link wins over this
+// session's saved prefs, which win over the defaults.
+const WF_PARAMS = {           // pref -> [param, toParam, fromParam]
+  auto:    ["auto", v => (v ? "1" : "0"), v => v !== "0"],
+  floor:   ["floor", String, Number],
+  range:   ["range", String, Number],
+  palette: ["pal", String, String],
+  layout:  ["layout", String, String],
+};
+const WF_DEFAULTS = { ...state.prefs };
+
 function loadPrefs() {
   try {
     const saved = JSON.parse(sessionStorage.getItem("wfPrefs") || "{}");
     Object.assign(state.prefs, saved);
   } catch (e) { /* storage unavailable: keep defaults */ }
+  for (const [pref, [name, , from]] of Object.entries(WF_PARAMS)) {
+    const v = ViewState.param(name);
+    if (v !== null && v !== "") state.prefs[pref] = from(v);
+  }
 }
 
 function savePrefs() {
   try { sessionStorage.setItem("wfPrefs", JSON.stringify(state.prefs)); } catch (e) { /* ignore */ }
+  const st = {}, defs = {};
+  for (const [pref, [name, to]] of Object.entries(WF_PARAMS)) {
+    st[name] = to(state.prefs[pref]);
+    defs[name] = to(WF_DEFAULTS[pref]);
+  }
+  ViewState.publish("waterfall", st, defs);
 }
 
 function hexToRgb(hex) {
@@ -435,6 +456,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadPrefs();
   paletteLut = buildPalette(state.prefs.palette);
   initControls();
+  savePrefs();          // report the restored settings to the dashboard URL
   if (typeof CONFIG.loadStation === "function") {
     await CONFIG.loadStation();
     if (CONFIG.station.callsign && CONFIG.station.callsign !== "Unknown") {

@@ -722,6 +722,22 @@ th, td {
   white-space: nowrap;
 }
 
+.dash-link-btn {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font: 12px var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dash-link-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-strong);
+}
+
 .dash-setting select {
   background: var(--bg-input);
   color: var(--text);

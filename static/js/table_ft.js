@@ -87,8 +87,7 @@ function setLastUpdated() {
   async function fetchSpots() {
     setStatus('checking', 'Checking…');
     const mins = Number(document.getElementById("lastInterval").value) || CONFIG.defaults.lastInterval;
-    sessionStorage.setItem("lastInterval", mins);
-    localStorage.setItem("lastInterval", mins);
+    persistTableState();
 
     try {
       const res = await fetch(`/tbspots?lastInterval=${mins}`);
@@ -121,7 +120,7 @@ function setLastUpdated() {
     // Mode pills come from CONFIG.modes plus any mode in the data (#67);
     // none checked means all modes.
     const pills = document.getElementById("modePills");
-    renderModePills(pills, [...new Set(recent.map(s => (s.mode || "").toLowerCase()))], renderTable);
+    renderModePills(pills, [...new Set(recent.map(s => (s.mode || "").toLowerCase()))], onTableFilterChange);
     const modes = selectedModes(pills);
 
     recent.forEach(s => {
@@ -144,10 +143,40 @@ function setLastUpdated() {
     buildTable(counts, bands, threshold);
   }
   
+  // Band columns: band= from a shared link first, then the Map's live
+  // selection (localStorage "bandSel", updated by the storage event).
+  let tableBandSel = null;
+  function initTableBands() {
+    let v = ViewState.param("band");
+    if (v === null) { try { v = localStorage.getItem("bandSel"); } catch (e) { v = null; } }
+    tableBandSel = bandSelFromParam(v);
+  }
   function tableBands() {
-    let sel = null;
-    try { sel = bandSelFromParam(localStorage.getItem("bandSel")); } catch (e) { /* storage unavailable */ }
-    return sel && sel.size ? CONFIG.sortBands([...sel]) : CONFIG.contestBands;
+    return tableBandSel && tableBandSel.size ? CONFIG.sortBands([...tableBandSel]) : CONFIG.contestBands;
+  }
+
+  // Table settings in the URL and this session (#61, #62).  last, modes and
+  // reload are shared with the Map.
+  const TABLE_DEFAULTS = { last: CONFIG.defaults.lastInterval, thr: CONFIG.defaults.threshold, reload: CONFIG.defaults.reload };
+  function persistTableState() {
+    const st = {
+      last: document.getElementById("lastInterval").value,
+      thr: document.getElementById("threshold").value,
+      modes: modesParam(document.getElementById("modePills")),
+      reload: document.getElementById("reloadInterval").value,
+      band: tableBandSel ? bandSelToParam(tableBandSel) : "",
+    };
+    try {
+      for (const [k, v] of Object.entries(st)) sessionStorage.setItem(`table.${k}`, v);
+      localStorage.setItem("lastInterval", st.last);
+      localStorage.setItem("reload", st.reload);
+    } catch (e) { /* storage unavailable */ }
+    ViewState.publish("table", st, TABLE_DEFAULTS, ["lastInterval"]);
+  }
+
+  function onTableFilterChange() {
+    persistTableState();
+    renderTable();
   }
 
   function buildTable(counts, bands, threshold) {
@@ -194,8 +223,7 @@ function setLastUpdated() {
   // lastInterval changes the server-side time window, so it needs a real
   // refetch. Every other filter is a pure client-side re-render of the cache.
   document.getElementById("lastInterval").addEventListener("change", fetchSpots);
-  document.getElementById("threshold").addEventListener("change", renderTable);
-  renderModePills(document.getElementById("modePills"), [], renderTable);
+  document.getElementById("threshold").addEventListener("change", onTableFilterChange);
 
   // ── Region settings modal ────────────────────────────────────────────────
   // Lets the operator regroup which CQ zones map to which named region
@@ -290,10 +318,19 @@ function setLastUpdated() {
 
   // Sync lastInterval from map iframe via localStorage storage event
   window.addEventListener("storage", (e) => {
-    if (e.key === "lastInterval" && e.newValue) {
+    const reloadSelect = document.getElementById("reloadInterval");
+    if (e.key === "lastInterval" && e.newValue && e.newValue !== document.getElementById("lastInterval").value) {
       document.getElementById("lastInterval").value = e.newValue;
       fetchSpots();
-    } else if (e.key === "bandLabels" || e.key === "bandSel") {
+    } else if (e.key === "reload" && e.newValue !== null && e.newValue !== reloadSelect.value) {
+      reloadSelect.value = e.newValue;        // one Auto Reload setting for Map and Table
+      setReloadInterval(Number(reloadSelect.value));
+      persistTableState();
+    } else if (e.key === "bandSel") {
+      tableBandSel = bandSelFromParam(e.newValue);
+      persistTableState();
+      renderTable();
+    } else if (e.key === "bandLabels") {
       renderTable();
     }
   });
@@ -302,24 +339,27 @@ function setLastUpdated() {
     await CONFIG.loadStation();
     call = CONFIG.station.callsign;
 
-    // Restore last interval from sessionStorage (shared with map view)
-    const savedMins = sessionStorage.getItem("lastInterval");
-    if (savedMins) document.getElementById("lastInterval").value = savedMins;
+    // Restore every setting (#61): URL first (a shared link wins, #62), then
+    // this session, then the defaults.  Auto Reload defaults to 5 min.
+    const get = (names, key, fallback) => ViewState.get(names, `table.${key}`, fallback);
+    document.getElementById("lastInterval").value = get(["last", "lastInterval"], "last", String(CONFIG.defaults.lastInterval));
+    document.getElementById("threshold").value = get("thr", "thr", String(CONFIG.defaults.threshold));
+    const pills = document.getElementById("modePills");
+    const modesSaved = get("modes", "modes", "");
+    renderModePills(pills, modesSaved ? modesSaved.split(",") : [], onTableFilterChange);
+    if (modesSaved) setSelectedModes(pills, modesSaved.split(","));
+    initTableBands();
 
-    fetchSpots()
     const reloadSelect = document.getElementById("reloadInterval");
+    const reload = get("reload", "reload", String(CONFIG.defaults.reload));
+    if ([...reloadSelect.options].some(o => o.value === reload)) reloadSelect.value = reload;
+    setReloadInterval(Number(reloadSelect.value));
 
-    // restore any saved setting
-    const savedInterval = sessionStorage.getItem("tableReloadInterval");
-    if (savedInterval) {
-    reloadSelect.value = savedInterval;
-    setReloadInterval(Number(savedInterval));
-    }
+    fetchSpots();
 
     reloadSelect.addEventListener("change", () => {
-    const seconds = Number(reloadSelect.value);
-    sessionStorage.setItem("tableReloadInterval", seconds);
-    setReloadInterval(seconds);
+      setReloadInterval(Number(reloadSelect.value));
+      persistTableState();
     });
   });
   

@@ -342,6 +342,13 @@ function selectedModes(container) {
   return on.length ? new Set(on) : null;
 }
 
+/** URL form of the mode selection: "" when all (or none) are checked. */
+function modesParam(container) {
+  const inputs = [...container.querySelectorAll("input[data-mode]")];
+  const on = inputs.filter(i => i.checked).map(i => i.dataset.mode);
+  return on.length && on.length < inputs.length ? on.join(",") : "";
+}
+
 /** Check exactly the given mode ids (unknown ids are ignored). */
 function setSelectedModes(container, ids) {
   const want = new Set(ids);

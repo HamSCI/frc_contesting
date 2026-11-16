@@ -8,7 +8,7 @@
  * - Real-time updates with configurable auto-reload intervals
  * - Canvas-drawn spot symbols: colour = band, shape = mode (spot_symbols.js)
  * - Geographic lookups using Turf.js point-in-polygon operations
- * - Session storage for filter persistence across page reloads
+ * - Every setting kept in the URL and session storage (viewstate.js)
  *
  * Author: Owen Ruzanski (KD3ALD)
  * Organization: University of Scranton (W3USR), Frankford Radio Club
@@ -472,69 +472,53 @@ function renderMapFilters() {
   }
 }
 
-// Persist filter state to sessionStorage/localStorage/the URL and sync the
-// CQ/ITU zone outline overlays. Runs on every filter change, whether or not
-// that filter needs a refetch. Top-level (not nested in DOMContentLoaded)
-// since it's called both from there and from spotCountControl's click handler.
+// Show/hide the CQ and ITU zone outline overlays to match their checkboxes.
+function syncZoneOverlays() {
+  const show = (on, ...layers) => layers.forEach(l => {
+    if (!l) return;
+    if (on) map.addLayer(l); else map.removeLayer(l);
+  });
+  show(document.getElementById("cqOutline").checked, cqZoneBordersLayer, cqZoneLabelsLayer);
+  show(document.getElementById("ituOutline").checked, ituZoneBordersLayer, ituZoneLabelsLayer);
+}
+
+// Map settings as URL params (#62).  Short, stable names; the legacy names
+// they replace are still read on load and dropped from the URL.
+const MAP_DEFAULTS = { last: CONFIG.defaults.lastInterval, reload: CONFIG.defaults.reload };
+const MAP_LEGACY = ["lastInterval", "continent", "cqzone", "ITUzone", "CQZoneOutline"];
+
+function mapState() {
+  const c = map.getCenter();
+  const moved = map.getZoom() !== CONFIG.map.initialZoom ||
+    Math.abs(c.lat - CONFIG.map.initialView[0]) > 0.5 || Math.abs(c.lng - CONFIG.map.initialView[1]) > 0.5;
+  return {
+    last: document.getElementById("lastInterval").value,
+    band: bandSelToParam(bandSel),
+    country: document.getElementById("countryFilter").value,
+    cont: document.getElementById("continentFilter").value,
+    cq: document.getElementById("cqZoneFilter").value,
+    itu: document.getElementById("ITUZoneFilter").value,
+    cqo: document.getElementById("cqOutline").checked ? "1" : "",
+    ituo: document.getElementById("ituOutline").checked ? "1" : "",
+    modes: modesParam(document.getElementById("modePills")),
+    reload: document.getElementById("reloadInterval").value,
+    at: moved ? `${c.lat.toFixed(2)},${c.lng.toFixed(2)},${map.getZoom()}` : "",
+  };
+}
+
+// Persist every setting (#61): this session, the URL and the dashboard's
+// top-level URL (#62), plus the settings the Table shares via localStorage.
+// Runs on every change, whether or not that change needs a refetch.
 function persistFilterState() {
-  const params = new URLSearchParams(window.location.search);
-
-  const minInterval = document.getElementById("lastInterval").value;
-  sessionStorage.setItem("lastInterval", minInterval);
-  localStorage.setItem("lastInterval", minInterval);
-  if (minInterval) params.set("lastInterval", minInterval); else params.delete("lastInterval");
-
-  const band = bandSelToParam(bandSel);
-  sessionStorage.setItem("bandSel", band);
-  try { localStorage.setItem("bandSel", band); } catch (e) { /* storage unavailable */ }
-  if (band) params.set("band", band); else params.delete("band");
-
-  const country = document.getElementById("countryFilter").value;
-  sessionStorage.setItem("country", country);
-  // Do NOT pass "nonUS" to the backend — client filters it
-  if (country && country !== "nonUS") {
-    params.set("country", country);
-  } else {
-    params.delete("country");
-  }
-
-  //CQ Zone outline
-  const cqOutlineCheckbox = document.getElementById("cqOutline");
-  if (cqOutlineCheckbox.checked) {
-    if (cqZoneBordersLayer) map.addLayer(cqZoneBordersLayer);
-    if (cqZoneLabelsLayer)  map.addLayer(cqZoneLabelsLayer);
-  } else {
-    if (cqZoneBordersLayer) map.removeLayer(cqZoneBordersLayer);
-    if (cqZoneLabelsLayer)  map.removeLayer(cqZoneLabelsLayer);
-  }
-  sessionStorage.setItem("CQZoneOutline", cqOutlineCheckbox.checked);
-  if (cqOutlineCheckbox.checked) params.set("CQZoneOutline", "true"); else params.delete("CQZoneOutline");
-
-  //ITU Zone outline
-  const ituOutlineCheckbox = document.getElementById("ituOutline");
-  if (ituOutlineCheckbox.checked) {
-    if (ituZoneBordersLayer) map.addLayer(ituZoneBordersLayer);
-    if (ituZoneLabelsLayer)  map.addLayer(ituZoneLabelsLayer);
-  } else {
-    if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
-    if (ituZoneLabelsLayer)  map.removeLayer(ituZoneLabelsLayer);
-  }
-  sessionStorage.setItem("ITUZoneOutline", ituOutlineCheckbox.checked);
-
-  const continent = document.getElementById("continentFilter").value;
-  sessionStorage.setItem("continent", continent);
-  if (continent) params.set("continent", continent); else params.delete("continent");
-
-  const cqZone = document.getElementById("cqZoneFilter").value;
-  sessionStorage.setItem("cqzone", cqZone);
-  if (cqZone) params.set("cqzone", cqZone); else params.delete("cqzone");
-
-  const ITUZone = document.getElementById("ITUZoneFilter").value;
-  sessionStorage.setItem("ITUzone", ITUZone);
-  if (ITUZone) params.set("ITUzone", ITUZone); else params.delete("ITUzone");
-
-  const newUrl = `${window.location.pathname}?${params.toString()}`;
-  window.history.replaceState(null, "", newUrl);
+  syncZoneOverlays();
+  const st = mapState();
+  try {
+    for (const [k, v] of Object.entries(st)) sessionStorage.setItem(`map.${k}`, v);
+    localStorage.setItem("lastInterval", st.last);
+    localStorage.setItem("bandSel", st.band);
+    localStorage.setItem("reload", st.reload);
+  } catch (e) { /* storage unavailable */ }
+  ViewState.publish("map", st, MAP_DEFAULTS, MAP_LEGACY);
 }
 
 // Every filter except lastInterval is a pure client-side re-render.
@@ -543,20 +527,24 @@ function onMapFilterChange() {
   renderMapFilters();
 }
 
-//reload interval
+// Auto reload (#61): refetch the spots, not the page, so every filter, the
+// zoom/pan and the loaded overlays survive, and the GeoJSON isn't reloaded.
 let reloadTimer = null;
 
 function setReloadInterval(seconds) {
   if (reloadTimer) {
     clearInterval(reloadTimer);
+    reloadTimer = null;
   }
   if (seconds > 0) {
-    reloadTimer = setInterval(() => {
-      window.location.reload();
-    }, seconds * 1000);
+    reloadTimer = setInterval(fetchSpots, seconds * 1000);
   }
 }
 
+// Set a <select>'s value only if it has that option.
+function setSelect(el, value) {
+  if (value !== null && value !== undefined && [...el.options].some(o => o.value === value)) el.value = value;
+}
 
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -578,39 +566,33 @@ window.addEventListener('DOMContentLoaded', async () => {
   const cqZoneSelect = document.getElementById("cqZoneFilter");
   const ITUZoneSelect = document.getElementById("ITUZoneFilter");
 
-  // Restore previous selections from sessionStorage (falling back to
-  // whatever's already in the URL query string)
-  const savedInterval = sessionStorage.getItem("reloadInterval");
-  const intervalSaved = sessionStorage.getItem("lastInterval") || getQueryParam("lastInterval");
-  const countrySaved = sessionStorage.getItem("country") || getQueryParam("country");
-  const continentSaved = sessionStorage.getItem("continent") || getQueryParam("continent");
-  const CQZoneSaved = sessionStorage.getItem("cqzone") || getQueryParam("cqzone");
-  const ITUZoneSaved = sessionStorage.getItem("ITUzone") || getQueryParam("ITUzone");
-  const bandParam = getQueryParam("band");
-  bandSel = bandSelFromParam(bandParam !== null ? bandParam : sessionStorage.getItem("bandSel"));
+  // Restore every setting (#61): URL first (a shared link wins, #62), then
+  // this session, then the defaults.
+  const get = (names, key, fallback) => ViewState.get(names, `map.${key}`, fallback);
+  intervalInput.value = get(["last", "lastInterval"], "last", String(CONFIG.defaults.lastInterval));
+  bandSel = bandSelFromParam(get("band", "band", ""));
+  setSelect(countrySelect, get("country", "country", ""));
+  setSelect(continentSelect, get(["cont", "continent"], "cont", ""));
+  setSelect(cqZoneSelect, get(["cq", "cqzone"], "cq", ""));
+  setSelect(ITUZoneSelect, get(["itu", "ITUzone"], "itu", ""));
+  const flag = v => v === "1" || v === "true";
+  document.getElementById("cqOutline").checked = flag(get(["cqo", "CQZoneOutline"], "cqo", ""));
+  document.getElementById("ituOutline").checked = flag(get("ituo", "ituo", ""));
+  const modesSaved = get("modes", "modes", "");
+  renderModePills(document.getElementById("modePills"), modesSaved ? modesSaved.split(",") : [], onMapFilterChange);
+  if (modesSaved) setSelectedModes(document.getElementById("modePills"), modesSaved.split(","));
+  setSelect(select, get("reload", "reload", String(CONFIG.defaults.reload)));
+  setReloadInterval(parseInt(select.value, 10));
+  const at = (get("at", "at", "") || "").split(",").map(Number);
+  if (at.length === 3 && at.every(Number.isFinite)) map.setView([at[0], at[1]], at[2]);
   renderBandChips();
-
-  if (savedInterval) {
-    select.value = savedInterval;
-    setReloadInterval(parseInt(savedInterval, 10));
-  }
-  intervalInput.value = intervalSaved || String(CONFIG.defaults.lastInterval);
-  if (countrySaved) countrySelect.value = countrySaved;
-  if (continentSaved) continentSelect.value = continentSaved;
-  if (CQZoneSaved) cqZoneSelect.value = CQZoneSaved;
-  if (ITUZoneSaved) ITUZoneSelect.value = ITUZoneSaved;
-
-  const ITUZoneOutlineSaved = sessionStorage.getItem("ITUZoneOutline");
-  if (ITUZoneOutlineSaved === "true") {
-    const cb = document.getElementById("ituOutline");
-    if (cb) cb.checked = true;
-  }
+  persistFilterState();
 
   select.addEventListener("change", () => {
-    const interval = parseInt(select.value, 10);
-    sessionStorage.setItem("reloadInterval", interval);
-    setReloadInterval(interval);
+    setReloadInterval(parseInt(select.value, 10));
+    persistFilterState();
   });
+  map.on("moveend", persistFilterState);
 
   // lastInterval changes the server-side time window, so it needs a real
   // refetch (Update forces the same full refresh). Every other filter is a
@@ -629,14 +611,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   ].forEach(id => {
     document.getElementById(id).addEventListener("change", onMapFilterChange);
   });
-  renderModePills(document.getElementById("modePills"), [], onMapFilterChange);
 
   // Sync lastInterval from table iframe via localStorage storage event, and
   // relabel bands when the dashboard's label style changes (#66).
   window.addEventListener("storage", (e) => {
-    if (e.key === "lastInterval" && e.newValue) {
+    if (e.key === "lastInterval" && e.newValue && e.newValue !== intervalInput.value) {
       intervalInput.value = e.newValue;
+      persistFilterState();
       fetchSpots();
+    } else if (e.key === "reload" && e.newValue !== null && e.newValue !== select.value) {
+      setSelect(select, e.newValue);          // one Auto Reload setting for Map and Table
+      setReloadInterval(parseInt(select.value, 10));
+      persistFilterState();
     } else if (e.key === "bandLabels") {
       renderMapFilters();
     }
