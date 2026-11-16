@@ -41,6 +41,7 @@ This documentation serves to:
 | October 8, 2026 | Claude Opus 5.5 | claude-opus-5-5 | sigmond modules: frc-spot-store (ka9q sink → MongoDB) + frc-dashboard, deployed on W3USR-06 | Owen Ruzanski |
 | October 19, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Waterfall tab: live contest-band waterfalls from radiod spectrum channels | Owen Ruzanski |
 | October 21, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen audio on the Waterfall tab | Owen Ruzanski |
+| November 15, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen deployed to W3USR-06; encoding/AGC/retune fixes | Owen Ruzanski |
 
 ### Current Model
 
@@ -706,7 +707,29 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 - `static/js/listen.js`: click-to-tune with auto mode (CW below the phone segment; LSB under 10 MHz, USB above; snaps to FT8/FT4/WSPR dials) and SSB click-to-dial offset. Playback uses a ScriptProcessor (AudioWorklet needs HTTPS), with resampling, a 0.4 s jitter buffer and auto-reconnect. A sticky listen bar offers mode, ±100 Hz/±1 kHz, volume and Stop; ←/→ and Esc work from the keyboard. A passband overlay is drawn on the waterfall.
 - Seven new unit tests (`tests/test_listen.py`); all 19 dashboard tests pass locally. JS syntax was checked with node.
 
-**To do on the station**: deploy; verify `ensure_channel`/preset names against the installed ka9q-python and radiod presets; measure radiod `filter_drops` with listeners open (expected negligible; these are ordinary audio channels); test audio end to end in a browser.
+**To do on the station**: deploy; verify `ensure_channel`/preset names against the installed ka9q-python and radiod presets; measure radiod `filter_drops` with listeners open (expected negligible; these are ordinary audio channels); test audio end to end in a browser. (Done in Session 16.)
+
+---
+
+### Session 16: Click-to-Listen Deployed to W3USR-06 and Fixed
+**Date**: November 15, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: Commit click-to-listen to `waterfall-displays`, deploy it to W3USR-06 over SSH, and test it against the live radiod.
+**Status**: Deployed and verified end to end through the dashboard HTTP API on W3USR-06; not yet listened to in a browser.
+
+**Activities**:
+- Committed Session 15 to `waterfall-displays` and rewrote the install steps in `sigmond/README.md` (prerequisites, clone that branch, Updating section).
+- W3USR-06's `/opt/git/sigmond/frc-contesting` is a file copy, not a git checkout. It matched `f35f818` apart from CRLF line endings. The changed files were copied over (backup: `/opt/git/sigmond/frc-pre-listen-backup-202611160353.tar`), and `frc-dashboard@default` was restarted.
+- ka9q-python 3.25.2 on the station has every API listen.py uses, and radiod has the `usb`/`lsb`/`cwu`/`am` presets (all mono, 12 kHz). Listener channels get their own `client_id` multicast group, which is part of the SSRC, so they can never collide with the decoders' channels.
+- The first live test found three bugs. Each was confirmed with a direct ka9q-python probe and a raw RTP capture:
+  1. **Full-scale noise.** `ensure_channel` sometimes returns `encoding=2` (S16) because radiod applies OUTPUT_ENCODING after creation, but the packets are F32 (960-byte payloads). `RadiodStream` decodes by that field, so it read float32 as int16: twice the samples, uniform noise, RMS 0.577. Fix: poll radiod until it reports the granted encoding and set `ch.encoding` from that.
+  2. **Near silence (about -120 dBFS).** `create_channel` always sends `GAIN` after `AGC_ENABLE`, and radiod turns AGC off on any gain command. Fix: `set_gain(80 dB)` and then `set_agc(True)` after creation.
+  3. **Retune kills audio, and the listener never expires.** After a `set_preset`, radiod stops delivering that channel. `set_frequency` works, even across bands. The audio reader also refreshed `last_seen` while it waited, so a dead stream kept its listener and radiod channel forever. Fix: a mode change swaps in a new channel (same sid and reader), and waiting no longer counts as activity.
+- End to end through `/api/listen/*`: 12k samples/s, audio within 0.12 s, -30 to -38 dBFS with no clipping on USB 14.074, after a frequency retune to 7.074, after a mode change to AM 10 MHz (WWV) and after one to CW 7.030. The third listener is refused (503), and an abandoned listener closes after 15 s. The logs are clean.
+- 22 dashboard tests (3 new) pass locally and on the station.
+
+**Still open**: listen in a real browser (Chrome/Firefox over plain HTTP); measure radiod `filter_drops` with 2 listeners open. Two listeners on the exact same frequency and mode share one SSRC, so the first to press Stop removes the other's channel.
 
 ---
 
@@ -727,6 +750,7 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 | 2.0 | October 8, 2026 | Added Session 13: sigmond modules (frc-spot-store, frc-dashboard) for ka9q-radio stations | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.1 | October 19, 2026 | Added Session 14: Waterfall tab (radiod spectrum channels) and radiod cost findings | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.2 | October 21, 2026 | Added Session 15: click-to-listen audio (built; station deployment pending) | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.3 | November 15, 2026 | Added Session 16: click-to-listen deployed to W3USR-06; encoding, AGC and retune fixes | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

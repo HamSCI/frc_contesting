@@ -1,6 +1,8 @@
 """ListenManager tests with a fake ka9q module (no radiod needed)."""
 
 import sys
+import threading
+import time
 import types
 
 import numpy as np
@@ -31,7 +33,17 @@ class FakeControl:
     def ensure_channel(self, **kw):
         self.calls.append(('ensure', kw))
         self.next_ssrc += 1
-        return types.SimpleNamespace(ssrc=self.next_ssrc)
+        # radiod applies the encoding after creation: the first report says S16
+        return types.SimpleNamespace(ssrc=self.next_ssrc, encoding=2)
+
+    def poll_channel(self, ssrc, **kw):
+        return types.SimpleNamespace(encoding=4)
+
+    def set_gain(self, ssrc, db):
+        self.calls.append(('gain', ssrc, db))
+
+    def set_agc(self, ssrc, enable):
+        self.calls.append(('agc', ssrc, enable))
 
     def set_frequency(self, ssrc, f):
         self.calls.append(('freq', ssrc, f))
@@ -73,13 +85,37 @@ def test_open_creates_usb_channel_with_lifetime(mgr):
     assert FakeStream.instances[0].kw['samples_per_packet'] == 240
 
 
-def test_tune_changes_frequency_and_mode(mgr):
-    _, r = mgr.open(7_150_000, 'lsb')
-    code, r2 = mgr.tune(r['sid'], 7_074_000, 'usb')
-    assert code == 200 and r2['mode'] == 'usb'
+def test_open_turns_agc_back_on_and_uses_granted_encoding(mgr):
+    _, r = mgr.open(14_074_000, 'usb')
     ssrc = mgr.listeners[r['sid']].ssrc
-    assert ('preset', ssrc, 'usb') in mgr.control.calls
+    kinds = [c[0] for c in mgr.control.calls]
+    assert kinds.index('gain') < kinds.index('agc')     # AGC last: GAIN turns it off
+    assert ('agc', ssrc, True) in mgr.control.calls
+    assert FakeStream.instances[0].channel.encoding == 4  # not the stale S16 report
+
+
+def test_tune_frequency_keeps_channel(mgr):
+    _, r = mgr.open(14_074_000, 'usb')
+    ssrc = mgr.listeners[r['sid']].ssrc
+    assert mgr.tune(r['sid'], 7_074_000, 'usb')[0] == 200
     assert ('freq', ssrc, 7_074_000) in mgr.control.calls
+    assert mgr.listeners[r['sid']].ssrc == ssrc and not mgr.control.removed
+
+
+def test_tune_mode_swaps_channel_and_keeps_reader(mgr):
+    _, r = mgr.open(7_150_000, 'lsb')
+    old = mgr.listeners[r['sid']].ssrc
+    gen = mgr.audio(r['sid'])
+    code, r2 = mgr.tune(r['sid'], 7_074_000, 'usb')
+    assert code == 200 and r2['mode'] == 'usb' and r2['sid'] == r['sid']
+    lst = mgr.listeners[r['sid']]
+    assert old in mgr.control.removed and lst.ssrc != old
+    assert not any(c[0] == 'preset' for c in mgr.control.calls)
+    kind, kw = [c for c in mgr.control.calls if c[0] == 'ensure'][-1]
+    assert kw['preset'] == 'usb' and kw['frequency_hz'] == 7_074_000
+    assert FakeStream.instances[0].stopped
+    FakeStream.instances[1].on_samples(np.zeros(4, dtype=np.float32))
+    assert len(next(gen)) == 8                          # same reader, new channel
 
 
 def test_cw_maps_to_radiod_cwu_preset(mgr):
@@ -110,6 +146,18 @@ def test_idle_listener_expires(mgr):
     mgr.listeners[r['sid']].last_seen -= 16
     mgr.tick()
     assert r['sid'] not in mgr.listeners and mgr.control.removed
+
+
+def test_waiting_reader_does_not_keep_listener_alive(mgr):
+    _, r = mgr.open(14e6, 'usb')
+    gen = mgr.audio(r['sid'])
+    t = threading.Thread(target=lambda: list(gen))      # blocks: radiod sends nothing
+    t.start()
+    mgr.listeners[r['sid']].last_seen -= 16
+    time.sleep(1.2)                                     # reader wakes at least once
+    mgr.tick()
+    t.join(3)
+    assert r['sid'] not in mgr.listeners and not t.is_alive()
 
 
 def test_audio_is_s16le_and_new_reader_replaces_old(mgr):

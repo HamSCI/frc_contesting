@@ -221,6 +221,11 @@ Clicking a waterfall plays that frequency in the browser.
 * **Path.** Each listener gets one radiod audio channel through ka9q-python
   `ensure_channel` (preset `usb`/`lsb`/`cwu`/`am`, 12 kHz, AGC on). This is the
   same kind of channel the WSPR/FT8 recorders run, not a spectrum channel.
+  A frequency change retunes the channel in place. A mode change replaces it,
+  because radiod stops delivering a channel's audio after a preset change.
+  `ensure_channel` sends a gain, which turns AGC off in radiod, so the
+  supervisor turns AGC back on. It also reads the output encoding back from
+  radiod rather than trusting `ensure_channel`'s first report.
   `RadiodStream` receives it in the supervisor, which streams s16le PCM over
   the control socket (`/x/frc-dashboard/listen/audio`). Flask relays that at
   `/api/listen/audio`, and the browser resamples it with a ScriptProcessor,

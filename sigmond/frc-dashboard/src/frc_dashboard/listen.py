@@ -10,8 +10,8 @@ waterfall's spectrum channels.  Audio flows:
     control socket /x/frc-dashboard/listen/audio --> Flask relay --> browser
 
 Channels are capped at ``max_listeners`` and are removed when the browser
-stops listening, disconnects (``idle_timeout_sec`` without an audio reader
-or keepalive), or the supervisor shuts down.  Where radiod supports it, each
+stops listening, disconnects (``idle_timeout_sec`` without audio sent or a
+keepalive), or the supervisor shuts down.  Where radiod supports it, each
 channel also carries a LIFETIME that this manager keeps refreshing, so a
 crashed supervisor's channels self-destruct instead of leaking.
 """
@@ -30,6 +30,7 @@ log = logging.getLogger('frc-dashboard.listen')
 SAMPLE_RATE = 12_000
 BLOCK_SEC = 0.02                 # radiod frame: 240 samples at 12 kHz
 LIFETIME_FRAMES = 1500           # 30 s of radiod frames; refreshed every 10 s
+START_GAIN_DB = 80.0             # initial gain before AGC takes over (0 dB is ~-120 dBFS)
 MODES = {'usb': 'usb', 'lsb': 'lsb', 'cw': 'cwu', 'am': 'am'}
 MAX_BUFFER_SEC = 2.0             # drop oldest audio beyond this (slow client)
 FREQ_MIN, FREQ_MAX = 100_000, 60_000_000
@@ -119,12 +120,38 @@ class ListenManager:
         except TypeError:                                   # older ka9q-python: no lifetime
             ch = ctl.ensure_channel(**kwargs)
         lst.channel, lst.ssrc = ch, ch.ssrc
+        # ensure_channel always sends GAIN, and radiod turns AGC off on any GAIN
+        # command, leaving the audio at 0 dB (about -120 dBFS on W3USR-06).
+        # Start near listening level, then hand over to AGC.
+        ctl.set_gain(ch.ssrc, START_GAIN_DB)
+        ctl.set_agc(ch.ssrc, True)
+        ch.encoding = self._granted_encoding(ctl, ch, Encoding.F32LE)
         lst.stream = RadiodStream(channel=ch, on_samples=self._on_samples(lst),
                                   samples_per_packet=int(SAMPLE_RATE * BLOCK_SEC),
                                   deliver_interval_packets=5)
         lst.stream.start()
 
-    def _destroy(self, lst: Listener) -> None:
+    @staticmethod
+    def _granted_encoding(ctl, ch, wanted: int) -> int:
+        """The encoding radiod actually sends.  radiod applies OUTPUT_ENCODING
+        after creating the channel, so the ChannelInfo from ensure_channel can
+        still say S16 while the packets are F32.  RadiodStream decodes by that
+        field, and a wrong one turns the audio into full-scale noise."""
+        enc = getattr(ch, 'encoding', None)
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            try:
+                enc = getattr(ctl.poll_channel(ch.ssrc, timeout=0.5), 'encoding', enc)
+            except Exception as e:
+                log.debug('poll_channel %s: %s', ch.ssrc, e)
+            if enc == wanted:
+                break
+            time.sleep(0.1)
+        if enc != wanted:
+            log.warning('ssrc %s: radiod sends encoding %s, not %s', ch.ssrc, enc, wanted)
+        return enc
+
+    def _release_channel(self, lst: Listener) -> None:
         if lst.stream is not None:
             try:
                 lst.stream.stop()
@@ -136,6 +163,10 @@ class ListenManager:
                 self.control.remove_channel(lst.ssrc)
             except Exception as e:
                 log.warning('remove_channel %s: %s', lst.ssrc, e)
+        lst.channel = lst.ssrc = None
+
+    def _destroy(self, lst: Listener) -> None:
+        self._release_channel(lst)
         with lst.cond:
             lst.reader += 1                                 # end any streaming reader
             lst.cond.notify_all()
@@ -178,12 +209,20 @@ class ListenManager:
         except ValueError as e:
             return 400, {'error': str(e)}
         try:
-            ctl = self._ctl()
             if m != lst.mode:
-                ctl.set_preset(lst.ssrc, MODES[m])
-            if f != lst.freq_hz:
-                ctl.set_frequency(lst.ssrc, f)
+                # radiod stops delivering a channel's audio after a PRESET
+                # command, so a mode change swaps in a new channel.  The
+                # listener (sid, audio reader) stays the same.
+                self._release_channel(lst)
+                lst.freq_hz, lst.mode = f, m
+                self._create_channel(lst)
+            elif f != lst.freq_hz:
+                self._ctl().set_frequency(lst.ssrc, f)
         except Exception as e:
+            if lst.ssrc is None:                            # lost its channel: end it
+                with self.lock:
+                    self.listeners.pop(lst.sid, None)
+                self._destroy(lst)
             return 503, {'error': f'retune failed: {type(e).__name__}: {e}'}
         lst.freq_hz, lst.mode, lst.last_seen = f, m, time.time()
         return 200, lst.public()
@@ -217,9 +256,10 @@ class ListenManager:
         def gen():
             while True:
                 with lst.cond:
+                    # Waiting does not count as activity: if radiod stops
+                    # sending, the listener idles out and this reader ends.
                     while not lst.chunks and lst.reader == me:
                         lst.cond.wait(1.0)
-                        lst.last_seen = time.time()
                     if lst.reader != me:
                         return
                     out = b''.join(lst.chunks)
