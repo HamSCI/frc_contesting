@@ -44,7 +44,8 @@ This documentation serves to:
 | November 15, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen deployed to W3USR-06; encoding/AGC/retune fixes | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Project board backlog #59–#74 (branch dashboard-backlog), overnight | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live CW/RTTY decoding in the listen bar (branch cw-rtty-decoder) | Owen Ruzanski |
-| November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live FT8/FT4 decoding in the listen bar (branch ft8-decoder) | Owen Ruzanski |
+| November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live FT8/FT4 decoding in the listen bar (branch browser-ft8-ft4-decoding) | Owen Ruzanski |
+| November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Issue #76: waterfall band-plan/marker/axis alignment (branch fix-76-waterfall-alignment) | Owen Ruzanski |
 
 ### Current Model
 
@@ -806,7 +807,7 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 
 ---
 
-### Session 19: Live FT8 and FT4 Decoding in the Listen Bar (branch `ft8-decoder`)
+### Session 19: Live FT8 and FT4 Decoding in the Listen Bar (branch `browser-ft8-ft4-decoding`)
 **Date**: November 16, 2026
 **Model**: Claude Opus 5.5 (claude-opus-5-5)
 **Contributor**: Owen Ruzanski (KD3ALD)
@@ -850,6 +851,21 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 
 ---
 
+### Session 20: Issue #76, Frequency Strips Wider Than the Waterfall (branch `fix-76-waterfall-alignment`)
+**Date**: November 16, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: The fix for #76, which was filed after FT8/FT4 decoding (Session 19) went to production. Branch off `browser-ft8-ft4-decoding`.
+
+**Activities**:
+- **Bands tab.** The CW/DIGI/PHONE strip and the frequency axis spanned the whole card, but the mini-waterfall canvas was 38 px narrower to leave room for its time ticks. Segments, DIGI ticks and the upper-frequency label drifted right, by more the further right they were.
+- **Waterfall tab.** The same fault, as the issue suspected: the FT8/FT4/WSPR dial markers and the axis were 58 px wider than the canvas (UTC time axis). The 20 m FT8 marker was 12 px right of 14.074 MHz. Click-to-tune, hover and the passband overlay use the canvas's own box and were never affected.
+- **Fix.** `.bv-wf` and `.wf-body` are now two-column grids. Everything on a frequency scale (strip or markers, canvas, axis, the Bands "no data" message) is in column 1, and the time ticks are in column 2, so the widths match by construction.
+- **Verified** in headless Chrome on a dev copy (frc-dev, 127.0.0.1:5001) at 1500 px and 820 px, all six bands on both tabs:
+  - the strip, marker and axis edges equal the canvas edges;
+  - the upper label ends at the canvas edge;
+  - the FT8 marker is within 0.1 px of its frequency (production before the fix: 12.2 px).
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -870,7 +886,8 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 | 2.3 | November 15, 2026 | Added Session 16: click-to-listen deployed to W3USR-06; encoding, AGC and retune fixes | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.4 | November 16, 2026 | Added Session 17: issues #59–#74 on branch dashboard-backlog | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.5 | November 16, 2026 | Added Session 18: live CW/RTTY decoding (branch cw-rtty-decoder) | Claude Opus 5.5 (claude-opus-5-5) |
-| 2.6 | November 16, 2026 | Added Session 19: live FT8/FT4 decoding (branch ft8-decoder) | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.6 | November 16, 2026 | Added Session 19: live FT8/FT4 decoding (branch browser-ft8-ft4-decoding) | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.7 | November 16, 2026 | Added Session 20: issue #76 waterfall alignment fix | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

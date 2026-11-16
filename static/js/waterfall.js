@@ -254,16 +254,18 @@ function buildBand(meta) {
         <span class="wf-scale-lo"></span><canvas width="64" height="8"></canvas><span class="wf-scale-hi"></span>
       </span>
     </header>
-    <div class="wf-markers" data-role="markers"></div>
     <div class="wf-body">
+      <!-- Grid: dial markers, canvas and frequency axis share column 1; the
+           UTC time axis has column 2, so all frequency scales line up (#76). -->
+      <div class="wf-markers" data-role="markers"></div>
       <div class="wf-canvas-wrap">
         <canvas class="wf-canvas" width="${meta.bins}" height="${WF.ROWS}"></canvas>
         <div class="wf-listen" data-role="listen" hidden><span class="wf-listen-dial"></span></div>
         <div class="wf-tip" data-role="tip" hidden></div>
       </div>
       <div class="wf-taxis" data-role="taxis" title="Time (UTC), newest at the top"></div>
-    </div>
-    <div class="wf-axis" data-role="axis"></div>`;
+      <div class="wf-axis" data-role="axis"></div>
+    </div>`;
   const canvas = card.querySelector(".wf-canvas");
   const band = {
     name: meta.name,

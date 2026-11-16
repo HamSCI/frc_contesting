@@ -149,11 +149,11 @@ function buildCard(band) {
     </div>
     <canvas class="bv-map" data-role="map" title="Centred on the station: direction = beam heading; distance from the centre grows with path length"></canvas>
     <div class="bv-wf">
+      <!-- Grid: the band plan, canvas, frequency axis and message share column 1;
+           the time ticks have column 2, so all frequency scales line up (#76). -->
       <div class="bv-plan" data-role="plan"></div>
-      <div class="bv-wf-body">
-        <canvas class="bv-wf-canvas" data-role="wf" height="${BV.WF_ROWS}"></canvas>
-        <div class="bv-wf-ticks"><span>now</span><span>−5 m</span><span>−10 m</span></div>
-      </div>
+      <canvas class="bv-wf-canvas" data-role="wf" height="${BV.WF_ROWS}"></canvas>
+      <div class="bv-wf-ticks"><span>now</span><span>−5 m</span><span>−10 m</span></div>
       <div class="bv-wf-axis" data-role="wfaxis"></div>
       <div class="bv-wf-msg" data-role="wfmsg" hidden></div>
     </div>

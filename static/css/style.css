@@ -636,11 +636,18 @@ th, td {
   margin: 0 auto;
 }
 
+/* Two columns: everything on a frequency scale (band plan, canvas, axis,
+   message) in column 1, the time ticks in column 2, so the plan strip and
+   the axis are exactly as wide as the canvas (#76). */
 .bv-wf {
-  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  column-gap: 4px;
 }
 
 .bv-plan {
+  grid-column: 1;
+  grid-row: 1;
   position: relative;
   height: 12px;
   background: #0d1119;
@@ -664,13 +671,10 @@ th, td {
 .bv-plan-seg.ph { background: #e6a157; }
 .bv-plan-seg.dg { background: #9fe07a; }
 
-.bv-wf-body {
-  display: flex;
-  gap: 4px;
-}
-
 .bv-wf-canvas {
-  flex: 1;
+  grid-column: 1;
+  grid-row: 2;
+  display: block;
   min-width: 0;
   height: 100px;
   width: 100%;
@@ -679,15 +683,18 @@ th, td {
 }
 
 .bv-wf-ticks {
+  grid-column: 2;
+  grid-row: 2;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   font: 9px var(--font-mono);
   color: var(--text-dim);
-  width: 34px;
 }
 
 .bv-wf-axis {
+  grid-column: 1;
+  grid-row: 3;
   display: flex;
   justify-content: space-between;
   font: 10px var(--font-mono);
@@ -695,8 +702,8 @@ th, td {
 }
 
 .bv-wf-msg {
-  position: absolute;
-  inset: 12px 38px 14px 0;
+  grid-column: 1;
+  grid-row: 2;                /* over the canvas only */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1365,25 +1372,31 @@ th, td {
 }
 
 .wf-markers {
+  grid-column: 1;
+  grid-row: 1;
   overflow: hidden;
 }
 
-/* canvas + UTC time axis side by side (#63) */
+/* Canvas + UTC time axis side by side (#63).  Dial markers, canvas and the
+   frequency axis share column 1, so the markers and axis are exactly as
+   wide as the canvas (#76); the time axis has column 2. */
 .wf-body {
-  display: flex;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px;
+  column-gap: 4px;
 }
 
 .wf-canvas-wrap {
+  grid-column: 1;
+  grid-row: 2;
   position: relative;
-  flex: 1;
   min-width: 0;
 }
 
 .wf-taxis {
+  grid-column: 2;
+  grid-row: 2;
   position: relative;
-  width: 54px;
-  flex: none;
 }
 
 .wf-ttick {
@@ -1543,6 +1556,8 @@ th, td {
 }
 
 .wf-axis {
+  grid-column: 1;
+  grid-row: 3;
   position: relative;
   height: 18px;
   margin-top: 2px;
