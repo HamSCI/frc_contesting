@@ -292,14 +292,16 @@ isn't listed gets a filter pill and a default shape automatically.
 The address bar always describes what is on screen, so a view can be bookmarked or shared. For example:
 
 ```
-/?view=table&last=60&thr=3&band=40m,20m
+/?view=table&last=60&thr=3&band=40m,20m&tmodes=ft8
 /?view=map&band=contest&cont=EU&cqo=1&modes=ft8,ft4&proj=merc
 /?view=waterfall&seg=ssb&span=30&wfb=20m,40m,80m
 /?view=bands&last=30&dist=t
 /?view=states&ssort=missing
 ```
 
-Settings equal to their defaults are left out. A link wins over the recipient's own saved settings. The
+Settings equal to their defaults are left out. A link wins over the recipient's own saved settings. `last`,
+`reload` and `band` are shared by all views; each view has its own mode filter (`modes` on the Map, `tmodes`,
+`smodes`, `bmodes` on Table, States and Bands), but a plain `modes=` in a link applies to every view. The
 **Copy link** button in the header copies the current URL.
 
 ---

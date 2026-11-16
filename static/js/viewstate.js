@@ -11,7 +11,9 @@
 //     the standalone /map, /table, /waterfall pages are linkable too) and the
 //     shell merges them into the top-level URL.
 // Params equal to their default are dropped to keep links short.  Settings
-// shared by several views (last, modes, reload) use the same name in each.
+// the views keep in sync (last, reload, band) use the same name in each;
+// per-view ones have their own (Map modes, Table tmodes/thr, States
+// smodes/sthr, Bands bmodes), and plain modes/thr from a link apply to all.
 
 const ViewState = {
   /** First present URL param among `names` (current name first, legacy after). */
