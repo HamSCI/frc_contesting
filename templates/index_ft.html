@@ -24,14 +24,6 @@
       <input id="lastInterval" type="number" value="15" min="1">
     </div>
 
-    <div class="field">
-      <label for="bandFilter">Band</label>
-      <select id="bandFilter">
-        <option value="">All Bands</option>
-        <option value="CBs">Contest Bands</option>
-        <!-- one option per band, highest frequency first: buildBandOptions() -->
-      </select>
-    </div>
 
     <div class="field">
       <label for="countryFilter">Country</label>
@@ -102,6 +94,12 @@
         <option value="900">Every 15 min</option>
         <option value="1800">Every 30 min</option>
       </select>
+    </div>
+
+    <!-- any combination of bands (#60): chips generated from CONFIG.bands -->
+    <div class="band-row">
+      <span class="band-row-label">Bands</span>
+      <div class="band-chips" id="bandChips" role="group" aria-label="Bands"></div>
     </div>
 
     <!-- one pill per mode, generated from CONFIG.modes (#67) -->

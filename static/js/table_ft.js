@@ -7,7 +7,7 @@
  *
  * Features:
  * - Regional grouping based on CQ zones
- * - Displays only the 6 contest bands, highest frequency first (10m ... 160m)
+ * - Columns: the Map's band selection, else the 6 contest bands; highest first
  * - Highlights active bands with green background when threshold is met
  * - Mode filtering (WSPR/FT8/FT4)
  * - Auto-reload capability with configurable intervals
@@ -113,9 +113,10 @@ function setLastUpdated() {
     // Filter time
     const recent = cachedSpots.filter(s => parseTableTime(s.time).getTime() >= cutoff);
 
-    // region → band → count
+    // region → band → count.  Columns follow the Map's band selection (#60)
+    // when one is made, otherwise the six contest bands.
     const counts = {};
-    const bands = CONFIG.contestBands;
+    const bands = tableBands();
 
     // Mode pills come from CONFIG.modes plus any mode in the data (#67);
     // none checked means all modes.
@@ -143,6 +144,12 @@ function setLastUpdated() {
     buildTable(counts, bands, threshold);
   }
   
+  function tableBands() {
+    let sel = null;
+    try { sel = bandSelFromParam(localStorage.getItem("bandSel")); } catch (e) { /* storage unavailable */ }
+    return sel && sel.size ? CONFIG.sortBands([...sel]) : CONFIG.contestBands;
+  }
+
   function buildTable(counts, bands, threshold) {
     let total = 0;
     for (const region of Object.keys(counts)) {
@@ -286,7 +293,7 @@ function setLastUpdated() {
     if (e.key === "lastInterval" && e.newValue) {
       document.getElementById("lastInterval").value = e.newValue;
       fetchSpots();
-    } else if (e.key === "bandLabels") {
+    } else if (e.key === "bandLabels" || e.key === "bandSel") {
       renderTable();
     }
   });

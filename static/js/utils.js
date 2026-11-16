@@ -348,3 +348,31 @@ function setSelectedModes(container, ids) {
   container.querySelectorAll("input[data-mode]").forEach(i => { i.checked = want.has(i.dataset.mode); });
 }
 
+
+// ── Band selection (#60) ──────────────────────────────────────────────────
+// null = all bands (no band filter); otherwise a Set of band ids, possibly
+// empty.  The URL/storage form is "" (all), "none", or "40m,20m"; the old
+// single-band values ("20m", and "CBs" for the contest bands) still parse.
+
+function bandSelToParam(sel) {
+  if (!sel) return "";
+  if (!sel.size) return "none";
+  return CONFIG.sortBands([...sel]).join(",");
+}
+
+function bandSelFromParam(value) {
+  if (!value) return null;
+  if (value === "CBs" || value === "contest") return new Set(CONFIG.contestBands);
+  if (value === "none") return new Set();
+  return new Set(value.split(",").map(v => v.trim()).filter(Boolean));
+}
+
+/** Human description of a selection, e.g. "Contest Bands" or "14 MHz, 7 MHz". */
+function describeBandSel(sel) {
+  if (!sel) return "All Bands";
+  if (!sel.size) return "no bands";
+  const ids = CONFIG.sortBands([...sel]);
+  if (ids.join() === CONFIG.contestBands.join()) return "Contest Bands";
+  return ids.map(id => CONFIG.bandLabel(id, { style: CONFIG.bandLabelStyle() === "wl" ? "wl" : "freq" })).join(", ");
+}
+

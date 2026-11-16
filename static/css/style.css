@@ -340,6 +340,91 @@ html {
   accent-color: var(--accent-strong);
 }
 
+/* Band chips (#60): any combination of bands, full-width row */
+.band-row {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.band-row-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.band-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.band-chip,
+.band-preset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-input);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: 500 12px var(--font-sans);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.band-chip .band-dot {
+  width: 10px;
+  height: 10px;
+  margin-right: 0;
+}
+
+.band-chip:not(.on) {
+  opacity: 0.55;
+}
+
+.band-chip:not(.on) .band-dot {
+  background: transparent !important;
+  border-color: var(--text-dim);
+}
+
+.band-chip.on {
+  color: var(--text);
+  border-color: #3a4560;
+}
+
+.band-chip.empty .band-count {
+  opacity: 0.5;
+}
+
+.band-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.band-preset {
+  border-style: dashed;
+}
+
+.band-preset.active {
+  color: var(--accent);
+  border-color: var(--accent-strong);
+  border-style: solid;
+}
+
+.band-chip:hover,
+.band-preset:hover {
+  border-color: var(--accent-strong);
+  color: var(--text);
+}
+
 .btn-primary {
   background: var(--accent-strong);
   color: var(--accent-contrast);

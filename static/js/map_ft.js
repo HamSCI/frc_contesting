@@ -123,16 +123,14 @@ spotCountControl.onAdd = function () {
   this._div = L.DomUtil.create('div', 'spot-counter');
   this.update({});
 
-  // Clicking a band's row instantly shows/hides that band's already-rendered
-  // markers (click the active band again to show All Bands) — no refetch.
+  // Clicking a band's row toggles it in the band selection (#60);
+  // Shift-click shows only that band.  No refetch.
   this._div.addEventListener('click', (e) => {
     const row = e.target.closest('.spot-count-row');
     if (!row) return;
-    const bandFilter = document.getElementById('bandFilter');
-    if (!bandFilter) return;
-    bandFilter.value = (bandFilter.value === row.dataset.band) ? '' : row.dataset.band;
-    persistFilterState();
-    renderMapFilters();
+    const band = row.dataset.band;
+    if (e.shiftKey) setBandSel(new Set([band]));
+    else toggleBand(band);
   });
 
   return this._div;
@@ -140,16 +138,17 @@ spotCountControl.onAdd = function () {
 
 // Band colours, order and labels all come from CONFIG.bands (#66).
 spotCountControl.update = function (bandCounts, modeCounts = {}) {
-  const selectedBand = document.getElementById('bandFilter')?.value || '';
-  const lines = CONFIG.sortBands(Object.keys(bandCounts))
+  // Only the selected bands are listed (#59): with Contest Bands selected the
+  // legend shows those six, not every band that has spots.
+  const lines = CONFIG.sortBands(Object.keys(bandCounts).filter(bandSelected))
     .map(band => {
-      const activeClass = band === selectedBand ? ' active' : '';
-      return `<div class="spot-count-row${activeClass}" data-band="${band}" title="${CONFIG.bandTitle(band)}">` +
+      return `<div class="spot-count-row" data-band="${band}" title="${CONFIG.bandTitle(band)} · click: hide · shift-click: only this band">` +
         `<span class="band-dot" style="background-color:${CONFIG.bandColor(band)}"></span>` +
         `<b>${CONFIG.bandLabel(band, { html: true })}</b>: ${bandCounts[band]}</div>`;
     });
   // Shape = mode (#67): one row per mode on the map, with its count.
-  const modes = Object.keys(modeCounts).map(id => CONFIG.mode(id));
+  const order = id => { const i = CONFIG.modes.findIndex(m => m.id === id); return i < 0 ? 99 : i; };
+  const modes = Object.keys(modeCounts).sort((a, b) => order(a) - order(b)).map(id => CONFIG.mode(id));
   const modeLines = modes.map(m =>
     `<div class="mode-legend-row" title="${m.about || m.label}">${spotShapeSvg(m.shape, '#cfd6e6', 12, '#0b0e14')}` +
     `<b>${m.label}</b>: ${modeCounts[m.id]}</div>`);
@@ -157,24 +156,63 @@ spotCountControl.update = function (bandCounts, modeCounts = {}) {
     (modeLines.length ? `<div class="legend-section"><b>Modes:</b>${modeLines.join('')}</div>` : '');
 };
 
-// Band dropdown options, highest frequency first, labelled per the viewer's
-// label style.  Rebuilt when the style changes (storage event).
-function buildBandOptions() {
-  const select = document.getElementById('bandFilter');
-  if (!select) return;
-  const value = select.value;
-  select.querySelectorAll('option[data-band]').forEach(o => o.remove());
-  CONFIG.bands.forEach(b => {
-    const opt = document.createElement('option');
-    opt.value = b.id;
-    opt.dataset.band = b.id;
-    opt.textContent = CONFIG.bandLabel(b.id);
-    opt.title = CONFIG.bandTitle(b.id);
-    select.appendChild(opt);
-  });
-  select.value = value;
+// ── Band selection (#60) ──────────────────────────────────────────────────
+// Any combination of bands: null = all bands, otherwise a Set of band ids.
+let bandSel = null;
+let lastBandCounts = {};      // per band, after every filter except band
+
+function bandSelected(id) {
+  return !bandSel || bandSel.has(id);
 }
-buildBandOptions();
+
+function setBandSel(sel) {
+  bandSel = sel;
+  onMapFilterChange();
+}
+
+function toggleBand(id) {
+  const next = new Set(bandSel || Object.keys(lastBandCounts).concat(CONFIG.hfBands));
+  if (next.has(id)) next.delete(id); else next.add(id);
+  setBandSel(next);
+}
+
+// One toggle chip per band, highest frequency first, in the band's colour
+// and with its spot count.  HF bands always; others only when they have spots
+// (or are selected).  Presets: All, Contest, Clear.
+function renderBandChips() {
+  const box = document.getElementById('bandChips');
+  if (!box) return;
+  const ids = CONFIG.sortBands([...new Set([
+    ...CONFIG.hfBands, ...Object.keys(lastBandCounts), ...(bandSel ? [...bandSel] : []),
+  ])]);
+  const contest = CONFIG.contestBands.join();
+  const selIds = bandSel ? CONFIG.sortBands([...bandSel]).join() : null;
+  const preset = (name, label, active, title) =>
+    `<button type="button" class="band-preset${active ? ' active' : ''}" data-preset="${name}" title="${title}">${label}</button>`;
+  box.innerHTML =
+    preset('all', 'All', !bandSel, 'Show every band') +
+    preset('contest', 'Contest', selIds === contest, 'Contest bands: 160/80/40/20/15/10 m') +
+    preset('none', 'Clear', !!bandSel && !bandSel.size, 'Deselect every band, then pick some') +
+    ids.map(id => {
+      const on = bandSelected(id);
+      const n = lastBandCounts[id] || 0;
+      return `<button type="button" class="band-chip${on ? ' on' : ''}${n ? '' : ' empty'}" data-band="${id}" ` +
+        `aria-pressed="${on}" title="${CONFIG.bandTitle(id)}: ${n} spot${n === 1 ? '' : 's'}">` +
+        `<span class="band-dot" style="background-color:${CONFIG.bandColor(id)}"></span>` +
+        `${CONFIG.bandLabel(id, { html: true })}<span class="band-count">${n}</span></button>`;
+    }).join('');
+}
+
+document.getElementById('bandChips').addEventListener('click', e => {
+  const preset = e.target.closest('[data-preset]');
+  if (preset) {
+    const p = preset.dataset.preset;
+    setBandSel(p === 'all' ? null : p === 'contest' ? new Set(CONFIG.contestBands) : new Set());
+    return;
+  }
+  const chip = e.target.closest('[data-band]');
+  if (chip) toggleBand(chip.dataset.band);
+});
 
 // Add the control to the map ONCE
 spotCountControl.addTo(map);
@@ -374,7 +412,6 @@ function updateReceiverMarker(latlng, count) {
 // Pure client-side re-filter of the cached spotRecords - adds/removes symbols
 // from the canvas spot layer and rebuilds the spot-count control.
 function renderMapFilters() {
-  const selectedBand = document.getElementById("bandFilter").value;
   const selectedCountry = document.getElementById("countryFilter").value;
   const selectedContinent = document.getElementById("continentFilter").value;
   const selectedCqZone = document.getElementById("cqZoneFilter").value;
@@ -410,11 +447,7 @@ function renderMapFilters() {
       bandCounts[rec.band] = (bandCounts[rec.band] || 0) + 1;
     }
 
-    const bandOk = selectedBand === "CBs"
-      ? CONFIG.contestBands.includes(rec.band)
-      : !selectedBand || rec.band === selectedBand;
-
-    const visible = otherFiltersOk && bandOk;
+    const visible = otherFiltersOk && bandSelected(rec.band);
 
     if (visible) {
       mapped++;
@@ -426,6 +459,8 @@ function renderMapFilters() {
     }
   });
 
+  lastBandCounts = bandCounts;
+  renderBandChips();
   spotCountControl.update(bandCounts, modeCounts);
   bandCountsOut = bandCounts;
 
@@ -433,8 +468,7 @@ function renderMapFilters() {
   if (spotInfo) {
     const countryName = selectedCountry || "all countries";
     const readableDate = `${document.getElementById("lastInterval").value || CONFIG.defaults.lastInterval} minutes`;
-    const bandName1 = selectedBand === "CBs" ? "Contest Bands" : (selectedBand ? CONFIG.bandLabel(selectedBand) : "All Bands");
-    spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${bandName1}`;
+    spotInfo.textContent = `Found ${mapped} spot${mapped !== 1 ? "s" : ""} from ${countryName} for last ${readableDate} on ${describeBandSel(bandSel)}`;
   }
 }
 
@@ -450,7 +484,9 @@ function persistFilterState() {
   localStorage.setItem("lastInterval", minInterval);
   if (minInterval) params.set("lastInterval", minInterval); else params.delete("lastInterval");
 
-  const band = document.getElementById("bandFilter").value;
+  const band = bandSelToParam(bandSel);
+  sessionStorage.setItem("bandSel", band);
+  try { localStorage.setItem("bandSel", band); } catch (e) { /* storage unavailable */ }
   if (band) params.set("band", band); else params.delete("band");
 
   const country = document.getElementById("countryFilter").value;
@@ -550,6 +586,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   const continentSaved = sessionStorage.getItem("continent") || getQueryParam("continent");
   const CQZoneSaved = sessionStorage.getItem("cqzone") || getQueryParam("cqzone");
   const ITUZoneSaved = sessionStorage.getItem("ITUzone") || getQueryParam("ITUzone");
+  const bandParam = getQueryParam("band");
+  bandSel = bandSelFromParam(bandParam !== null ? bandParam : sessionStorage.getItem("bandSel"));
+  renderBandChips();
 
   if (savedInterval) {
     select.value = savedInterval;
@@ -585,7 +624,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   intervalInput.addEventListener("change", onIntervalChange);
 
   [
-    "bandFilter", "countryFilter", "continentFilter", "cqZoneFilter", "ITUZoneFilter",
+    "countryFilter", "continentFilter", "cqZoneFilter", "ITUZoneFilter",
     "cqOutline", "ituOutline"
   ].forEach(id => {
     document.getElementById(id).addEventListener("change", onMapFilterChange);
@@ -599,7 +638,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       intervalInput.value = e.newValue;
       fetchSpots();
     } else if (e.key === "bandLabels") {
-      buildBandOptions();
       renderMapFilters();
     }
   });
