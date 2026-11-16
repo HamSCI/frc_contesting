@@ -670,6 +670,23 @@ th, td {
 .bv-plan-seg.cw { background: #6fa8dc; }
 .bv-plan-seg.ph { background: #e6a157; }
 .bv-plan-seg.dg { background: #9fe07a; }
+/* CW and PHONE share this stretch (160 m) */
+.bv-plan-seg.mix { background: repeating-linear-gradient(135deg, #6fa8dc 0 4px, #e6a157 4px 8px); }
+
+/* Segment names, placed by drawPlan() clear of the DIGI marks */
+.bv-plan-label {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  font-size: 8px;
+  line-height: 12px;
+  text-align: center;
+  color: #0b0e14;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+}
 
 .bv-wf-canvas {
   grid-column: 1;

@@ -362,19 +362,61 @@ function renderWaterfalls() {
   }
 }
 
-/** CW / DIGI / PHONE strip over the waterfall, from the band table's segments and dials. */
+/** [a, z] ranges (MHz) minus the ranges in `cut`. */
+function subtractRanges(ranges, cut) {
+  let out = ranges;
+  for (const [c0, c1] of cut) {
+    out = out.flatMap(([a, z]) => (c1 <= a || c0 >= z) ? [[a, z]]
+      : [[a, Math.min(z, c0)], [Math.max(a, c1), z]].filter(([x, y]) => y - x > 1e-9));
+  }
+  return out;
+}
+
+/**
+ * CW / PHONE / DIGI strip over the waterfall, from the band table's segments
+ * and dials.  Where CW and PHONE overlap (160 m) the strip shows both
+ * (striped "CW/PH").  The FT8/FT4/WSPR sub-bands sit inside the CW segment on
+ * several bands, so each label goes in the widest stretch of its segment
+ * that nothing covers, and is left out if it doesn't fit there.
+ */
 function drawPlan(card, band, lo, hi) {
   const b = CONFIG.band(band), span = hi - lo;
+  const widthPx = card.plan.clientWidth || 400;
   const pct = f => Math.max(0, Math.min(100, (f * 1e6 - lo) / span * 100));
+  const mhz = (r) => `${r[0].toFixed(3)}–${r[1].toFixed(3)} MHz`;
+  const cw = b.segments?.cw, ssb = b.segments?.ssb;
+  const both = cw && ssb && Math.max(cw[0], ssb[0]) < Math.min(cw[1], ssb[1])
+    ? [Math.max(cw[0], ssb[0]), Math.min(cw[1], ssb[1])] : null;
+  const pieces = [];                                  // {ranges, cls, name, short}
+  if (cw) pieces.push({ ranges: subtractRanges([cw], both ? [both] : []), cls: "cw", name: "CW", title: `CW ${mhz(cw)}` });
+  if (ssb) pieces.push({ ranges: subtractRanges([ssb], both ? [both] : []), cls: "ph", name: "PHONE", short: "PH", title: `PHONE ${mhz(ssb)}` });
+  if (both) pieces.push({ ranges: [both], cls: "mix", name: "CW/PH", title: `CW and PHONE ${mhz(both)}` });
+  const digi = Object.entries(b.dials || {}).map(([m, f]) => ({ m, f, r: [f - 0.0015, f + 0.0035] }));
+
   let html = "";
-  const seg = (name, r, cls) => {
-    if (!r) return;
-    const a = pct(r[0]), z = pct(r[1]);
-    if (z - a > 0.5) html += `<span class="bv-plan-seg ${cls}" style="left:${a}%;width:${z - a}%" title="${name} ${r[0].toFixed(3)}–${r[1].toFixed(3)} MHz">${z - a > 12 ? name : ""}</span>`;
-  };
-  seg("CW", b.segments?.cw, "cw");
-  seg("PHONE", b.segments?.ssb, "ph");
-  Object.entries(b.dials || {}).forEach(([m, f]) => seg("DIGI", [f - 0.0015, f + 0.0035], "dg"));
+  for (const p of pieces) {
+    for (const r of p.ranges) {
+      const a = pct(r[0]), z = pct(r[1]);
+      if (z - a > 0.2) html += `<span class="bv-plan-seg ${p.cls}" style="left:${a}%;width:${z - a}%" title="${p.title}"></span>`;
+    }
+  }
+  for (const d of digi) {
+    const a = pct(d.r[0]), z = pct(d.r[1]);
+    if (z > a) html += `<span class="bv-plan-seg dg" style="left:${a}%;width:${z - a}%" title="${d.m} ${d.f.toFixed(4)} MHz"></span>`;
+  }
+  // Labels: widest uncovered stretch of each piece, if the text fits (8 px bold mono-ish).
+  const textPx = s => s.length * 5.5 + 6;
+  for (const p of pieces) {
+    const free = subtractRanges(p.ranges, digi.map(d => d.r))
+      .map(([x, y]) => [Math.max(x * 1e6, lo), Math.min(y * 1e6, hi)]).filter(([x, y]) => y > x);
+    if (!free.length) continue;
+    const [x, y] = free.reduce((best, g) => (g[1] - g[0] > best[1] - best[0] ? g : best));
+    const px = (y - x) / span * widthPx;
+    const text = px >= textPx(p.name) ? p.name : (p.short && px >= textPx(p.short) ? p.short : null);
+    if (!text) continue;
+    const a = (x - lo) / span * 100, w = (y - x) / span * 100;
+    html += `<span class="bv-plan-label" style="left:${a}%;width:${w}%">${text}</span>`;
+  }
   card.plan.innerHTML = html;
   card.wfaxis.innerHTML = `<span>${(lo / 1e6).toFixed(3)}</span><span>${(hi / 1e6).toFixed(3)} MHz</span>`;
 }
