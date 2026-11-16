@@ -46,6 +46,7 @@ This documentation serves to:
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live CW/RTTY decoding in the listen bar (branch cw-rtty-decoder) | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live FT8/FT4 decoding in the listen bar (branch browser-ft8-ft4-decoding) | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Issue #76: waterfall band-plan/marker/axis alignment (branch fix-76-waterfall-alignment) | Owen Ruzanski |
+| November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | CW skimmer and Skimmer tab (branch cw-skimmer) | Owen Ruzanski |
 
 ### Current Model
 
@@ -866,6 +867,61 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
   - the upper label ends at the canvas edge;
   - the FT8 marker is within 0.1 px of its frequency (production before the fix: 12.2 px).
 
+### Session 21: CW Skimmer and the Skimmer Tab (branch `cw-skimmer`)
+**Date**: November 16, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: A CW skimmer on one band, chosen from a new Skimmer tab; spots in Reverse Beacon Network format, with upload possible but not done; modelled on VE3NEA's approach. The skimmer is not used on the map or table. Branch `cw-skimmer` off `fix-psws-chart-labels` (what is in production). Not deployed.
+
+**Research**:
+- CW Skimmer's own page says only "based on the methods of Bayesian statistics" (up to 700 signals).
+- AG1LE's blog quotes VE3NEA's advice: compute the probability that the signal is present instead of a hard decision at each sample, and pass probabilities "all the way to the word recognition unit".
+- Spot format: the DX-cluster "DX de CALL-#:" layout, which CW Skimmer's telnet server emits and the RBN Aggregator reads.
+
+**Engine** (`sigmond/frc-dashboard/src/frc_dashboard/cwskim.py`, numpy only):
+1. STFT filter bank: 16 ms Hann window zero-padded to 31.25 Hz bins, 4 ms hop. A 32 ms window first merged elements at 30+ WPM.
+2. Per-bin noise floor: 20th percentile over time, median across about 1 kHz.
+3. Peak detection. Key clicks within 156 Hz of a station at least 12 dB stronger are ignored.
+4. Per signal: derotation to its own frequency and coherent averaging over about a third of a dit. The noise scaling is exact from the window's overlap correlation.
+5. Rician-vs-Rayleigh per-frame LLR, weighted by the independent samples per frame from the noise correlation. An exponential "on" model first bridged short gaps.
+6. Fixed-lag two-state Viterbi, vectorised across all signals.
+7. The level is updated EM-style from key-down frames and snaps to the block's 90th percentile when a different station takes the frequency, as happens in a QSO.
+8. Element and gap posteriors from log-normal timing with D. L. Mills' priors. Speed comes from Otsu on mark lengths.
+9. A beam search over the Morse tree; hypotheses keep word gaps open until the word stage.
+10. Word priors (common CW words, callsign shapes, calls known to the station) choose the reading.
+11. A warm-up replay re-decodes the first ~4 s once a signal's speed is known.
+
+**Station side** (`skimmer.py`):
+- One radiod IQ channel (96 kHz, ±46 kHz; 180 complex samples = RTP timestamp step per packet) via ka9q-python, received in the supervisor, DSP in a spawned engine process. In-process DSP starved the receiver and lost ~8 % of the packets. Concurrent pipe writes from two threads corrupted the stream until locked.
+- The skimmer runs on demand like the waterfall (`idle_timeout_sec` 120) or `always_on`.
+- Known calls: MongoDB `distinct` on callsign/rx_callsign (~28,300 on W3USR-06) plus an optional SCP file.
+- Optional telnet spot feed (`telnet_port`, default 0) in the CW Skimmer/RBN layout.
+- Control endpoints `/x/frc-dashboard/skimmer[/band]`, config `[skimmer]`, help.toml and validate checks.
+- CLI: `python -m frc_dashboard.skimmer live|serve`.
+
+**Dashboard**: `routes/skimmer.py` (`/skimmer`, `/api/skimmer`, `/api/skimmer/band`), `templates/skimmer.html`, `static/js/skimmer.js`, `.sk-*` styles and a lazily loaded Skimmer tab. The tab shows:
+- a band selector (shared by everyone watching);
+- a panorama with masked sub-bands and call labels;
+- a signals table with decoded text;
+- spots, with confirmed/unconfirmed and an RBN-format view.
+
+**Measured on W3USR-06**:
+- 0 radiod `filter_drops` across 45 channels before, during and after the IQ channel.
+- 96.0 kS/s delivered, no overruns, engine about 12 % of a core.
+- The default range was narrowed to the bottom 70 kHz of each band, because digital modes above .050 on 40 m filled the slots with junk.
+- Live copy:
+  - Strong and machine-sent signals copy well: "VA3AR VA3AR VA3AR", "W5HVV W5HVV W5HVV W5HVV", "WA4PGM WA4PGM", "CQ ... DE KF9VV", "UR 5NN 5NN".
+  - Hand-sent rag-chew copies partly.
+  - Below about −6 dB in 2.5 kHz copy is mostly lost.
+- 15 new pytest tests: synthetic multi-signal IQ, two stations 120 Hz apart, a QSO with a 12 dB weaker partner, masks, noise-only, confirmation rules, RBN layout and the telnet feed. All 37 dashboard tests pass on the station venv.
+- Headless Chrome on a dev copy (dev Flask on :5001 plus a `skimmer serve` socket): the tab, live data and the band change to 40 m all work, with no JS errors, at 1500 px and 600 px.
+
+**Not done / next**:
+- Sensitivity below about −6 dB, which needs a duration-aware (semi-Markov) segmentation.
+- Busted calls on fast hand-sent CW.
+- An SCP file on the station.
+- Real RBN feeding: needs `always_on`, an SNR-scale check, and RBN's own registration and Aggregator setup.
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -888,6 +944,7 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 | 2.5 | November 16, 2026 | Added Session 18: live CW/RTTY decoding (branch cw-rtty-decoder) | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.6 | November 16, 2026 | Added Session 19: live FT8/FT4 decoding (branch browser-ft8-ft4-decoding) | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.7 | November 16, 2026 | Added Session 20: issue #76 waterfall alignment fix | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.8 | November 16, 2026 | Added Session 21: CW skimmer and Skimmer tab | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

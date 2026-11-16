@@ -58,6 +58,20 @@ DEFAULTS: dict = {
         'max_listeners': 2,         # also bounds gunicorn threads held by audio streams
         'idle_timeout_sec': 15,     # remove the channel this long after the browser goes away
     },
+    'skimmer': {
+        # CW skimmer for one band (Skimmer tab): one radiod IQ channel
+        # (96 kHz) over the bottom 70 kHz of the band, decoded in its own process.
+        'enabled': True,
+        'band': '20m',              # starting band; the tab can change it
+        'idle_timeout_sec': 120,    # remove the radiod channel after this long without a viewer
+        'always_on': False,         # run without viewers (needed for a spot feed)
+        'detect_db': 8.0,           # signal detection threshold over the noise, per ~94 Hz bin
+        'max_signals': 60,
+        'spotter': '',              # blank -> station callsign without /suffix (RBN style)
+        'scp_file': '',             # optional MASTER.SCP-style call list to confirm calls
+        'telnet_port': 0,           # >0: serve confirmed spots in RBN/CW Skimmer telnet format
+        'telnet_bind': '127.0.0.1',
+    },
 }
 
 

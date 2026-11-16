@@ -197,6 +197,16 @@ def cmd_validate(args) -> int:
         if not (w.get('radiod_status') or station_env('SIGMOND_RADIOD_STATUS')):
             issue('warn', 'waterfall enabled but no radiod status address (SIGMOND_RADIOD_STATUS)')
 
+    sk = cfg.get('skimmer', {})
+    if sk.get('enabled', True):
+        from .skimmer import BAND_PLAN
+        if str(sk.get('band', '20m')) not in BAND_PLAN:
+            issue('warn', f"skimmer.band {sk.get('band')!r} unknown; known: {list(BAND_PLAN)}")
+        if sk.get('scp_file') and not Path(str(sk['scp_file'])).is_file():
+            issue('warn', f"skimmer.scp_file {sk['scp_file']} not found")
+        if int(sk.get('telnet_port', 0) or 0) and str(sk.get('telnet_bind', '127.0.0.1')) not in ('127.0.0.1', 'localhost', '::1'):
+            issue('warn', 'skimmer spot feed listens beyond localhost (telnet_bind); anyone on the LAN can read it')
+
     live = control_get('/status')
     if live and live.get('state') not in ('running', 'starting'):
         issue('warn', f"daemon state {live.get('state')}: {live.get('pipeline', {}).get('last_error')}")

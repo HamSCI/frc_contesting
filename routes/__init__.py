@@ -3,6 +3,7 @@
 from routes.views import views_bp
 from routes.api import api_bp
 from routes.waterfall import waterfall_bp
+from routes.skimmer import skimmer_bp
 
 
 def register_blueprints(app):
@@ -10,3 +11,4 @@ def register_blueprints(app):
     app.register_blueprint(views_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(waterfall_bp)
+    app.register_blueprint(skimmer_bp)

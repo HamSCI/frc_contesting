@@ -30,3 +30,15 @@ history_rows = 1800
 enabled = true
 max_listeners = 2
 idle_timeout_sec = 15
+
+[skimmer]
+enabled = true
+band = "20m"
+idle_timeout_sec = 120
+always_on = false
+detect_db = 8.0
+max_signals = 60
+spotter = ""
+scp_file = ""
+telnet_port = 0
+telnet_bind = "127.0.0.1"

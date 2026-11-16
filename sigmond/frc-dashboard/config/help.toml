@@ -95,3 +95,57 @@ validator_hint = "1-4"
 [listen.idle_timeout_sec]
 title  = "Listener idle timeout (s)"
 hidden = true
+
+[skimmer.enabled]
+title = "Skimmer tab (CW skimmer)"
+help  = """Decodes every CW signal in one band's CW segment at once and spots
+callsigns that call CQ (the bottom 70 kHz of the band).  Uses one radiod IQ channel (96 kHz, an ordinary
+channel like the recorders'; 0 radiod drops measured on W3USR-06) and about
+12 % of one CPU core, only while someone has the Skimmer tab open unless
+always_on is set."""
+
+[skimmer.band]
+title   = "Starting band"
+help    = "One of 160m,80m,40m,20m,15m,10m.  The Skimmer tab can change it."
+example = "20m"
+
+[skimmer.idle_timeout_sec]
+title  = "Stop after (s) without a viewer"
+hidden = true
+
+[skimmer.always_on]
+title = "Run without viewers"
+help  = """Keep skimming when nobody has the tab open.  Needed if spots are to be
+fed to a logging program or the RBN Aggregator through telnet_port."""
+
+[skimmer.detect_db]
+title  = "Detection threshold (dB per ~94 Hz bin)"
+hidden = true
+
+[skimmer.max_signals]
+title  = "Most signals decoded at once"
+hidden = true
+
+[skimmer.spotter]
+title   = "Spotter callsign"
+help    = "Blank uses the station callsign without any /suffix, as RBN skimmers do (W3USR/06 -> W3USR)."
+example = "W3USR"
+
+[skimmer.scp_file]
+title   = "Callsign list (optional)"
+help    = """A MASTER.SCP-style file, one call per line.  Skimmed calls found in it
+(or heard on WSPR/FT8 by this station) are confirmed at once; others need
+two copies on the same frequency."""
+example = "/etc/frc-dashboard/MASTER.SCP"
+
+[skimmer.telnet_port]
+title   = "Spot feed telnet port (0 = off)"
+help    = """Serve confirmed spots as a DX-cluster telnet feed in the Reverse Beacon
+Network / CW Skimmer format.  This is the interface the RBN Aggregator
+reads; nothing is uploaded by the dashboard itself.  Leave 0 unless you
+mean to connect a logger or an Aggregator."""
+example = "7300"
+
+[skimmer.telnet_bind]
+title  = "Spot feed listen address"
+hidden = true

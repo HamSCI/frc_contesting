@@ -51,8 +51,10 @@ class Daemon:
         self._mongo = None
         from .waterfall import WaterfallManager
         from .listen import ListenManager
+        from .skimmer import SkimmerManager
         self.waterfall = WaterfallManager(cfg, station_env('SIGMOND_RADIOD_STATUS'))
         self.listen = ListenManager(cfg, station_env('SIGMOND_RADIOD_STATUS'))
+        self.skimmer = SkimmerManager(cfg, station_env('SIGMOND_RADIOD_STATUS'), station(cfg)[0], self.env)
 
     @property
     def port(self) -> int:
@@ -88,6 +90,7 @@ class Daemon:
                 'station': {'callsign': call, 'grid_square': grid},
                 'waterfall': self.waterfall.status(),
                 'listen': self.listen.status(),
+                'skimmer': self.skimmer.status(),
                 'app_root': str(self.root),
                 'pipeline': {
                     'last_success_age_s': None if self.last_probe is None else round(now - self.last_probe, 1),
@@ -189,6 +192,14 @@ class Daemon:
         snap = self.waterfall.snapshot(since, span)
         return (200 if snap.get('running') or snap.get('starting') else 503), snap
 
+    def _skimmer_request(self, query: dict) -> tuple[int, dict]:
+        try:
+            since = int(query.get('since', 0))
+        except ValueError:
+            since = 0
+        snap = self.skimmer.snapshot(since)
+        return (200 if snap.get('running') or snap.get('starting') else 503), snap
+
     def _extra_endpoints(self) -> dict:
         L = self.listen
         base = '/x/frc-dashboard/listen'
@@ -205,6 +216,8 @@ class Daemon:
             f'{base}/keepalive': lambda q: L.keepalive(q.get('sid')),
             f'{base}/close':     lambda q: L.close(q.get('sid')),
             f'{base}/audio':     audio,
+            '/x/frc-dashboard/skimmer':      self._skimmer_request,
+            '/x/frc-dashboard/skimmer/band': lambda q: self.skimmer.set_band(q.get('band', '')),
         }
 
     def _probe_loop(self) -> None:
@@ -249,10 +262,12 @@ class Daemon:
                 backoff = 5.0           # stayed up a while: reset restart backoff
             self.waterfall.tick()
             self.listen.tick()
+            self.skimmer.tick()
             self.stop.wait(1.0)
 
         self.waterfall.shutdown()       # remove our spectrum channels from radiod
         self.listen.shutdown()          # ...and any listening channels
+        self.skimmer.shutdown()         # ...and the skimmer's IQ channel and engine process
         log.info('stopping gunicorn')
         if self.child and self.child.poll() is None:
             self.child.terminate()

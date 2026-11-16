@@ -268,13 +268,72 @@ To turn it off: `[listen] enabled = false`, then `smd restart frc-dashboard`.
 To turn the tab off: `[waterfall] enabled = false` in
 `/etc/frc-dashboard/frc-dashboard-config.toml`, then `smd restart frc-dashboard`.
 
+## Skimmer tab (CW skimmer)
+
+Decodes every CW signal in the bottom 70 kHz of one band at once (the band
+is chosen on the tab), and spots callsigns that call CQ, in Reverse Beacon
+Network format. Spots appear only on this tab, not on the map or table.
+
+* **Path.** One radiod IQ channel (preset `iq`, 96 kHz, ±46 kHz) through
+  ka9q-python, received by a `RadiodStream` in the supervisor and passed over
+  a pipe to a separate engine process (`skimmer.py`, `cwskim.py`). In the
+  supervisor's own process the DSP starved the receive thread and the kernel
+  dropped about 8 % of the packets. IQ packets carry 180 complex samples
+  each, which is also the RTP timestamp step.
+* **radiod cost.** An ordinary channel like the recorders' channels, not a
+  spectrum channel. Measured on W3USR-06: 0 `filter_drops` summed over all
+  45 channels before, during and after. The engine takes about 12 % of one
+  core.
+* **Decoder.** After VE3NEA's advice on CW Skimmer's design (keep
+  probabilities, not hard decisions, all the way to the word stage):
+  1. An STFT filter bank: 16 ms Hann window, 31.25 Hz bins, 4 ms hop.
+  2. Per signal, a coherent average over about a third of a dit.
+  3. A key-down vs key-up likelihood ratio per frame (Rician vs Rayleigh) and
+     a two-state Viterbi.
+  4. Dit/dah and gap probabilities from log-normal timing models, with
+     D. L. Mills' priors.
+  5. A beam search over the Morse tree.
+  6. Word priors: common CW words, callsign shapes, and calls this station has
+     heard.
+
+  Details are in the `cwskim.py` docstring.
+* **Spots.** A call within three words after CQ / TEST / DE / TU (or just
+  before TEST) is a spot. It is *confirmed* when the call has been heard by
+  this station on WSPR/FT8/FT4 (MongoDB, about 28,000 calls on W3USR-06) or
+  is in `scp_file`, or when it was copied twice on that frequency.
+  Unconfirmed spots are shown greyed out and never go to the feed. A call is
+  spotted again only after 10 minutes, or 1 kHz away.
+* **RBN feed (off).** With `telnet_port` set, confirmed spots are served as a
+  DX-cluster telnet feed in the CW Skimmer / RBN layout:
+  `DX de W3USR-#:   14025.0  K1ABC        CW    23 dB  25 WPM  CQ      1928Z`.
+  This is the interface the RBN Aggregator reads. The dashboard uploads
+  nothing itself. Before feeding RBN:
+  * set `always_on = true`;
+  * check that the SNR scale suits RBN (ours is dB over the noise in a ~94 Hz
+    bin);
+  * leave `telnet_bind` on 127.0.0.1 unless the Aggregator runs elsewhere.
+* **What it does today** (W3USR-06, 16 Nov 2026, evening):
+  * Machine-sent and strong signals copy well, e.g. "VA3AR VA3AR VA3AR",
+    "W5HVV W5HVV W5HVV W5HVV", "CQ ... DE KF9VV", "UR 5NN 5NN".
+  * Hand-sent rag-chew copies partly.
+  * Signals below about −6 dB in 2.5 kHz (about 8 dB per bin) are mostly
+    lost.
+  * Synthetic tests: clean copy at 18–40 WPM down to about −5 dB, and two
+    stations 120 Hz apart both decoded.
+* **Try it without the dashboard:**
+  `cd .../sigmond/frc-dashboard/src && ../venv/bin/python -m frc_dashboard.skimmer live --band 40m --seconds 120`
+  prints spots, then each signal's text.
+
+To turn it off: `[skimmer] enabled = false`, then `smd restart frc-dashboard`.
+
 ## Files
 
 ```
 sigmond/
 ├── scripts/            setup-mongodb.sh, ensure-user.sh, cpu-affinity.sh (shared)
 ├── frc-spot-store/     deploy.toml, pyproject.toml, src/frc_spot_store/, systemd/, config/, tests/
-└── frc-dashboard/      deploy.toml, pyproject.toml, src/frc_dashboard/ (incl. waterfall.py), systemd/, config/, tests/
+└── frc-dashboard/      deploy.toml, pyproject.toml, src/frc_dashboard/ (incl. waterfall.py, listen.py,
+                        skimmer.py, cwskim.py), systemd/, config/, tests/
 ```
 
 Waterfall front end (repo root): `routes/waterfall.py`, `templates/waterfall.html`,
