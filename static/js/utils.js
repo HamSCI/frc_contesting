@@ -304,3 +304,47 @@ function getRegionsFromCQ(cqZone) {
 
   return matches.length ? matches : ["Unknown"];
 }
+
+
+// ── Mode pills (#67) ──────────────────────────────────────────────────────
+
+/**
+ * Add a checkbox pill for every mode in CONFIG.modes marked `pill`, plus any
+ * extra mode ids seen in the data, to `container`.  Safe to call again with
+ * new ids: existing pills (and their checked state) are kept.  A new pill
+ * starts checked so a newly seen mode is visible, not silently filtered.
+ *
+ * @param {HTMLElement} container - element that holds the pills
+ * @param {string[]} extraIds - mode ids present in the data
+ * @param {Function} onChange - called when a pill is toggled
+ */
+function renderModePills(container, extraIds = [], onChange = () => {}) {
+  if (!container) return;
+  const have = new Set([...container.querySelectorAll("input[data-mode]")].map(i => i.dataset.mode));
+  const ids = CONFIG.modes.filter(m => m.pill).map(m => m.id);
+  extraIds.forEach(id => { if (id && !ids.includes(id)) ids.push(id); });
+  for (const id of ids) {
+    if (have.has(id)) continue;
+    const m = CONFIG.mode(id);
+    const label = document.createElement("label");
+    label.className = "mode-pill";
+    label.title = m.about ? `${m.label}: ${m.about}` : m.label;
+    label.innerHTML = `<input type="checkbox" id="mode-${m.id}" data-mode="${m.id}" checked> ` +
+      `${typeof spotShapeSvg === "function" ? spotShapeSvg(m.shape, "#cfd6e6", 12, "#0b0e14") : ""} ${m.label}`;
+    label.querySelector("input").addEventListener("change", onChange);
+    container.appendChild(label);
+  }
+}
+
+/** Checked mode ids as a Set, or null when none are checked (= all modes). */
+function selectedModes(container) {
+  const on = [...container.querySelectorAll("input[data-mode]")].filter(i => i.checked).map(i => i.dataset.mode);
+  return on.length ? new Set(on) : null;
+}
+
+/** Check exactly the given mode ids (unknown ids are ignored). */
+function setSelectedModes(container, ids) {
+  const want = new Set(ids);
+  container.querySelectorAll("input[data-mode]").forEach(i => { i.checked = want.has(i.dataset.mode); });
+}
+

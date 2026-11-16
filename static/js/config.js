@@ -56,6 +56,20 @@ const CONFIG = {
   ],
   unknownBand: { id: "unknown", lo: 0, hi: 0, freq: "Other", wl: "Other", color: "#888888" },
 
+  // ── Modes (#67) ───────────────────────────────────────────────────────────
+  // Mode pills, filters, map symbol shapes and legends are generated from
+  // this table.  Colour on the map is the band; shape is the mode.  Modes in
+  // the data that aren't listed get a pill and the "other" shape automatically.
+  //   pill: always shown (even with no spots yet)
+  modes: [
+    { id: "wspr", label: "WSPR", shape: "circle",   pill: true, cycle_s: 120, about: "1-5 W beacons, 2-min cycle; very weak paths" },
+    { id: "ft8",  label: "FT8",  shape: "square",   pill: true, cycle_s: 15,  about: "operators, 15-s cycle" },
+    { id: "ft4",  label: "FT4",  shape: "triangle", pill: true, cycle_s: 7.5, about: "the contest digital mode, 7.5-s cycle" },
+    { id: "cw",   label: "CW",   shape: "diamond" },
+    { id: "rtty", label: "RTTY", shape: "pentagon" },
+  ],
+  otherModeShape: "star",
+
   // ── UI defaults ───────────────────────────────────────────────────────────
   defaults: {
     lastInterval: 15,   // minutes of spots to display on load
@@ -110,6 +124,13 @@ const CONFIG = {
     if (b === this.unknownBand) return "Outside the amateur bands";
     const f = v => (v < 1 ? `${(v * 1000).toFixed(1)} kHz` : `${v.toFixed(3)}`);
     return b.lo < 1 ? `${f(b.lo)}–${f(b.hi)} · ${b.wl}` : `${f(b.lo)}–${f(b.hi)} MHz · ${b.wl}`;
+  },
+
+  // Look up a mode by id ("ft8"); unknown modes get a generated entry.
+  mode(id) {
+    id = String(id || "").toLowerCase();
+    return this.modes.find(m => m.id === id) ||
+      { id, label: id ? id.toUpperCase() : "?", shape: this.otherModeShape };
   },
 
   // Helper: convert a frequency in MHz to a band id.

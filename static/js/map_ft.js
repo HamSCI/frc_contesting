@@ -139,7 +139,7 @@ spotCountControl.onAdd = function () {
 };
 
 // Band colours, order and labels all come from CONFIG.bands (#66).
-spotCountControl.update = function (bandCounts) {
+spotCountControl.update = function (bandCounts, modeCounts = {}) {
   const selectedBand = document.getElementById('bandFilter')?.value || '';
   const lines = CONFIG.sortBands(Object.keys(bandCounts))
     .map(band => {
@@ -148,7 +148,13 @@ spotCountControl.update = function (bandCounts) {
         `<span class="band-dot" style="background-color:${CONFIG.bandColor(band)}"></span>` +
         `<b>${CONFIG.bandLabel(band, { html: true })}</b>: ${bandCounts[band]}</div>`;
     });
-  this._div.innerHTML = `<b>Spots:</b><br>${lines.join('')}`;
+  // Shape = mode (#67): one row per mode on the map, with its count.
+  const modes = Object.keys(modeCounts).map(id => CONFIG.mode(id));
+  const modeLines = modes.map(m =>
+    `<div class="mode-legend-row" title="${m.about || m.label}">${spotShapeSvg(m.shape, '#cfd6e6', 12, '#0b0e14')}` +
+    `<b>${m.label}</b>: ${modeCounts[m.id]}</div>`);
+  this._div.innerHTML = `<b>Spots:</b><br>${lines.join('')}` +
+    (modeLines.length ? `<div class="legend-section"><b>Modes:</b>${modeLines.join('')}</div>` : '');
 };
 
 // Band dropdown options, highest frequency first, labelled per the viewer's
@@ -324,12 +330,15 @@ async function fetchSpots() {
         ...SPOT_STYLE,
         renderer: spotRenderer,
         fillColor: CONFIG.bandColor(band),
-        shape: 'circle',
+        shape: CONFIG.mode(mode).shape,     // colour = band, shape = mode (#67)
       });
       rec.marker.rec = rec;
       records.push(rec);
     });
     const t1 = performance.now();
+
+    // Any mode in the data without a pill gets one (#67).
+    renderModePills(document.getElementById('modePills'), [...new Set(records.map(r => r.mode))], onMapFilterChange);
 
     const oldLayer = spotLayer;
     spotRecords = records;
@@ -370,21 +379,14 @@ function renderMapFilters() {
   const selectedContinent = document.getElementById("continentFilter").value;
   const selectedCqZone = document.getElementById("cqZoneFilter").value;
   const selectedITUZone = document.getElementById("ITUZoneFilter").value;
-  const allowWSPR = document.getElementById("modeWSPR").checked;
-  const allowFT8  = document.getElementById("modeFT8").checked;
-  const allowFT4  = document.getElementById("modeFT4").checked;
-  const anyModeChecked = allowWSPR || allowFT8 || allowFT4;
+  const modes = selectedModes(document.getElementById("modePills"));   // null = all
 
   let bandCounts = {};
+  let modeCounts = {};
   let mapped = 0;
 
   spotRecords.forEach(rec => {
-    let modeOk = true;
-    if (anyModeChecked) {
-      if (rec.mode === "wspr" && !allowWSPR) modeOk = false;
-      else if (rec.mode === "ft8" && !allowFT8) modeOk = false;
-      else if (rec.mode === "ft4" && !allowFT4) modeOk = false;
-    }
+    const modeOk = !modes || modes.has(rec.mode);
 
     let countryOk = true;
     if (selectedCountry === "nonUS") {
@@ -414,14 +416,17 @@ function renderMapFilters() {
 
     const visible = otherFiltersOk && bandOk;
 
-    if (visible) mapped++;
+    if (visible) {
+      mapped++;
+      modeCounts[rec.mode] = (modeCounts[rec.mode] || 0) + 1;
+    }
     if (visible !== rec.shown) {
       if (visible) spotLayer.addLayer(rec.marker); else spotLayer.removeLayer(rec.marker);
       rec.shown = visible;
     }
   });
 
-  spotCountControl.update(bandCounts);
+  spotCountControl.update(bandCounts, modeCounts);
   bandCountsOut = bandCounts;
 
   const spotInfo = document.getElementById("spot-info");
@@ -494,6 +499,12 @@ function persistFilterState() {
 
   const newUrl = `${window.location.pathname}?${params.toString()}`;
   window.history.replaceState(null, "", newUrl);
+}
+
+// Every filter except lastInterval is a pure client-side re-render.
+function onMapFilterChange() {
+  persistFilterState();
+  renderMapFilters();
 }
 
 //reload interval
@@ -569,20 +580,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     persistFilterState();
     fetchSpots();
   }
-  function onInstantFilterChange() {
-    persistFilterState();
-    renderMapFilters();
-  }
 
   update.addEventListener("click", onIntervalChange);
   intervalInput.addEventListener("change", onIntervalChange);
 
   [
     "bandFilter", "countryFilter", "continentFilter", "cqZoneFilter", "ITUZoneFilter",
-    "cqOutline", "ituOutline", "modeWSPR", "modeFT8", "modeFT4"
+    "cqOutline", "ituOutline"
   ].forEach(id => {
-    document.getElementById(id).addEventListener("change", onInstantFilterChange);
+    document.getElementById(id).addEventListener("change", onMapFilterChange);
   });
+  renderModePills(document.getElementById("modePills"), [], onMapFilterChange);
 
   // Sync lastInterval from table iframe via localStorage storage event, and
   // relabel bands when the dashboard's label style changes (#66).

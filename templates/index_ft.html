@@ -104,11 +104,8 @@
       </select>
     </div>
 
-    <div class="mode-group">
-      <label class="mode-pill"><input type="checkbox" id="modeWSPR" checked> WSPR</label>
-      <label class="mode-pill"><input type="checkbox" id="modeFT8" checked> FT8</label>
-      <label class="mode-pill"><input type="checkbox" id="modeFT4" checked> FT4</label>
-    </div>
+    <!-- one pill per mode, generated from CONFIG.modes (#67) -->
+    <div class="mode-group" id="modePills"></div>
 
     <button id="updateButton" class="btn-primary">Update</button>
   </div>

@@ -144,7 +144,7 @@ html {
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
   font-family: var(--font-mono);
-  max-height: 220px;
+  max-height: min(60vh, 520px);
   overflow-y: auto;
   line-height: 1.5;
 }
@@ -172,6 +172,22 @@ html {
   border-radius: 50%;
   border: 1px solid #333;
   vertical-align: -1px;
+}
+
+/* Mode symbols (#67): shape = mode, in pills and the map legend */
+.spot-shape {
+  vertical-align: -1px;
+  flex: none;
+}
+
+.legend-section {
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.mode-legend-row .spot-shape {
+  margin-right: 6px;
 }
 
 /* Secondary band label (e.g. "20 m" after "14 MHz"), #66 */

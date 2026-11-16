@@ -1,5 +1,5 @@
 // spot_symbols.js — canvas-drawn spot symbols (#68, #67).
-// Must be loaded after leaflet.js.
+// Must be loaded after leaflet.js (the Leaflet part is skipped without it).
 //
 // Thousands of DOM marker pins made the map trail zoom/pan; these symbols are
 // drawn by Leaflet's canvas renderer instead.  Colour = band (CONFIG.bands),
@@ -28,6 +28,16 @@ function drawSpotShape(ctx, shape, x, y, r) {
       ctx.lineTo(x + h, y);
       ctx.lineTo(x, y + h);
       ctx.lineTo(x - h, y);
+      ctx.closePath();
+      break;
+    }
+    case "pentagon": {
+      const h = r * 1.15;
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+        if (i) ctx.lineTo(x + h * Math.cos(a), y + h * Math.sin(a));
+        else ctx.moveTo(x + h * Math.cos(a), y + h * Math.sin(a));
+      }
       ctx.closePath();
       break;
     }
@@ -67,6 +77,15 @@ function spotShapeSvg(shape, color, size = 12, stroke = "#222") {
       d = `<polygon points="${c},${c - h} ${c + h},${c} ${c},${c + h} ${c - h},${c}"/>`;
       break;
     }
+    case "pentagon": {
+      const h = r * 1.15, pts = [];
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+        pts.push(`${(c + h * Math.cos(a)).toFixed(2)},${(c + h * Math.sin(a)).toFixed(2)}`);
+      }
+      d = `<polygon points="${pts.join(" ")}"/>`;
+      break;
+    }
     case "star": {
       const outer = r * 1.3, inner = outer * 0.45, pts = [];
       for (let i = 0; i < 10; i++) {
@@ -85,21 +104,22 @@ function spotShapeSvg(shape, color, size = 12, stroke = "#222") {
 
 // Leaflet: a CircleMarker (same hit-testing, events and styling) whose path is
 // one of the shapes above.  Canvas renderer only; SVG falls back to a circle.
-L.Canvas.include({
-  _updateSpotShape(layer) {
-    if (!this._drawing || layer._empty()) return;
-    const p = layer._point, ctx = this._ctx;
-    const r = Math.max(Math.round(layer._radius), 1);
-    ctx.beginPath();
-    drawSpotShape(ctx, layer.options.shape, p.x, p.y, r);
-    this._fillStroke(ctx, layer);
-  },
-});
-L.SVG.include({
-  _updateSpotShape(layer) { this._updateCircle(layer); },
-});
-
-const SpotMarker = L.CircleMarker.extend({
-  options: { shape: "circle" },
-  _updatePath() { this._renderer._updateSpotShape(this); },
-});
+const SpotMarker = typeof L === "undefined" ? null : (() => {
+  L.Canvas.include({
+    _updateSpotShape(layer) {
+      if (!this._drawing || layer._empty()) return;
+      const p = layer._point, ctx = this._ctx;
+      const r = Math.max(Math.round(layer._radius), 1);
+      ctx.beginPath();
+      drawSpotShape(ctx, layer.options.shape, p.x, p.y, r);
+      this._fillStroke(ctx, layer);
+    },
+  });
+  L.SVG.include({
+    _updateSpotShape(layer) { this._updateCircle(layer); },
+  });
+  return L.CircleMarker.extend({
+    options: { shape: "circle" },
+    _updatePath() { this._renderer._updateSpotShape(this); },
+  });
+})();

@@ -117,22 +117,15 @@ function setLastUpdated() {
     const counts = {};
     const bands = CONFIG.contestBands;
 
-    const allowWSPR = document.getElementById("modeWSPR").checked;
-    const allowFT8  = document.getElementById("modeFT8").checked;
-    const allowFT4  = document.getElementById("modeFT4").checked;
+    // Mode pills come from CONFIG.modes plus any mode in the data (#67);
+    // none checked means all modes.
+    const pills = document.getElementById("modePills");
+    renderModePills(pills, [...new Set(recent.map(s => (s.mode || "").toLowerCase()))], renderTable);
+    const modes = selectedModes(pills);
 
     recent.forEach(s => {
-      // Normalize mode from backend (wspr / ft8 / ft4)
       const mode = (s.mode || "").toLowerCase();
-
-      // If none selected → treat as "all modes"
-      if (!allowWSPR && !allowFT8 && !allowFT4) {
-          // allow everything
-      } else {
-          if (mode === "wspr" && !allowWSPR) return;
-          if (mode === "ft8"  && !allowFT8)  return;
-          if (mode === "ft4"  && !allowFT4)  return;
-      }
+      if (modes && !modes.has(mode)) return;
 
       const band = s.band;  // ✔ using backend band directly
       if (!bands.includes(band)) return;
@@ -194,9 +187,8 @@ function setLastUpdated() {
   // lastInterval changes the server-side time window, so it needs a real
   // refetch. Every other filter is a pure client-side re-render of the cache.
   document.getElementById("lastInterval").addEventListener("change", fetchSpots);
-  ["threshold", "modeWSPR", "modeFT8", "modeFT4"].forEach(id => {
-    document.getElementById(id).addEventListener("change", renderTable);
-  });
+  document.getElementById("threshold").addEventListener("change", renderTable);
+  renderModePills(document.getElementById("modePills"), [], renderTable);
 
   // ── Region settings modal ────────────────────────────────────────────────
   // Lets the operator regroup which CQ zones map to which named region
