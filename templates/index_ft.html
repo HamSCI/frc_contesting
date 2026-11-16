@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
   <script src="js/turf.min.js"></script>
 </head>
-<body class="map-page">
+<body class="map-page" data-grid="{{ grid }}">
 
   <div class="panel-header">
     <h1 class="page-title" id="title">WSPR Spots From PSWS Receiver</h1>
@@ -84,6 +84,14 @@
       <label for="ituOutline">ITU Zone Outline</label>
     </div>
 
+    <div class="field" title="Great circle: centred on this station; direction = beam heading, distance = great-circle distance">
+      <label for="projection">Projection</label>
+      <select id="projection">
+        <option value="ae">Great circle</option>
+        <option value="merc">Mercator</option>
+      </select>
+    </div>
+
     <div class="check-field" title="Day/night terminator (gray line) with civil, nautical and astronomical twilight">
       <input type="checkbox" id="terminatorToggle" checked>
       <label for="terminatorToggle">Gray line</label>
@@ -122,6 +130,7 @@
   <script src="js/utils.js"></script>
   <script src="js/viewstate.js"></script>
   <script src="js/solar.js"></script>
+  <script src="js/aeqd.js"></script>
   <script src="js/spot_symbols.js"></script>
   <script src="js/map_ft.js"></script>
 

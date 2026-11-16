@@ -34,7 +34,7 @@
       }
 
       // Build the outline layer
-      cqZoneBordersLayer = L.geoJSON(cqZoneFeat, {
+      cqZoneBordersLayer = L.geoJSON(IS_AE ? AEQD.cutSeams(cqZoneFeat, map.options.crs) : cqZoneFeat, {
         style: {
           color: "black",
           weight: .5,
@@ -94,9 +94,25 @@ for (let i = 1; i <= 90; i++) {
   opt.textContent = i;
   select2.appendChild(opt);
 }
+// Projection (#71): a great-circle (azimuthal equidistant) map centred on
+// the station is the default; Mercator is the alternative.  The station grid
+// comes with the page so the map can be built right away.
+const STATION_LL = gridToLatLon(document.body.dataset.grid);
+const MAP_PROJ = ViewState.get("proj", "map.proj", "ae") === "merc" || !STATION_LL ? "merc" : "ae";
+const IS_AE = MAP_PROJ === "ae";
+
 // preferCanvas: the basemap, zone outlines and spot symbols are all drawn on
 // canvas, which keeps up with zoom/pan where thousands of DOM pins did not (#68).
-var map = L.map('map', { preferCanvas: true }).setView(CONFIG.map.initialView, CONFIG.map.initialZoom);
+var map = IS_AE
+  ? L.map('map', { preferCanvas: true, crs: AEQD.crs(STATION_LL[0], STATION_LL[1]), zoomSnap: 0.25 })
+  : L.map('map', { preferCanvas: true });
+document.getElementById('map').classList.toggle('aeqd', IS_AE);
+
+// Initial view: the whole disc for the great-circle map, the world otherwise.
+const INITIAL = IS_AE
+  ? { center: STATION_LL, zoom: Math.max(0, Math.floor(Math.log2(Math.min(map.getSize().x, map.getSize().y) * 0.9 / 256) * 4) / 4) }
+  : { center: CONFIG.map.initialView, zoom: CONFIG.map.initialZoom };
+map.setView(INITIAL.center, INITIAL.zoom);
 
 // Disable marker shadows globally (the receiver pin is the only DOM marker)
 L.Icon.Default.prototype.createShadow = function () { return null; };
@@ -232,9 +248,17 @@ async function loadBasemap() {
       fetch("vendor/basemap/ne_50m_admin_0_countries.json"),
       fetch("vendor/basemap/states-50m.json"),
     ]);
-    const [land, countries, states] = await Promise.all([
+    let [land, countries, states] = await Promise.all([
       landRes.json(), countriesRes.json(), statesRes.json()
     ]);
+    if (IS_AE) {
+      const crs = map.options.crs;
+      [land, countries, states] = [land, countries, states].map(g => AEQD.cutSeams(g, crs));
+      // Ocean disc out to the antipode; outside it is empty space.
+      L.polygon(AEQD.circle(STATION_LL, 20015, 360), {
+        pane: 'basemap', interactive: false, stroke: false, fillColor: '#a8d5e8', fillOpacity: 1,
+      }).addTo(map);
+    }
 
     L.geoJSON(land, {
       pane: 'basemap', interactive: false,
@@ -250,6 +274,8 @@ async function loadBasemap() {
       pane: 'basemap', interactive: false,
       style: { color: "#bbb", weight: 0.3, fill: false }
     }).addTo(map);
+
+    if (IS_AE) AEQD.graticule(STATION_LL, 'basemap').addTo(map);
   } catch (e) {
     console.error("Failed to load offline basemap", e);
   }
@@ -277,19 +303,23 @@ function drawTerminator() {
   if (!on) return;
   const now = new Date();
   const g = L.layerGroup();
+  const lineStyle = { pane: 'night', interactive: false, color: '#f5c542', weight: 1.2, opacity: 0.8, dashArray: '4 4' };
   for (const t of TWILIGHT) {
-    L.polygon(Solar.regionLatLngs(now, t.alt), {
+    L.polygon(IS_AE ? AEQD.solarRegion(STATION_LL, now, t.alt) : Solar.regionLatLngs(now, t.alt), {
       pane: 'night', interactive: false, stroke: false, fillColor: '#0a1030', fillOpacity: t.fill,
     }).addTo(g);
   }
   // the gray line itself (sun altitude 0)
-  Solar.regionLatLngs(now, 0).forEach(copy => {
-    L.polyline(copy.filter(p => Math.abs(p[0]) < 89.9), {
-      pane: 'night', interactive: false, color: '#f5c542', weight: 1.2, opacity: 0.8, dashArray: '4 4',
-    }).addTo(g);
-  });
+  if (IS_AE) {
+    const line = { type: "LineString", coordinates: Solar.ring(now, 0).pts.map(([la, lo]) => [lo, la]) };
+    L.geoJSON(AEQD.cutSeams(line, map.options.crs), { style: () => lineStyle, pane: 'night', interactive: false }).addTo(g);
+  } else {
+    Solar.regionLatLngs(now, 0).forEach(copy => {
+      L.polyline(copy.filter(p => Math.abs(p[0]) < 89.9), lineStyle).addTo(g);
+    });
+  }
   const sun = Solar.subsolar(now);
-  [-360, 0, 360].forEach(k => L.circleMarker([sun.lat, sun.lon + k], {
+  (IS_AE ? [0] : [-360, 0, 360]).forEach(k => L.circleMarker([sun.lat, sun.lon + k], {
     pane: 'night', radius: 6, color: '#b8860b', weight: 1.5, fillColor: '#ffd84d', fillOpacity: 1,
   }).bindTooltip(`Subsolar point ${sun.lat.toFixed(1)}°, ${sun.lon.toFixed(1)}° at ${now.toISOString().slice(11, 16)} UTC`).addTo(g));
   terminatorLayer = g.addTo(map);
@@ -319,7 +349,7 @@ async function renderITUZones() {
   if (ituZoneBordersLayer) map.removeLayer(ituZoneBordersLayer);
   if (ituZoneLabelsLayer)  map.removeLayer(ituZoneLabelsLayer);
 
-  ituZoneBordersLayer = L.geoJSON(ITUZoneFeat, {
+  ituZoneBordersLayer = L.geoJSON(IS_AE ? AEQD.cutSeams(ITUZoneFeat, map.options.crs) : ITUZoneFeat, {
     style: {
       color: "navy",
       weight: 0.5,
@@ -378,7 +408,17 @@ function spotPopupHtml(rec) {
     <b>Freq:</b> ${s.frequency} MHz<br>
     <b>Time:</b> ${parseWsprTime(s.time)}<br>
     <b>Band:</b> ${CONFIG.bandLabel(rec.band)}<br>
-    <b>Mode:</b> ${(s.mode || '').toUpperCase()}`;
+    <b>Mode:</b> ${(s.mode || '').toUpperCase()}${pathHtml(rec)}`;
+}
+
+// Beam heading and great-circle distance from the receiver (#71).
+function pathHtml(rec) {
+  const rx = Number.isFinite(rec.spot.rx_lat) ? [rec.spot.rx_lat, rec.spot.rx_lon] : STATION_LL;
+  if (!rx) return '';
+  const { bearing, km } = AEQD.bearingDistance(rx, [rec.spot.tx_lat, rec.spot.tx_lon]);
+  const lp = 40030 - km, lpb = (bearing + 180) % 360;
+  return `<br><b>Short path:</b> ${bearing.toFixed(0)}° · ${Math.round(km).toLocaleString()} km` +
+         `<br><b>Long path:</b> ${lpb.toFixed(0)}° · ${Math.round(lp).toLocaleString()} km`;
 }
 
 async function fetchSpots() {
@@ -531,13 +571,13 @@ function syncZoneOverlays() {
 
 // Map settings as URL params (#62).  Short, stable names; the legacy names
 // they replace are still read on load and dropped from the URL.
-const MAP_DEFAULTS = { last: CONFIG.defaults.lastInterval, reload: CONFIG.defaults.reload, term: "1" };
+const MAP_DEFAULTS = { last: CONFIG.defaults.lastInterval, reload: CONFIG.defaults.reload, term: "1", proj: "ae" };
 const MAP_LEGACY = ["lastInterval", "continent", "cqzone", "ITUzone", "CQZoneOutline"];
 
 function mapState() {
   const c = map.getCenter();
-  const moved = map.getZoom() !== CONFIG.map.initialZoom ||
-    Math.abs(c.lat - CONFIG.map.initialView[0]) > 0.5 || Math.abs(c.lng - CONFIG.map.initialView[1]) > 0.5;
+  const moved = Math.abs(map.getZoom() - INITIAL.zoom) > 0.01 ||
+    Math.abs(c.lat - INITIAL.center[0]) > 0.5 || Math.abs(c.lng - INITIAL.center[1]) > 0.5;
   return {
     last: document.getElementById("lastInterval").value,
     band: bandSelToParam(bandSel),
@@ -551,6 +591,7 @@ function mapState() {
     modes: modesParam(document.getElementById("modePills")),
     reload: document.getElementById("reloadInterval").value,
     at: moved ? `${c.lat.toFixed(2)},${c.lng.toFixed(2)},${map.getZoom()}` : "",
+    proj: document.getElementById("projection").value,
   };
 }
 
@@ -659,6 +700,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     "cqOutline", "ituOutline"
   ].forEach(id => {
     document.getElementById(id).addEventListener("change", onMapFilterChange);
+  });
+  // Changing projection rebuilds the map: reload with the new setting (every
+  // other setting is in the URL, so nothing is lost).
+  const projSelect = document.getElementById("projection");
+  projSelect.value = MAP_PROJ;
+  projSelect.disabled = !STATION_LL;
+  projSelect.addEventListener("change", () => {
+    persistFilterState();
+    try { sessionStorage.setItem("map.at", ""); } catch (e) { /* storage unavailable */ }
+    const p = new URLSearchParams(window.location.search);
+    p.delete("at");
+    window.location.search = p.toString();
   });
   document.getElementById("terminatorToggle").addEventListener("change", () => {
     drawTerminator();

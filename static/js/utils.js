@@ -265,6 +265,31 @@ function getQueryParam(name) {
 }
 
 
+// ── Maidenhead locator ────────────────────────────────────────────────────
+
+/**
+ * Centre of a 4- or 6-character Maidenhead grid square.
+ *
+ * @param {string} grid - e.g. "FN21" or "FN21ej"
+ * @returns {number[]|null} [lat, lon], or null if the locator is invalid
+ */
+function gridToLatLon(grid) {
+  const g = String(grid || "").trim();
+  if (!/^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$/.test(g)) return null;
+  const u = g.toUpperCase();
+  let lon = (u.charCodeAt(0) - 65) * 20 - 180 + Number(u[2]) * 2;
+  let lat = (u.charCodeAt(1) - 65) * 10 - 90 + Number(u[3]);
+  if (u.length === 6) {
+    lon += (u.charCodeAt(4) - 65) / 12 + 1 / 24;
+    lat += (u.charCodeAt(5) - 65) / 24 + 1 / 48;
+  } else {
+    lon += 1;
+    lat += 0.5;
+  }
+  return [lat, lon];
+}
+
+
 // ── Band / zone helpers ───────────────────────────────────────────────────
 
 /**

@@ -126,6 +126,26 @@ html {
   background-color: #a8d5e8; /* ocean blue for offline basemap */
 }
 
+/* Great-circle map (#71): outside the disc is empty space */
+#map.aeqd {
+  background-color: #0b0e14;
+}
+
+.aeqd-ring-label {
+  color: #3d4a63;
+  font: 10px var(--font-mono);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.aeqd-rim-label {
+  color: #cfd6e6;
+  font: 700 13px var(--font-sans);
+  text-align: center;
+  text-shadow: 0 0 3px #0b0e14;
+  pointer-events: none;
+}
+
 #spots {
   width: 45px;
 }

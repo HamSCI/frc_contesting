@@ -4,7 +4,7 @@ Page-rendering routes for the HamSCI Dashboard.
 Serves HTML templates for the map view, table view, and combined view.
 """
 
-from flask import Blueprint, render_template, request, Response
+from flask import Blueprint, current_app, render_template, request, Response
 
 views_bp = Blueprint('views', __name__)
 
@@ -38,10 +38,13 @@ def map_view():
     Displays TX-RX propagation paths with colored markers indicating band,
     filtering controls, and real-time spot updates.
 
+    The receiver grid is rendered into the page so the great-circle map
+    (#71) can be centred on the station before any request completes.
+
     Returns:
         HTML: Rendered index_ft.html template
     """
-    return render_template('index_ft.html')
+    return render_template('index_ft.html', grid=current_app.config.get('RECEIVER_GRIDSQUARE', ''))
 
 
 @views_bp.route('/table')
