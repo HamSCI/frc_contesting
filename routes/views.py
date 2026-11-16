@@ -56,3 +56,15 @@ def table():
         HTML: Rendered table_ft.html template
     """
     return render_template("table_ft.html")
+
+
+@views_bp.route('/states')
+def states():
+    """
+    States/provinces view (#69): spot counts per US state and Canadian
+    province and band, with the missing ones highlighted (ARRL Sweepstakes).
+
+    Returns:
+        HTML: Rendered states.html template
+    """
+    return render_template("states.html")

@@ -126,6 +126,11 @@ const CONFIG = {
     return html ? `${b.freq} <span class="band-sub">${b.wl}</span>` : `${b.freq} · ${b.wl}`;
   },
 
+  // One-part label for tight spaces: frequency, or meters if that's the style.
+  bandShort(id) {
+    return this.bandLabel(id, { style: this.bandLabelStyle() === "wl" ? "wl" : "freq" });
+  },
+
   // Full description for tooltips, e.g. "14.000–14.350 MHz · 20 m".
   bandTitle(id) {
     const b = this.band(id);

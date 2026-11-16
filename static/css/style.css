@@ -516,6 +516,82 @@ th, td {
   width: 100%;
 }
 
+/* States / provinces view (#69) */
+.states-summary {
+  margin: 0 24px 6px;
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.states-missing-label {
+  color: #ffb4b4;
+  font-weight: 600;
+}
+
+.state-chip {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid #6b2a2a;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.15);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.states-note {
+  margin: 0 24px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  max-width: 1100px;
+}
+
+.states-table {
+  max-width: 1100px;
+}
+
+.states-table .state-name-h,
+.states-table .state-name {
+  width: 220px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.states-table .area-row th {
+  text-align: left;
+  background: #4a3410;
+  color: #ffd699;
+}
+
+.area-meta {
+  font-weight: 400;
+  font-size: 12px;
+  color: #e8cfa0;
+  margin-left: 8px;
+}
+
+.states-table .state-missing td {
+  background: rgba(239, 68, 68, 0.09);
+}
+
+.states-table .state-missing .state-name {
+  color: #ffb4b4;
+}
+
+.states-table .state-total,
+.states-table .state-best {
+  width: 100px;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+
+.states-table .hint {
+  font-style: italic;
+  font-size: 12px;
+}
+
 
 /* -------------------------------------------------------------
    9. MODAL DIALOG — region settings (table_ft.html)

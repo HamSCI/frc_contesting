@@ -380,6 +380,6 @@ function describeBandSel(sel) {
   if (!sel.size) return "no bands";
   const ids = CONFIG.sortBands([...sel]);
   if (ids.join() === CONFIG.contestBands.join()) return "Contest Bands";
-  return ids.map(id => CONFIG.bandLabel(id, { style: CONFIG.bandLabelStyle() === "wl" ? "wl" : "freq" })).join(", ");
+  return ids.map(id => CONFIG.bandShort(id)).join(", ");
 }
 

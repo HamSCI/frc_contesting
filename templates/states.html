@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" class="table-page">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>States &amp; Provinces Heard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/turf.min.js"></script>
+</head>
+
+<body class="table-page">
+
+  <div class="panel-header">
+    <h1 class="page-title" id="title">States &amp; Provinces Heard</h1>
+    <div class="status-bar">
+      Connection Status:&nbsp;<span id="conn-status-dot" class="status-dot status-checking"></span><span id="conn-status-label">Checking...</span>
+      &nbsp;&nbsp;|&nbsp;&nbsp;<span id="last-updated">Last updated: —</span>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="field">
+      <label for="lastInterval">Last Minutes</label>
+      <input id="lastInterval" type="number" value="15" min="1">
+    </div>
+
+    <div class="field">
+      <label for="threshold">Green Threshold</label>
+      <input id="threshold" type="number" value="1" min="0">
+    </div>
+
+    <div class="field">
+      <label for="stateSort">Order</label>
+      <select id="stateSort">
+        <option value="area">By call area</option>
+        <option value="missing">Missing first</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="reloadInterval">Auto Reload</label>
+      <select id="reloadInterval">
+        <option value="0">Off</option>
+        <option value="120">Every 2 min</option>
+        <option value="300">Every 5 min</option>
+        <option value="600">Every 10 min</option>
+        <option value="900">Every 15 min</option>
+        <option value="1800">Every 30 min</option>
+      </select>
+    </div>
+
+    <!-- one pill per mode, generated from CONFIG.modes (#67) -->
+    <div class="mode-group" id="modePills"></div>
+
+    <button id="updateButton" class="btn-primary">Update</button>
+  </div>
+
+  <div id="statesSummary" class="states-summary"></div>
+  <p class="states-note">
+    Spots are stations <b>heard at this receiver</b> (their path to us); over these distances paths are
+    usually reciprocal. They are WSPR/FT8/FT4 signals, a propagation proxy: a band open to a state, not
+    contest activity there. Short skip (under ~500 km) is often thinly sampled. Band columns follow the
+    Map's band selection. DC counts with Maryland (ARRL MDC); full ARRL/RAC section boundaries are not in yet.
+  </p>
+
+  <div class="table-scroll">
+    <div id="statesTable" class="spots-table-container"></div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/viewstate.js"></script>
+  <script src="js/spot_symbols.js"></script>
+  <script src="js/states.js"></script>
+</body>
+</html>

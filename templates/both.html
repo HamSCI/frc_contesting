@@ -13,6 +13,7 @@
     <div class="dash-tabs">
       <button class="dash-tab-btn active" data-target="map-frame" data-view="map">Map</button>
       <button class="dash-tab-btn" data-target="table-frame" data-view="table">Table</button>
+      <button class="dash-tab-btn" data-target="states-frame" data-view="states" title="US states and Canadian provinces heard, and which are missing (ARRL Sweepstakes)">States</button>
       <button class="dash-tab-btn" data-target="waterfall-frame" data-view="waterfall">Waterfall</button>
     </div>
     <label class="dash-setting" for="bandLabels" title="How bands are labelled on every tab">Band labels
@@ -29,6 +30,7 @@
     <!-- The page's query string (all view settings, #62) is passed to every frame. -->
     <iframe id="map-frame" class="dash-frame active" data-view="map" src="/map{{ qs }}"></iframe>
     <iframe id="table-frame" class="dash-frame" data-view="table" src="/table{{ qs }}"></iframe>
+    <iframe id="states-frame" class="dash-frame" data-view="states" data-src="/states{{ qs }}"></iframe>
     <!-- Loaded on first use: it opens radiod spectrum channels while watched. -->
     <iframe id="waterfall-frame" class="dash-frame" data-view="waterfall" data-src="/waterfall{{ qs }}"></iframe>
   </div>
