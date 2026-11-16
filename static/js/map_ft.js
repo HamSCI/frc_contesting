@@ -101,9 +101,14 @@ var map = L.map('map', { preferCanvas: true }).setView(CONFIG.map.initialView, C
 // Disable marker shadows globally (the receiver pin is the only DOM marker)
 L.Icon.Default.prototype.createShadow = function () { return null; };
 
-// Spot symbols get their own canvas so redrawing them never re-rasterises the
-// basemap polygons underneath.
-const spotRenderer = L.canvas({ padding: 0.5 });
+// Panes, bottom to top: basemap, night shading (#72), zone outlines
+// (overlayPane, 400), spot symbols.  Spot symbols get their own canvas so
+// redrawing them never re-rasterises the basemap polygons underneath.
+map.createPane('basemap').style.zIndex = 250;
+map.createPane('night').style.zIndex = 350;
+map.getPane('night').style.pointerEvents = 'none';
+map.createPane('spots').style.zIndex = 450;
+const spotRenderer = L.canvas({ padding: 0.5, pane: 'spots' });
 
 //cq zone overlay
 let cqZoneBordersLayer = null;
@@ -232,14 +237,17 @@ async function loadBasemap() {
     ]);
 
     L.geoJSON(land, {
+      pane: 'basemap', interactive: false,
       style: { color: "#aaa", weight: 0.5, fillColor: "#e8e0d8", fillOpacity: 1 }
     }).addTo(map);
 
     L.geoJSON(countries, {
+      pane: 'basemap', interactive: false,
       style: { color: "#888", weight: 0.5, fill: false }
     }).addTo(map);
 
     L.geoJSON(states, {
+      pane: 'basemap', interactive: false,
       style: { color: "#bbb", weight: 0.3, fill: false }
     }).addTo(map);
   } catch (e) {
@@ -249,6 +257,44 @@ async function loadBasemap() {
 loadBasemap();
 
 
+
+// ── Solar terminator / gray line (#72) ────────────────────────────────────
+// Night plus civil, nautical and astronomical twilight as stacked
+// translucent fills (darkest in full night), the terminator line and the
+// subsolar point.  Computed locally (solar.js); redrawn every minute and on
+// every spot refresh.  Sits under the zone outlines and the spots.
+let terminatorLayer = null;
+const TWILIGHT = [
+  { alt: 0,   fill: 0.12, name: "night" },
+  { alt: -6,  fill: 0.08, name: "civil twilight" },
+  { alt: -12, fill: 0.08, name: "nautical twilight" },
+  { alt: -18, fill: 0.08, name: "astronomical twilight" },
+];
+
+function drawTerminator() {
+  const on = document.getElementById("terminatorToggle")?.checked;
+  if (terminatorLayer) { map.removeLayer(terminatorLayer); terminatorLayer = null; }
+  if (!on) return;
+  const now = new Date();
+  const g = L.layerGroup();
+  for (const t of TWILIGHT) {
+    L.polygon(Solar.regionLatLngs(now, t.alt), {
+      pane: 'night', interactive: false, stroke: false, fillColor: '#0a1030', fillOpacity: t.fill,
+    }).addTo(g);
+  }
+  // the gray line itself (sun altitude 0)
+  Solar.regionLatLngs(now, 0).forEach(copy => {
+    L.polyline(copy.filter(p => Math.abs(p[0]) < 89.9), {
+      pane: 'night', interactive: false, color: '#f5c542', weight: 1.2, opacity: 0.8, dashArray: '4 4',
+    }).addTo(g);
+  });
+  const sun = Solar.subsolar(now);
+  [-360, 0, 360].forEach(k => L.circleMarker([sun.lat, sun.lon + k], {
+    pane: 'night', radius: 6, color: '#b8860b', weight: 1.5, fillColor: '#ffd84d', fillOpacity: 1,
+  }).bindTooltip(`Subsolar point ${sun.lat.toFixed(1)}°, ${sun.lon.toFixed(1)}° at ${now.toISOString().slice(11, 16)} UTC`).addTo(g));
+  terminatorLayer = g.addTo(map);
+}
+setInterval(drawTerminator, 60 * 1000);
 
 // Connection status helpers (#36 / #41)
 function setStatus(state, label) {
@@ -390,6 +436,7 @@ async function fetchSpots() {
                 `rendered in ${(performance.now() - t1).toFixed(0)} ms`);
 
     updateReceiverMarker(rx, records.length);
+    drawTerminator();
     setStatus('connected', 'Connected');
     setLastUpdated();
   } catch (e) {
@@ -484,7 +531,7 @@ function syncZoneOverlays() {
 
 // Map settings as URL params (#62).  Short, stable names; the legacy names
 // they replace are still read on load and dropped from the URL.
-const MAP_DEFAULTS = { last: CONFIG.defaults.lastInterval, reload: CONFIG.defaults.reload };
+const MAP_DEFAULTS = { last: CONFIG.defaults.lastInterval, reload: CONFIG.defaults.reload, term: "1" };
 const MAP_LEGACY = ["lastInterval", "continent", "cqzone", "ITUzone", "CQZoneOutline"];
 
 function mapState() {
@@ -500,6 +547,7 @@ function mapState() {
     itu: document.getElementById("ITUZoneFilter").value,
     cqo: document.getElementById("cqOutline").checked ? "1" : "",
     ituo: document.getElementById("ituOutline").checked ? "1" : "",
+    term: document.getElementById("terminatorToggle").checked ? "1" : "0",
     modes: modesParam(document.getElementById("modePills")),
     reload: document.getElementById("reloadInterval").value,
     at: moved ? `${c.lat.toFixed(2)},${c.lng.toFixed(2)},${map.getZoom()}` : "",
@@ -578,6 +626,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const flag = v => v === "1" || v === "true";
   document.getElementById("cqOutline").checked = flag(get(["cqo", "CQZoneOutline"], "cqo", ""));
   document.getElementById("ituOutline").checked = flag(get("ituo", "ituo", ""));
+  document.getElementById("terminatorToggle").checked = get("term", "term", "1") !== "0";
   const modesSaved = get("modes", "modes", "");
   renderModePills(document.getElementById("modePills"), modesSaved ? modesSaved.split(",") : [], onMapFilterChange);
   if (modesSaved) setSelectedModes(document.getElementById("modePills"), modesSaved.split(","));
@@ -610,6 +659,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     "cqOutline", "ituOutline"
   ].forEach(id => {
     document.getElementById(id).addEventListener("change", onMapFilterChange);
+  });
+  document.getElementById("terminatorToggle").addEventListener("change", () => {
+    drawTerminator();
+    persistFilterState();
   });
 
   // Sync lastInterval from table iframe via localStorage storage event, and
