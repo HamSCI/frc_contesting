@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" class="table-page">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bands: Activity and Direction</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="table-page bands-page">
+
+  <div class="panel-header">
+    <h1 class="page-title" id="title">Bands: activity and direction</h1>
+    <div class="status-bar">
+      Connection Status:&nbsp;<span id="conn-status-dot" class="status-dot status-checking"></span><span id="conn-status-label">Checking...</span>
+      &nbsp;&nbsp;|&nbsp;&nbsp;<span id="last-updated">Last updated: —</span>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="field">
+      <label for="lastInterval">Last Minutes</label>
+      <input id="lastInterval" type="number" value="15" min="1">
+    </div>
+
+    <div class="field" title="Compressed: distance from the centre grows like distance^0.55, so nearby (North American) spots aren't squashed into the middle. True: azimuthal equidistant.">
+      <label for="bvDist">Distance scale</label>
+      <select id="bvDist">
+        <option value="c">Compressed</option>
+        <option value="t">True</option>
+      </select>
+    </div>
+
+    <div class="field" title="Part of each band shown in the mini waterfalls (crops the full-band waterfall)">
+      <label for="bvSeg">Waterfall span</label>
+      <select id="bvSeg">
+        <option value="full">Full band</option>
+        <option value="ssb">Phone</option>
+        <option value="cw">CW</option>
+        <option value="digi">Digital</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="reloadInterval">Auto Reload</label>
+      <select id="reloadInterval">
+        <option value="0">Off</option>
+        <option value="120">Every 2 min</option>
+        <option value="300">Every 5 min</option>
+        <option value="600">Every 10 min</option>
+        <option value="900">Every 15 min</option>
+        <option value="1800">Every 30 min</option>
+      </select>
+    </div>
+
+    <!-- one pill per mode, generated from CONFIG.modes (#67) -->
+    <div class="mode-group" id="modePills"></div>
+
+    <button id="updateButton" class="btn-primary">Update</button>
+  </div>
+
+  <p class="states-note">
+    Each map is centred on this station: a spot's direction is its beam heading. Shape = mode, fainter = older,
+    bars around the rim = spots per heading. Status compares the last 10 minutes with the band's own busiest
+    10 minutes of the past hour. Bands follow the Map's band selection (default: the six contest bands).
+  </p>
+
+  <div id="bvGrid" class="bv-grid"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/viewstate.js"></script>
+  <script src="js/spot_symbols.js"></script>
+  <script src="js/solar.js"></script>
+  <script src="js/aeqd.js"></script>
+  <script src="js/bands.js"></script>
+</body>
+</html>

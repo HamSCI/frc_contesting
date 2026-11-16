@@ -13,6 +13,7 @@
     <div class="dash-tabs">
       <button class="dash-tab-btn active" data-target="map-frame" data-view="map">Map</button>
       <button class="dash-tab-btn" data-target="table-frame" data-view="table">Table</button>
+      <button class="dash-tab-btn" data-target="bands-frame" data-view="bands" title="Every band at a glance: activity, direction and a mini waterfall">Bands</button>
       <button class="dash-tab-btn" data-target="states-frame" data-view="states" title="US states and Canadian provinces heard, and which are missing (ARRL Sweepstakes)">States</button>
       <button class="dash-tab-btn" data-target="waterfall-frame" data-view="waterfall">Waterfall</button>
     </div>
@@ -31,6 +32,8 @@
     <iframe id="map-frame" class="dash-frame active" data-view="map" src="/map{{ qs }}"></iframe>
     <iframe id="table-frame" class="dash-frame" data-view="table" src="/table{{ qs }}"></iframe>
     <iframe id="states-frame" class="dash-frame" data-view="states" data-src="/states{{ qs }}"></iframe>
+    <!-- Loaded on first use: its mini waterfalls use the radiod spectrum channels while watched. -->
+    <iframe id="bands-frame" class="dash-frame" data-view="bands" data-src="/bands{{ qs }}"></iframe>
     <!-- Loaded on first use: it opens radiod spectrum channels while watched. -->
     <iframe id="waterfall-frame" class="dash-frame" data-view="waterfall" data-src="/waterfall{{ qs }}"></iframe>
   </div>

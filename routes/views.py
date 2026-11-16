@@ -71,3 +71,15 @@ def states():
         HTML: Rendered states.html template
     """
     return render_template("states.html")
+
+
+@views_bp.route('/bands')
+def bands():
+    """
+    Bands view (#70): one card per band with a direction map centred on the
+    station and a mini waterfall from the existing spectrum channels.
+
+    Returns:
+        HTML: Rendered bands.html template
+    """
+    return render_template("bands.html")

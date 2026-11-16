@@ -54,6 +54,12 @@ document.addEventListener("DOMContentLoaded", () => {
     activate(new URLSearchParams(window.location.search).get("view") || "map", false);
   });
 
+  // A frame asks to show another tab (e.g. the Bands view's "Open in Map").
+  window.addEventListener("message", ev => {
+    if (ev.origin !== window.location.origin || !ev.data || ev.data.type !== "frc-open") return;
+    activate(ev.data.view, true);
+  });
+
   // A frame reports its settings: merge them into the address bar.
   window.addEventListener("message", ev => {
     if (ev.origin !== window.location.origin || !ev.data || ev.data.type !== "frc-state") return;

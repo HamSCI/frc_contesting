@@ -536,6 +536,199 @@ th, td {
   width: 100%;
 }
 
+/* Bands view (#70) */
+.bv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+  gap: 16px;
+  margin: 0 24px 24px;
+}
+
+.bv-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bv-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bv-title {
+  flex: 1;
+  font-size: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bv-chip {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.bv-chip.open     { background: rgba(46, 204, 113, 0.18); border-color: #2ecc71; color: #8ff0b7; }
+.bv-chip.marginal { background: rgba(242, 169, 0, 0.16); border-color: #f2a900; color: #ffd36b; }
+.bv-chip.closed   { background: rgba(239, 68, 68, 0.12); border-color: #8a3434; color: #ff9d9d; }
+
+.bv-stats {
+  display: grid;
+  grid-template-columns: 1fr 130px;
+  grid-template-areas: "count spark" "heading spark";
+  gap: 2px 10px;
+  font-size: 13px;
+}
+
+.bv-count   { grid-area: count; }
+.bv-heading { grid-area: heading; }
+.bv-spark   { grid-area: spark; }
+
+.bv-dim {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.bv-spark svg {
+  display: block;
+  width: 100%;
+  height: 26px;
+}
+
+.bv-spark-title,
+.bv-spark-ticks {
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.bv-spark-ticks {
+  display: flex;
+  justify-content: space-between;
+}
+
+.bv-spark-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.bv-spark-fill {
+  fill: rgba(41, 182, 246, 0.15);
+  stroke: none;
+}
+
+.bv-map {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  display: block;
+  margin: 0 auto;
+}
+
+.bv-wf {
+  position: relative;
+}
+
+.bv-plan {
+  position: relative;
+  height: 12px;
+  background: #0d1119;
+  border-radius: 3px 3px 0 0;
+  overflow: hidden;
+}
+
+.bv-plan-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  font-size: 8px;
+  line-height: 12px;
+  text-align: center;
+  color: #0b0e14;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.bv-plan-seg.cw { background: #6fa8dc; }
+.bv-plan-seg.ph { background: #e6a157; }
+.bv-plan-seg.dg { background: #9fe07a; }
+
+.bv-wf-body {
+  display: flex;
+  gap: 4px;
+}
+
+.bv-wf-canvas {
+  flex: 1;
+  min-width: 0;
+  height: 100px;
+  width: 100%;
+  background: #000;
+  image-rendering: pixelated;
+}
+
+.bv-wf-ticks {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font: 9px var(--font-mono);
+  color: var(--text-dim);
+  width: 34px;
+}
+
+.bv-wf-axis {
+  display: flex;
+  justify-content: space-between;
+  font: 10px var(--font-mono);
+  color: var(--text-dim);
+}
+
+.bv-wf-msg {
+  position: absolute;
+  inset: 12px 38px 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(11, 14, 20, 0.85);
+}
+
+.bv-links {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.bv-wf-msg[hidden] {
+  display: none;
+}
+
+.bv-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: 12px var(--font-sans);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.bv-link:hover {
+  text-decoration: underline;
+}
+
 /* States / provinces view (#69) */
 .states-summary {
   margin: 0 24px 6px;

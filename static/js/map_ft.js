@@ -729,6 +729,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       setSelect(select, e.newValue);          // one Auto Reload setting for Map and Table
       setReloadInterval(parseInt(select.value, 10));
       persistFilterState();
+    } else if (e.key === "bandSel" && e.newValue !== bandSelToParam(bandSel)) {
+      bandSel = bandSelFromParam(e.newValue);     // e.g. "Open in Map" on the Bands view
+      onMapFilterChange();
     } else if (e.key === "bandLabels") {
       renderMapFilters();
     }
