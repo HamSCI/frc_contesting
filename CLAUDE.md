@@ -42,6 +42,7 @@ This documentation serves to:
 | October 19, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Waterfall tab: live contest-band waterfalls from radiod spectrum channels | Owen Ruzanski |
 | October 21, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen audio on the Waterfall tab | Owen Ruzanski |
 | November 15, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Click-to-listen deployed to W3USR-06; encoding/AGC/retune fixes | Owen Ruzanski |
+| November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Project board backlog #59–#74 (branch dashboard-backlog), overnight | Owen Ruzanski |
 
 ### Current Model
 
@@ -733,6 +734,46 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 
 ---
 
+### Session 17: Project Board Backlog #59–#74 (overnight, branch `dashboard-backlog`)
+**Date**: November 15–16, 2026
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD) (worked unattended overnight)
+**Scope**: The open issues on the HamSCI project board assigned to KD3ALD (#59–#74). #75 is out of scope per its title, and #50/#53 were excluded by the developer. All work is on the new branch `dashboard-backlog` off `waterfall-displays`. Nothing was committed to `waterfall-displays`.
+**Status**: Implemented and verified on a dev instance on W3USR-06. Production is unchanged.
+
+**How it was tested without touching production** (code freeze on W3USR-06 is Nov 18):
+- The branch ran as a transient unit `frc-dev.service` (gunicorn on `127.0.0.1:5001`, user `frc`, the same "other" CPU set as the dashboard, Nice 10). It read the same MongoDB and relayed to the production supervisor's socket (waterfall data only). Copy at `/var/tmp/frc-dev`.
+- Headless Chrome over an SSH tunnel, driven over the DevTools protocol. Scripted checks covered each feature; all passed with no JS errors. A final regression run passed too.
+- The supervisor changes (60-min history, `span=`, noise history) are unit-tested only and **not deployed**.
+
+**Per issue** (one commit each; #59/#60 and #61/#62 share commits; #63/#64/#65 share one):
+- **#66** `CONFIG.bands` is the single band table: edges, frequency/wavelength labels, colours, contest/HF flags, dials, and later the segments. Everything lists bands highest-first. A "Band labels" setting offers both / MHz / m. The 2200 m edges were fixed, and 12 m got its own colour.
+- **#68** Spots are canvas symbols (`spot_symbols.js`). A refresh builds the new layer before removing the old one. There is one RX marker and one lazy popup. Geo lookups use a bbox prefilter plus a location cache: on 18,163 real spots, **82.4 s → 0.38 s** first load and 18 ms per refresh, with identical results.
+- **#67** `CONFIG.modes`: shape = mode (WSPR circle, FT8 square, FT4 triangle; CW/RTTY reserved). Mode pills are generated from it, and unknown modes get a pill automatically.
+- **#59/#60** Band chips allow any combination, with All/Contest/Clear presets. The legend lists only the selected bands. The URL form is `band=40m,20m`. Table/States/Bands columns follow the Map's selection.
+- **#61/#62** Auto reload defaults to 5 min and refreshes data, not the page. Every setting is saved. `viewstate.js` gives URL → session → default precedence. The shell keeps `view=` plus all settings in the address bar and forwards them into the iframes. Back/Forward move between tabs, and there is a Copy link button.
+- **#72** `solar.js`: subsolar point (NOAA), night and civil/nautical/astronomical twilight as caps around the antisolar point, plus the gray line. Checked against equinox/solstice and W3USR's sunset.
+- **#63/#64/#65** Waterfall:
+  - Rows are drawn at their own timestamps, with a UTC axis and a 5–60 min span.
+  - Rows measured at a steady 2.00 s. The issue comment's "785 s" came from earlier sessions' rows, which the supervisor keeps across channel restarts.
+  - In auto mode the Floor box reads "auto", and each band shows its floor and a colour scale.
+  - A per-viewer Bands panel offers reorder, hide, and Full/CW/SSB/RTTY zoom (AA3B's segments). Tier 2 (radiod segment channels) is deferred, as the issue says.
+- **#69** New **States** tab: US states/Canadian provinces × band, grouped by call area, with missing ones listed and a "try <band>" hint. DC counts with MD. Full ARRL/RAC sections are not done.
+- **#71** `aeqd.js`: a station-centred azimuthal equidistant Leaflet CRS, now the default (Mercator is an option). Round-trip error is 5e-12°; bearings and distances match the great-circle values. It includes a graticule, seam cutting near the antipode, AE night caps, and SP/LP in popups.
+- **#70** New **Bands** tab: one card per band with Open/Marginal/Closed status (relative to the band's own last hour), a sparkline, busiest heading and trend, a direction map (compressed or true distance, rim bars) and a mini waterfall from the existing channels.
+- **#73** `services/spacewx.py`: a server-side SWPC fetcher sharing one cached file across gunicorn workers under a file lock. `/api/spacewx` and `/api/aurora` feed a strip on every tab plus an aurora overlay. `SPACEWX_ENABLED=0` turns it off. Without internet the values show as stale. REQUIREMENTS v1.1 adds FR-SWX-01..07. SWPC's old `products/solar-wind/*` names now 404, so `json/rtsw/` and the summaries are used instead.
+- **#74** `services/psws.py` + `/api/psws`:
+  - hf-timestd WWV/WWVH Doppler and SNR: a read-only, indexed read of `L1_metrology_measurements` in its 108 GB SQLite store, taking about 0.1 s.
+  - Per-band count and farthest spot per 15 min.
+  - A supervisor noise-floor history.
+  - The magnetometer (mag-recorder) is inactive on W3USR-06, so that part is hidden.
+
+**Station observations (not changed)**: psk-recorder's FT8 decodes faded from about 21:40 UTC on Nov 15 and stopped around 23:20 UTC. It had been running since Oct 12 and logs `ANCHOR PAIR AUDIT` disagreements of about −16,996 s. WSPR is unaffected.
+
+**Open decisions for the developer**: deploy before the Nov 18 freeze or after the contest? Whether to build on hf-timestd's internal SQLite schema or agree on an interface with its maintainers. MUF data source and terms (KC2G/GIRO) for FR-SWX-07. Whether AE should stay the default map.
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -751,6 +792,7 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 | 2.1 | October 19, 2026 | Added Session 14: Waterfall tab (radiod spectrum channels) and radiod cost findings | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.2 | October 21, 2026 | Added Session 15: click-to-listen audio (built; station deployment pending) | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.3 | November 15, 2026 | Added Session 16: click-to-listen deployed to W3USR-06; encoding, AGC and retune fixes | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.4 | November 16, 2026 | Added Session 17: issues #59–#74 on branch dashboard-backlog | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

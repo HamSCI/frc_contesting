@@ -158,7 +158,9 @@ and duplicate decodes (the strongest SNR is kept).
 ## Waterfall tab
 
 The dashboard's **Waterfall** tab shows a live waterfall of each contest band
-(160/80/40/20/15/10 m), newest row at the top and 10 minutes of history.
+(10/15/20/40/80/160 m, highest first), newest row at the top, with a UTC time
+axis and a 5-60 min span. The **Bands** tab's mini waterfalls read the same
+channels (no extra radiod channels).
 
 ```
 radiod ──spectrum channels (status mcast)──▶ frc-dashboard supervisor (ka9q-python SpectrumStream)
@@ -176,8 +178,20 @@ browser ◀── /api/waterfall (Flask relay) ◀─────────┘
   current `waterfall.state`.
 * **Browser side.** Rows are uint8 values over -150 to -60 dB. Contrast
   (auto noise floor or manual), palette and layout are applied in the browser.
-  Hover shows frequency, level and age. The FT8, FT4 and WSPR dial frequencies
-  are marked on each axis.
+  Rows are drawn at their own timestamps, so gaps (Pause, restarts, an earlier
+  viewing session still in the history) show as black, not as compressed time.
+  Hover shows frequency, level and UTC time. The FT8, FT4 and WSPR dial
+  frequencies are marked on each axis. Each viewer can reorder, hide and zoom
+  bands (Full / CW / SSB / RTTY segments or custom); zoom crops the full-band
+  row, so it costs radiod nothing.
+* **History.** `history_rows` (default 1800 = 60 min at one row per 2 s) is
+  memory only (~1.4 MB per band at 800 bins) and adds no radiod load. It is
+  kept across idle stop/start of the channels until the service restarts.
+  `/api/waterfall?span=<s>` returns only the last `span` seconds, so a first
+  request doesn't download the whole hour.
+* **Noise history (#74).** While the channels run, the supervisor keeps the
+  median dB of each band's rows, one point per minute for 24 h, at
+  `/x/frc-dashboard/noise` (shown in the dashboard's Local PSWS panel).
 
 ### radiod cost: read before changing `[waterfall]`
 

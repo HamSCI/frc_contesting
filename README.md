@@ -30,15 +30,19 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 
 ### Key Features
 
-- **Real-time propagation visualization** on an interactive world map
-- **Band-specific filtering** for all amateur radio HF bands (160m-10m)
+- **Real-time propagation visualization** on an interactive map: a great-circle (azimuthal equidistant) map centred on the station by default, or Mercator
+- **Band chips**: any combination of bands (All / Contest / Clear presets), labelled by frequency (`14 MHz`) with the ham name secondary, highest band first everywhere
+- **Mode shapes**: colour = band, shape = mode (WSPR circle, FT8 square, FT4 triangle); mode filters generated from one mode table
 - **Geographic filtering** by country, continent, CQ zone, and ITU zone
-- **Mode filtering** supporting WSPR, FT8, and FT4
+- **Gray line**: solar terminator with civil/nautical/astronomical twilight, computed locally
 - **Tabular view** showing band openings by geographic region
-- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations; click one to listen (USB/LSB/CW/AM)
-- **Auto-reload capability** with configurable intervals
-- **Contest bands mode** focusing on the 6 primary contest bands
-- **Session persistence** for filter settings across page reloads
+- **Bands view**: one card per band with a station-centred direction map, an Open/Marginal/Closed status, a 60-min spot-rate sparkline and a mini waterfall
+- **States view**: US states and Canadian provinces heard per band, and which are missing (ARRL Sweepstakes)
+- **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations, with a UTC time axis, 5-60 min span, per-viewer band order/zoom (CW/SSB/RTTY segments); click one to listen (USB/LSB/CW/AM)
+- **Space weather** (optional, needs internet at the server): NOAA SWPC X-ray, solar wind, IMF, Kp, SFI, protons, R/S/G scales and alerts on every tab, plus an aurora overlay
+- **Local PSWS**: this station's own WWV/WWVH Doppler (hf-timestd), farthest spot per band and band noise floors; no internet needed
+- **Auto-reload** every 5 min by default, without reloading the page
+- **Shareable links**: every setting, and the open tab, is kept in the URL
 
 ### Project Goals
 
@@ -259,21 +263,44 @@ RECEIVER_GRIDSQUARE=FN42hx
 
 Replace `W1ABC` with your station callsign and `FN42hx` with your Maidenhead grid square. The grid square can be 4-character (e.g., `FN42`) or 6-character (e.g., `FN42hx`). The backend reads these values at startup and serves them to the frontend via the `/config` API endpoint.
 
-### Band Color Configuration
+### Bands and Modes
 
-Band colors are defined in [static/js/config.js](static/js/config.js) under `CONFIG.bandColorMap`:
+Every band is defined once, in `CONFIG.bands` in [static/js/config.js](static/js/config.js): its edges, the
+frequency and wavelength labels, its colour, whether it is a contest/HF band, the FT8/FT4/WSPR dial
+frequencies marked on the waterfalls, and the CW/SSB/RTTY contest segments used by the waterfall zoom
+presets. The map legend, band chips, table columns, waterfall titles and popups are all generated from it,
+highest frequency first.
 
 ```javascript
-bandColorMap: {
-  '160m': 'black',
-  '80m': 'red',
-  '40m': 'orange',
-  '20m': 'green',
-  '15m': 'cyan',
-  '10m': 'blue-dark',
-  // ... etc
-},
+{ id: "20m", lo: 14.0, hi: 14.35, freq: "14 MHz", wl: "20 m", color: "#008B38", hf: true, contest: true,
+  dials: { FT8: 14.074, FT4: 14.080, WSPR: 14.0956 },
+  segments: { cw: [14.000, 14.150], ssb: [14.150, 14.350], rtty: [14.080, 14.150] } },
 ```
+
+Modes are defined once in `CONFIG.modes` (label and map symbol shape). A mode that shows up in the data but
+isn't listed gets a filter pill and a default shape automatically.
+
+### Optional Settings (.env)
+
+- `SPACEWX_ENABLED=0` turns off the NOAA SWPC space-weather fetching entirely (the strip and the aurora
+  overlay then disappear). With it on but no internet, the values simply show as stale or unavailable.
+- `TIMESTD_DB` points the Local PSWS panel at hf-timestd's database
+  (default `/var/lib/timestd/phase2/timestd.db`). If the file is missing or its schema differs, that part is hidden.
+
+### Shareable Links
+
+The address bar always describes what is on screen, so a view can be bookmarked or shared. For example:
+
+```
+/?view=table&last=60&thr=3&band=40m,20m
+/?view=map&band=contest&cont=EU&cqo=1&modes=ft8,ft4&proj=merc
+/?view=waterfall&seg=ssb&span=30&wfb=20m,40m,80m
+/?view=bands&last=30&dist=t
+/?view=states&ssort=missing
+```
+
+Settings equal to their defaults are left out. A link wins over the recipient's own saved settings. The
+**Copy link** button in the header copies the current URL.
 
 ---
 
@@ -361,6 +388,7 @@ relays to over its control socket. Without that service, for example under
 
 **Query Parameters:**
 - `since` (int): last row sequence number already received (default: 0 = all history)
+- `span` (float): only rows from the last `span` seconds (used on a first request)
 
 **Response Format:**
 ```json
@@ -383,6 +411,26 @@ sigmond service.
 - `POST /api/listen/tune` takes `{"sid", "freq_hz", "mode"}`. `/keepalive` and `/close` take `{"sid"}`.
 - `GET /api/listen/audio?sid=…` streams raw signed 16-bit little-endian mono PCM at 12 kHz until closed.
 
+#### GET /api/spacewx and GET /api/aurora
+
+Space-weather context (optional; the server fetches NOAA SWPC products and caches them, browsers never
+contact SWPC). `/api/spacewx` returns the GOES X-ray class and 6-h series, protons and S scale, Kp and G scale,
+solar wind speed/density, IMF Bt/Bz (with 24-h Bz history), F10.7, the R/S/G scales and alerts from the last
+24 h; every value has its own timestamp. `/api/aurora` returns the OVATION forecast cells
+(`[lon, lat, percent]`, cells of 5 % or more). Both return `{"enabled": false}` when `SPACEWX_ENABLED=0`.
+
+#### GET /api/psws
+
+This station's own measurements: `timestd` (hf-timestd WWV/WWVH Doppler and SNR per frequency, 6 h),
+`spots` (per band per 15 min: spot count and farthest transmitter in km, 6 h) and `noise` (per-band noise
+floor kept by the `frc-dashboard` supervisor while the waterfall runs). Each part has `"available": false`
+when its source is missing.
+
+#### GET /map, /table, /bands, /states, /waterfall
+
+The views (each also works on its own, outside the tabbed dashboard at `/`). All accept the setting
+parameters described under [Shareable Links](#shareable-links).
+
 ---
 
 ## Frontend Components
@@ -392,39 +440,42 @@ sigmond service.
 **Files:** [templates/index_ft.html](templates/index_ft.html), [static/js/map_ft.js](static/js/map_ft.js)
 
 **Features:**
-- Interactive Leaflet map centered at lat 20°, lon 0°
+- **Great-circle map** (default): azimuthal equidistant, centred on the receiver grid ([static/js/aeqd.js](static/js/aeqd.js)), so direction = beam heading and distance = great-circle distance; range rings every 2,500 km, bearing spokes, N/E/S/W. **Mercator** is the alternative (Projection control).
 - **Fully offline basemap**: land fill, country borders, and state/province borders rendered from local Natural Earth GeoJSON (no tile server required)
-- Band-specific colored star markers at transmitter locations
-- Clickable markers with spot details
-- Real-time spot counter by band (bottom-right)
-- CQ zone outline overlay with zone labels
-- ITU zone outline overlay with zone labels
+- Canvas-drawn spot symbols ([static/js/spot_symbols.js](static/js/spot_symbols.js)): colour = band, shape = mode
+- Popups with spot details plus short- and long-path bearing and distance
+- Spot counter by band and mode (bottom-right); click a band to hide it, Shift-click to show only it
+- Gray line with twilight bands and the subsolar point ([static/js/solar.js](static/js/solar.js))
+- Optional OVATION aurora overlay
+- CQ zone and ITU zone outline overlays with labels
 - Connection status indicator and last-updated timestamp in header
 
 **Filtering Controls:**
 - Time interval (last N minutes)
-- Band selection (all bands or contest bands only)
-- Country filter (including "Non-US" option)
-- Continent filter
-- CQ zone filter (1-40)
-- ITU zone filter (1-90)
-- Mode checkboxes (WSPR/FT8/FT4)
-- CQ zone outline toggle
-- ITU zone outline toggle
-- Auto-reload interval (2-30 minutes)
-
-**Key Functions:**
-
-- `loadSpots()` - Main function that fetches and renders spots
-- `lookupCountry(lat, lon)` - Point-in-polygon country lookup
-- `lookupCqZone(lat, lon)` - CQ zone identification
-- `frequencyToBand(freq)` - Converts MHz to band name
-- `parseWsprTime(str)` - Parses "YYMMDD HHMM" to ISO format
+- Band chips: any combination; All / Contest / Clear presets
+- Country filter (including "Non-US" option), continent, CQ zone (1-40), ITU zone (1-90)
+- Mode pills (generated from `CONFIG.modes`)
+- CQ / ITU zone outlines, Gray line, Aurora, Projection
+- Auto-reload interval (default every 5 min; refreshes the data, not the page)
 
 **Performance Notes:**
-- Loads large GeoJSON files asynchronously (~18MB total)
+- Spots are drawn on canvas, and a refresh builds the new layer before removing the old one, so the map never blanks
+- Country/continent/zone lookups use a bounding-box prefilter and a per-location cache: on 18,163 spots, 82 s of lookups became 0.38 s on first load and 18 ms on refresh
 - Client-side filtering prevents excessive server load
-- Session storage preserves filter state
+
+### Bands View (bands.html + bands.js)
+
+One card per band (the Map's band selection, or the six contest bands): Open / Marginal / Closed status
+(the last 10 min against the band's busiest 10 min of the past hour), spot count and rate, a 60-min
+spot-rate sparkline, the busiest heading and trend, a station-centred direction map (compressed or true
+distance; rim bars = spots per heading), and a mini waterfall from the same spectrum channels as the
+Waterfall tab, with a CW / DIGI / PHONE strip.
+
+### States View (states.html + states.js)
+
+US states and Canadian provinces heard per band (columns follow the Map's band selection), grouped by call
+area, with the missing ones listed and highlighted and a "try <band>" hint (the busiest band toward that
+call area). For ARRL Sweepstakes. DC counts with Maryland; full ARRL/RAC sections are not in yet.
 
 ### Table View (table_ft.html + table_ft.js)
 
@@ -432,7 +483,7 @@ sigmond service.
 
 **Features:**
 - Matrix display: Regions (rows) × Bands (columns)
-- Shows spot counts for 6 contest bands only
+- Columns follow the Map's band selection; the six contest bands by default, highest frequency first
 - Green highlighting for bands meeting threshold
 - Dual-column layout (16 regions in 8 rows)
 - Total spot counter
@@ -500,11 +551,15 @@ frc_contesting/
 │   ├── legacy_javascript/     # Old JS implementations
 │   └── legacy_templates/      # Old HTML templates
 ├── routes/                    # Flask route blueprints
-│   ├── views.py               # HTML page routes (/, /map, /table)
-│   └── api.py                 # JSON API routes (/spots, /tbspots, /config)
+│   ├── views.py               # HTML page routes (/, /map, /table, /bands, /states)
+│   ├── api.py                 # JSON API routes (/spots, /tbspots, /config, /api/spacewx, /api/aurora, /api/psws)
+│   └── waterfall.py           # /waterfall, /api/waterfall and /api/listen/* (relay to the sigmond supervisor)
 ├── services/                  # Backend business logic
 │   ├── spots.py               # MongoDB queries & spot processing
-│   └── geo.py                 # CQ zone point-in-polygon lookups
+│   ├── geo.py                 # CQ zone point-in-polygon lookups
+│   ├── spacewx.py             # NOAA SWPC space-weather fetch/cache (optional)
+│   └── psws.py                # Local PSWS: hf-timestd Doppler, spot indicators
+├── tests/                     # pytest: spacewx and psws services (no network)
 ├── utils/                     # Shared utilities
 │   └── bands.py               # Frequency → band name conversion
 ├── static/                    # Frontend assets
@@ -512,10 +567,20 @@ frc_contesting/
 │   │   └── style.css          # Central dashboard stylesheet
 │   ├── img/                   # Marker images
 │   ├── js/
-│   │   ├── config.js          # Shared JS configuration (bands, colors, regions)
-│   │   ├── utils.js           # Shared JS utilities (geo lookups, time parsing)
-│   │   ├── map_ft.js          # Map visualization (Leaflet, markers, overlays)
+│   │   ├── config.js          # Shared JS configuration (band table, modes, regions)
+│   │   ├── utils.js           # Shared JS utilities (geo lookups, grids, mode pills, band selection)
+│   │   ├── viewstate.js       # Settings in the URL / session (shareable links)
+│   │   ├── spot_symbols.js    # Canvas spot symbols (shape = mode)
+│   │   ├── solar.js           # Sun position, terminator, twilight
+│   │   ├── aeqd.js            # Great-circle (azimuthal equidistant) map projection
+│   │   ├── map_ft.js          # Map visualization (Leaflet, symbols, overlays)
 │   │   ├── table_ft.js        # Table view (regional band matrix)
+│   │   ├── bands.js           # Bands view (per-band cards)
+│   │   ├── states.js          # States / provinces view
+│   │   ├── waterfall.js       # Waterfall view
+│   │   ├── listen.js          # Click-to-listen audio
+│   │   ├── spacewx.js         # Space-weather + Local PSWS strip (dashboard header)
+│   │   ├── dashboard.js       # Tabs and the address bar
 │   │   ├── countries.geojson  # Country boundaries (14MB, for filtering)
 │   │   ├── continents.geojson # Continent boundaries (4KB)
 │   │   ├── cqzones.geojson    # CQ zones (2.7MB)
@@ -534,9 +599,12 @@ frc_contesting/
 │   ├── storedb.sh             # Shell wrapper called by WSPR_LOGGING_CMD
 │   └── storedb.py             # Reads decoded spots and upserts into MongoDB
 ├── templates/                 # Flask HTML templates
-│   ├── both.html              # Combined map + table view (tabbed dashboard)
+│   ├── both.html              # Tabbed dashboard (Map, Table, Bands, States, Waterfall)
 │   ├── index_ft.html          # Map view
-│   └── table_ft.html          # Table view
+│   ├── table_ft.html          # Table view
+│   ├── bands.html             # Bands view
+│   ├── states.html            # States / provinces view
+│   └── waterfall.html         # Waterfall view
 ├── app.py                     # Flask application factory (create_app)
 ├── web-ft.py                  # Thin shim for backwards-compatible startup
 ├── .env.example               # Environment variable template (copy to .env)
