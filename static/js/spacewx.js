@@ -147,13 +147,20 @@ const SpaceWx = (() => {
     let lo = Math.min(...all.map(p => p[1])), hi = Math.max(...all.map(p => p[1]));
     if (sym) { const m = Math.max(Math.abs(lo), Math.abs(hi), 1e-3); lo = -m; hi = m; }
     if (hi === lo) hi = lo + 1;
-    const X = t => ((t - t0) / Math.max(1, t1 - t0) * w).toFixed(1);
-    const Y = v => (h - (v - lo) / (hi - lo) * h).toFixed(1);
-    const zero = sym ? `<line x1="0" x2="${w}" y1="${Y(0)}" y2="${Y(0)}" class="swx-grid"/>` : "";
-    return `<svg width="${w}" height="${h}" class="swx-lines">${zero}` +
+    // The scale labels get their own gutter on the left (sized to the longer
+    // label, 9 px mono ~5.5 px per character) so the lines never run over them.
+    const yHi = fmtY(hi), yLo = fmtY(lo);
+    const padL = Math.ceil(Math.max(String(yHi).length, String(yLo).length) * 5.5) + 6, padT = 5, padB = 5;
+    const pw = w - padL, ph = h - padT - padB;
+    const X = t => (padL + (t - t0) / Math.max(1, t1 - t0) * pw).toFixed(1);
+    const Y = v => (padT + ph - (v - lo) / (hi - lo) * ph).toFixed(1);
+    const grid = y => `<line x1="${padL}" x2="${w}" y1="${y}" y2="${y}" class="swx-grid"/>`;
+    const zero = sym ? grid(Y(0)) : "";
+    return `<svg width="${w}" height="${h}" class="swx-lines">${grid(Y(hi))}${grid(Y(lo))}${zero}` +
       seriesList.map(s => `<polyline points="${s.pts.map(p => `${X(p[0])},${Y(p[1])}`).join(" ")}" style="stroke:${s.color}"` +
         `${s.dash ? ' stroke-dasharray="3 2"' : ""}><title>${s.label}</title></polyline>`).join("") +
-      `<text x="2" y="9" class="swx-axis">${fmtY(hi)}</text><text x="2" y="${h - 2}" class="swx-axis">${fmtY(lo)}</text></svg>`;
+      `<text x="${padL - 4}" y="${Y(hi)}" text-anchor="end" dominant-baseline="middle" class="swx-axis">${yHi}</text>` +
+      `<text x="${padL - 4}" y="${Y(lo)}" text-anchor="end" dominant-baseline="middle" class="swx-axis">${yLo}</text></svg>`;
   }
 
   const FREQ_COLORS = { 2.5: "#991F24", 3.33: "#d46a19", 5: "#EE8918", 7.85: "#e0c000", 10: "#21A2DA",
