@@ -97,16 +97,20 @@ title  = "Listener idle timeout (s)"
 hidden = true
 
 [skimmer.enabled]
-title = "Skimmer tab (CW skimmer)"
-help  = """Decodes every CW signal in one band's CW segment at once and spots
-callsigns that call CQ (the bottom 70 kHz of the band).  Uses one radiod IQ channel (96 kHz, an ordinary
-channel like the recorders'; 0 radiod drops measured on W3USR-06) and about
-12 % of one CPU core, only while someone has the Skimmer tab open unless
+title = "CW and RTTY skimmers (/cws)"
+help  = """Decode every CW and RTTY signal on the skimmed bands and spot
+callsigns that call CQ, into MongoDB skimmer_db.  Each band uses one radiod IQ
+channel (96-192 kHz) and about 1/4 of a CPU core, while /cws is open unless
 always_on is set."""
 
+[skimmer.bands]
+title   = "Bands skimmed"
+help    = """Comma-separated subset of 160m,80m,40m,20m,15m,10m.  Each band adds
+CPU load; on W3USR-06 radiod dropped blocks with several bands running."""
+example = "40m,20m"
+
 [skimmer.band]
-title   = "Starting band"
-help    = "One of 160m,80m,40m,20m,15m,10m.  The Skimmer tab can change it."
+title   = "Band shown first on /cws"
 example = "20m"
 
 [skimmer.idle_timeout_sec]
@@ -115,8 +119,10 @@ hidden = true
 
 [skimmer.always_on]
 title = "Run without viewers"
-help  = """Keep skimming when nobody has the tab open.  Needed if spots are to be
-fed to a logging program or the RBN Aggregator through telnet_port."""
+help  = """Keep skimming when nobody has /cws open, so every CQ is stored.
+Needed for a spot feed too.  Off by default: on W3USR-06 (radiod at its CPU
+limit) even one or two always-running bands made radiod drop blocks in some
+minutes, which costs the WSPR/FT8 recorders decodes.  Measure first."""
 
 [skimmer.detect_db]
 title  = "Detection threshold (dB per ~94 Hz bin)"

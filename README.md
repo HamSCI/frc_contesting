@@ -39,7 +39,7 @@ The HamSCI Contesting and DXing Dashboard is a real-time web application designe
 - **Bands view**: one card per band with a station-centred direction map, an Open/Marginal/Closed status, a 60-min spot-rate sparkline and a mini waterfall
 - **States view**: US states and Canadian provinces heard per band, and which are missing (ARRL Sweepstakes)
 - **Live band waterfalls** of the 6 contest bands, from radiod (ka9q-radio) on sigmond stations, with a UTC time axis, 5-60 min span, per-viewer band order/zoom (CW/SSB/RTTY segments); click one to listen (USB/LSB/CW/AM), with live **CW, RTTY, FT8 and FT4 decoding** in the browser
-- **CW skimmer** (at `/cws`; not yet a dashboard tab): every CW signal in the bottom 70 kHz of a chosen band decoded at once, CQ calls spotted in Reverse Beacon Network format (telnet feed available, off by default; nothing is uploaded)
+- **CW and RTTY skimmers** (at `/cws`; not a dashboard tab): every CW and RTTY signal on the skimmed bands decoded at once, CQ calls spotted in Reverse Beacon Network format and stored in their own MongoDB database (`skimmer_db`); a telnet feed is available but off, and nothing is uploaded. See [sigmond/README.md](sigmond/README.md) before running them all the time
 - **Space weather** (optional, needs internet at the server): NOAA SWPC X-ray, solar wind, IMF, Kp, SFI, protons, R/S/G scales and alerts on every tab, plus an aurora overlay
 - **Local PSWS**: this station's own WWV/WWVH Doppler (hf-timestd), farthest spot per band and band noise floors; no internet needed
 - **Auto-reload** every 5 min by default, without reloading the page
@@ -414,13 +414,14 @@ sigmond service.
 - `POST /api/listen/tune` takes `{"sid", "freq_hz", "mode"}`. `/keepalive` and `/close` take `{"sid"}`.
 - `GET /api/listen/audio?sid=…` streams raw signed 16-bit little-endian mono PCM at 12 kHz until closed.
 
-#### GET /api/skimmer and POST /api/skimmer/band
+#### GET /api/skimmer
 
-The CW skimmer page (`/cws`). `GET /api/skimmer?since=<seq>` starts the skimmer if it isn't running. It returns
-the band and range, every tracked signal (`freq_khz`, `snr_db`, `wpm`, decoded `text`, `call`),
-spots newer than `seq` (`call`, `freq_khz`, `snr_db`, `wpm`, `type`, `confirmed`, `reason` and the
-RBN-format line `rbn`), a spectrum of the range and stats. `POST /api/skimmer/band` with
-`{"band": "40m"}` moves it. Both relay to the `frc-dashboard` sigmond service.
+The skimmer page (`/cws`). `GET /api/skimmer?band=<band>&since=<seq>` returns the band's CW and RTTY
+ranges, each engine's signals (`freq_khz`, `snr_db`, decoded `text`, `call`; `wpm` for CW,
+`clean_pct` for RTTY) and spectrum, spots on every band newer than `seq` (`band`, `mode`, `call`,
+`freq_khz`, `snr_db`, `speed`, `kind`, `confirmed`, `reason` and the RBN line `rbn`), a per-band
+summary and the database status. While the skimmers run only on demand, it also starts them.
+It relays to the `frc-dashboard` sigmond service.
 
 #### GET /api/time
 
@@ -570,7 +571,7 @@ frc_contesting/
 │   ├── views.py               # HTML page routes (/, /map, /table, /bands, /states)
 │   ├── api.py                 # JSON API routes (/spots, /tbspots, /config, /api/time, /api/spacewx, /api/aurora, /api/psws)
 │   ├── waterfall.py           # /waterfall, /api/waterfall and /api/listen/* (relay to the sigmond supervisor)
-│   └── skimmer.py             # /cws (= /skimmer), /api/skimmer, /api/skimmer/band (relay to the sigmond supervisor)
+│   └── skimmer.py             # /cws (= /skimmer), /api/skimmer (relay to the sigmond supervisor)
 ├── services/                  # Backend business logic
 │   ├── spots.py               # MongoDB queries & spot processing
 │   ├── geo.py                 # CQ zone point-in-polygon lookups

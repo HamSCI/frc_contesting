@@ -33,11 +33,16 @@ idle_timeout_sec = 15
 
 [skimmer]
 enabled = true
+bands = "40m,20m"
 band = "20m"
 idle_timeout_sec = 120
 always_on = false
-detect_db = 8.0
-max_signals = 60
+detect_db = 9.0
+max_signals = 40
+max_rtty_signals = 30
+store = true
+database = "skimmer_db"
+retention_days = 90
 spotter = ""
 scp_file = ""
 telnet_port = 0

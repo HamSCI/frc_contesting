@@ -88,6 +88,8 @@ COMMON_WORDS = {
 
 
 def is_call(word: str) -> bool:
+    if len(word) >= 8 and word[:len(word) // 2] == word[len(word) // 2:]:
+        return False                     # a call run together with itself (lost word gap)
     return 3 <= len(word) <= 12 and bool(CALL_RE.match(word))
 
 
@@ -152,12 +154,13 @@ class MorseDecoder:
         d = np.sort(np.log(np.asarray(self.marks, float)))
         if len(d) < 6:
             return
-        best, split = -1.0, None
-        for i in range(2, len(d) - 1):
-            a, b = d[:i], d[i:]
-            between = len(a) * len(b) * (a.mean() - b.mean()) ** 2
-            if between > best:
-                best, split = between, i
+        # Otsu: the split maximising n_a n_b (mean_a - mean_b)^2, all at once.
+        n = len(d)
+        i = np.arange(2, n - 1)
+        c = np.cumsum(d)
+        mean_a = c[i - 1] / i
+        mean_b = (c[-1] - c[i - 1]) / (n - i)
+        split = int(i[np.argmax(i * (n - i) * (mean_a - mean_b) ** 2)])
         short, long_ = np.exp(d[:split]), np.exp(d[split:])
         ratio = long_.mean() / short.mean()
         if 2.0 <= ratio <= 4.5:
@@ -180,7 +183,9 @@ class MorseDecoder:
                 self.flush()
                 return
             self.marks.append(frames)
-            self._estimate_unit()
+            self._n_marks = getattr(self, '_n_marks', 0) + 1
+            if self.unit is None or self._n_marks % 4 == 0:   # once locked, every 4th mark is plenty
+                self._estimate_unit()
         if self.unit is None:
             if mark or self.pending:
                 self.pending.append((mark, frames))
@@ -313,33 +318,39 @@ class Signal:
 class Spot:
     seq: int
     t: float
-    freq_hz: float
+    freq_hz: float               # CW: the carrier; RTTY: the mark tone
     call: str
     snr_db: int
-    wpm: int
+    wpm: int                     # CW: words per minute; RTTY: baud (45)
     kind: str                    # 'CQ'
     confirmed: bool
     reason: str
+    mode: str = 'CW'             # 'CW' or 'RTTY'
 
     def public(self, spotter: str) -> dict:
         return {'seq': self.seq, 't': round(self.t, 1), 'freq_khz': round(self.freq_hz / 1e3, 1),
                 'call': self.call, 'snr_db': self.snr_db, 'wpm': self.wpm, 'type': self.kind,
-                'confirmed': self.confirmed, 'reason': self.reason,
-                'rbn': rbn_line(spotter, self.freq_hz / 1e3, self.call, self.snr_db, self.wpm, self.kind, self.t)}
+                'mode': self.mode, 'confirmed': self.confirmed, 'reason': self.reason,
+                'rbn': rbn_line(spotter, self.freq_hz / 1e3, self.call, self.snr_db, self.wpm, self.kind,
+                                self.t, self.mode)}
 
 
-def rbn_line(spotter: str, freq_khz: float, call: str, snr_db: int, wpm: int, kind: str, t: float) -> str:
+def rbn_line(spotter: str, freq_khz: float, call: str, snr_db: int, speed: int, kind: str, t: float,
+             mode: str = 'CW') -> str:
     """One spot in the DX-cluster layout that CW Skimmer's telnet server and
     the Reverse Beacon Network use, e.g.
 
         DX de W3USR-#:   14025.0  K1ABC        CW    23 dB  25 WPM  CQ      1928Z
+        DX de W3USR-#:   14085.4  K1ABC        RTTY  21 dB  45 BPS  CQ      1928Z
 
     The frequency ends in column 24 and the call starts in column 26 when the
     spotter's call is short; long calls shift the fields, so consumers split
     on whitespace."""
     hhmm = time.strftime('%H%M', time.gmtime(t))
     head = f'DX de {spotter}-#:'
-    return f'{head:<15}{freq_khz:>9.1f}  {call:<13}CW {snr_db:>5d} dB {wpm:>3d} WPM  {kind:<7} {hhmm}Z'
+    unit = 'BPS' if mode == 'RTTY' else 'WPM'
+    level = f'{mode}{snr_db:>{max(1, 8 - len(mode))}d} dB'
+    return f'{head:<15}{freq_khz:>9.1f}  {call:<13}{level} {speed:>3d} {unit}  {kind:<7} {hhmm}Z'
 
 
 # ── The engine ────────────────────────────────────────────────────────────
@@ -366,6 +377,7 @@ class SkimmerEngine:
         self.frame_sec = self.hop / self.fs
         self.center_hz, self.lo_hz, self.hi_hz = float(center_hz), float(lo_hz), float(hi_hz)
         self.window = np.hanning(self.W).astype(np.float32)
+        self.window64 = self.window.astype(np.float64)
         # Overlap correlation of the window at multiples of the hop: the noise
         # power of an average of m consecutive frames is cm(m) x one frame's.
         w = self.window.astype(np.float64)
@@ -378,6 +390,7 @@ class SkimmerEngine:
         for a, b in masks:
             self.masked |= (f >= a) & (f <= b)
         self.sel = np.flatnonzero(keep)                 # bins we look at (shifted order)
+        self.sel_raw = (self.sel + self.N - self.N // 2) % self.N   # the same bins before fftshift
         self.freqs = f[self.sel]
         self.detectable = ~self.masked[self.sel]
         self.detect = 10 ** (detect_db / 10)
@@ -397,16 +410,25 @@ class SkimmerEngine:
         self.now = time.time
 
     # -- input -------------------------------------------------------------
-    def feed(self, iq: np.ndarray) -> None:
+    def feed(self, iq: np.ndarray, also=()) -> None:
+        """Process IQ.  Engines in ``also`` (same sample rate, centre and
+        STFT settings, e.g. the RTTY engine on the same band) get the same
+        filter bank, computed once, each over its own bins."""
+        for e in also:
+            assert (e.fs, e.center_hz, e.N, e.W, e.hop) == (self.fs, self.center_hz, self.N, self.W, self.hop)
         self.buf = np.concatenate([self.buf, np.asarray(iq, np.complex64)])
         need = (self.BLOCK_FRAMES - 1) * self.hop + self.W
         while len(self.buf) >= need:
             t0 = time.process_time()
             frames = np.lib.stride_tricks.sliding_window_view(self.buf[:need], self.W)[::self.hop]
-            spec = np.fft.fftshift(np.fft.fft(frames * self.window, n=self.N, axis=1), axes=1)[:, self.sel]
-            power = (spec.real ** 2 + spec.imag ** 2).astype(np.float32)
+            # complex128: numpy's FFT is ~2x faster in double than in single precision
+            full = np.fft.fft(frames.astype(np.complex128) * self.window64, n=self.N, axis=1)
+            used = self.buf[:self.BLOCK_FRAMES * self.hop]
             self.buf = self.buf[self.BLOCK_FRAMES * self.hop:]
-            self._block(power, spec)
+            for e in (self, *also):
+                spec = full[:, e.sel_raw]
+                power = (spec.real ** 2 + spec.imag ** 2).astype(np.float32)
+                e._block(power, spec, used)
             self.cpu_s += time.process_time() - t0
 
     # -- one 0.5 s block ---------------------------------------------------
@@ -427,7 +449,7 @@ class SkimmerEngine:
             self._scales[m] = 1.0 / (1.0 + 2.0 * tot)
         return self._scales[m]
 
-    def _block(self, power: np.ndarray, spec: np.ndarray) -> None:
+    def _block(self, power: np.ndarray, spec: np.ndarray, iq: np.ndarray | None = None) -> None:
         now = self.now()
         base = self.frames                              # absolute index of this block's first frame
         self.frames += len(power)
@@ -442,7 +464,7 @@ class SkimmerEngine:
     def _update_noise(self, power: np.ndarray) -> None:
         # 20th percentile of exponential power = 0.223 x mean; then a running
         # median across ~1 kHz so signals don't lift their own floor.
-        q20 = np.percentile(power, 20, axis=0) / 0.223
+        q20 = np.percentile(power[::2], 20, axis=0) / 0.223     # every 2nd frame is plenty
         w = 31
         pad = np.pad(q20, w // 2, mode='edge')
         med = np.median(np.lib.stride_tricks.sliding_window_view(pad, w), axis=1)

@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CW Skimmer</title>
+  <title>CW and RTTY Skimmer</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body class="skimmer-page">
 
   <div class="panel-header">
-    <h1 class="page-title" id="title">CW Skimmer</h1>
+    <h1 class="page-title" id="title">CW and RTTY Skimmer</h1>
     <div class="status-bar">
       Skimmer:&nbsp;<span id="sk-status-dot" class="status-dot status-checking"></span><span id="sk-status-label">Starting…</span>
       &nbsp;&nbsp;|&nbsp;&nbsp;<span id="sk-stats">—</span>
@@ -18,10 +18,21 @@
   </div>
 
   <div id="controls">
-    <div class="field" title="The skimmer decodes the bottom 70 kHz of this band, where CW lives. Changing it retunes the station's radiod channel for everyone watching.">
+    <div class="field" title="Band to show. Every configured band is skimmed all the time; this only chooses which one this page shows.">
       <label for="sk-band">Band</label>
       <select id="sk-band"></select>
     </div>
+    <div class="field">
+      <label for="sk-mode">Mode</label>
+      <select id="sk-mode">
+        <option value="all">CW and RTTY</option>
+        <option value="CW">CW</option>
+        <option value="RTTY">RTTY</option>
+      </select>
+    </div>
+    <label class="check-field" for="sk-allbands" title="Show spots from every skimmed band, not just this one">
+      <input id="sk-allbands" type="checkbox"> Spots from all bands
+    </label>
     <label class="check-field" for="sk-unconfirmed" title="Calls copied once that are not yet confirmed (not heard by this station before, and not copied twice). They are never put in the RBN-format feed.">
       <input id="sk-unconfirmed" type="checkbox" checked> Show unconfirmed
     </label>
@@ -34,7 +45,7 @@
   <p class="sk-hint" id="sk-range"></p>
 
   <section class="sk-pan-card">
-    <canvas id="sk-pan" height="150" title="Spectrum of the skimmed range: each decoded signal is marked, with its call once known"></canvas>
+    <canvas id="sk-pan" height="150" title="Spectrum of the skimmed ranges (CW blue, RTTY purple): each decoded signal is marked, with its call once known"></canvas>
     <div class="sk-pan-axis" id="sk-pan-axis"></div>
     <div class="sk-msg" id="sk-msg" hidden></div>
   </section>
@@ -44,7 +55,7 @@
       <h2>Signals <span class="sk-count" id="sk-sig-count"></span></h2>
       <div class="sk-table-wrap">
         <table class="sk-table" id="sk-signals">
-          <thead><tr><th>kHz</th><th title="Signal over the noise in one ~94 Hz bin">dB</th><th>WPM</th><th>Call</th><th>Decoded</th></tr></thead>
+          <thead><tr><th>kHz</th><th>Mode</th><th title="Signal over the noise in one ~94 Hz bin">dB</th><th title="CW: words per minute. RTTY: % of recent frames that were clean">WPM / ok</th><th>Call</th><th>Decoded</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -53,7 +64,7 @@
       <h2>Spots <span class="sk-count" id="sk-spot-count"></span></h2>
       <div class="sk-table-wrap" id="sk-spot-wrap">
         <table class="sk-table" id="sk-spots">
-          <thead><tr><th>UTC</th><th>kHz</th><th>Call</th><th>dB</th><th>WPM</th><th></th></tr></thead>
+          <thead><tr><th>UTC</th><th>Band</th><th>Mode</th><th>kHz</th><th>Call</th><th>dB</th><th title="CW: WPM. RTTY: baud">Speed</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
         <pre class="sk-rbn" id="sk-rbn-text" hidden></pre>
@@ -62,10 +73,12 @@
     </section>
   </div>
 
-  <p class="sk-hint">Every CW signal in the range is decoded at once in the station's skimmer (a Bayesian decoder after
-    VE3NEA's approach: probabilities, not hard decisions, until the word stage). A call after CQ / TEST / DE / TU becomes a
-    spot; it is <b>confirmed</b> when this station has heard the call on WSPR/FT8 (or it is in the configured call list), or
-    it was copied twice on the frequency. These spots are shown here only; they are not on the map or table.</p>
+  <p class="sk-hint">Every CW and RTTY signal on each skimmed band is decoded on the station while this page is open (or
+    all the time, if the station sets <code>skimmer.always_on</code>). CW uses a
+    Bayesian decoder after VE3NEA's approach (probabilities, not hard decisions, until the word stage); RTTY (45.45 Bd,
+    170 Hz) uses the same framing as the listen bar's RTTY decoder. A call after CQ / TEST / DE / TU becomes a spot; it is
+    <b>confirmed</b> when this station has heard the call on WSPR/FT8 (or it is in the configured call list), or it was
+    copied twice on the frequency. Spots are stored in the station's skimmer database, not on the map or table.</p>
 
   <script src="js/config.js"></script>
   <script src="js/viewstate.js"></script>

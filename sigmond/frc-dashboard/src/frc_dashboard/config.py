@@ -59,14 +59,26 @@ DEFAULTS: dict = {
         'idle_timeout_sec': 15,     # remove the channel this long after the browser goes away
     },
     'skimmer': {
-        # CW skimmer for one band (Skimmer tab): one radiod IQ channel
-        # (96 kHz) over the bottom 70 kHz of the band, decoded in its own process.
+        # CW and RTTY skimmers (the /cws page): per band one radiod IQ
+        # channel (96-192 kHz) over its CW range and RTTY segment, decoded
+        # in its own process.  Spots go to their own MongoDB database.
         'enabled': True,
-        'band': '20m',              # starting band; the tab can change it
-        'idle_timeout_sec': 120,    # remove the radiod channel after this long without a viewer
-        'always_on': False,         # run without viewers (needed for a spot feed)
-        'detect_db': 8.0,           # signal detection threshold over the noise, per ~94 Hz bin
-        'max_signals': 60,
+        # Bands skimmed.  Each costs about 1/4 of a CPU core and one 96-192 kHz
+        # radiod IQ channel.  On W3USR-06 (Ryzen 7 5825U VM, radiod pinned to
+        # 2 cores at 92-110 %) running them made radiod drop blocks on every
+        # channel, the WSPR/FT8 recorders' included: 4-6 bands every minute,
+        # 1-2 bands in some minutes.  Measure (sigmond/README.md) before
+        # setting always_on or adding bands.
+        'bands': '40m,20m',
+        'band': '20m',              # band the /cws page shows first
+        'always_on': False,         # True: run all the time; False: only while /cws is open
+        'idle_timeout_sec': 120,    # with always_on off: stop this long after the last viewer
+        'detect_db': 9.0,           # signal detection threshold over the noise, per ~94 Hz bin
+        'max_signals': 40,          # CW signals per band
+        'max_rtty_signals': 30,     # RTTY signals per band
+        'store': True,              # write spots to MongoDB
+        'database': 'skimmer_db',   # ...this database (collection "spots"), not wspr_db
+        'retention_days': 90,       # spots expire after this (TTL index)
         'spotter': '',              # blank -> station callsign without /suffix (RBN style)
         'scp_file': '',             # optional MASTER.SCP-style call list to confirm calls
         'telnet_port': 0,           # >0: serve confirmed spots in RBN/CW Skimmer telnet format

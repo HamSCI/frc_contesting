@@ -43,3 +43,52 @@ def cw_iq(signals, fs: float, seconds: float, snr_ref_db_noise: float = 0.0, see
         ph = 2 * np.pi * s['offset_hz'] * t[i0:i0 + len(env)] + s.get('phase', 0.0)
         x[i0:i0 + len(env)] += (amp * env * np.exp(1j * ph)).astype(np.complex64)
     return x
+
+
+# ── RTTY ──────────────────────────────────────────────────────────────────
+def baudot_bits(text: str):
+    """Baudot frames for text: lists of 5 data bits (LSB first), with LTRS/FIGS shifts."""
+    from frc_dashboard.rttyskim import BAUDOT_FIGS, BAUDOT_LTRS, FIGS, LTRS
+    ltrs = {c: i for i, c in enumerate(BAUDOT_LTRS) if c}
+    figs = {c: i for i, c in enumerate(BAUDOT_FIGS) if c}
+    codes, in_figs = [LTRS, LTRS], False
+    for ch in text:
+        if ch == ' ':
+            codes.append(ltrs[' '])
+            in_figs = False                      # receivers unshift on space
+            continue
+        if ch in ltrs and (not in_figs or ch not in figs):
+            if in_figs:
+                codes.append(LTRS)
+                in_figs = False
+            codes.append(ltrs[ch])
+        else:
+            if not in_figs:
+                codes.append(FIGS)
+                in_figs = True
+            codes.append(figs[ch])
+    codes.append(ltrs[' '])
+    return [[(c >> k) & 1 for k in range(5)] for c in codes]
+
+
+def rtty_iq(signals, fs: float, seconds: float, seed: int = 1, baud: float = 45.45, shift: float = 170.0):
+    """Complex baseband with RTTY signals: dict(offset_hz=pair centre, text, snr_db, start_s).
+    Mark (1) is the higher frequency, as on the air.  SNR in 2500 Hz."""
+    n = int(seconds * fs)
+    rng = np.random.default_rng(seed)
+    x = (rng.standard_normal(n) + 1j * rng.standard_normal(n)).astype(np.complex64) * np.sqrt(0.5)
+    psd = 1.0 / fs
+    sym = fs / baud
+    for s in signals:
+        amp = np.sqrt(psd * 2500 * 10 ** (s['snr_db'] / 10))
+        bits = [1] * int(sym * 0)                # placeholder
+        seq = [(1, 0.3 * baud)]                  # 0.3 s of idle mark
+        for frame in baudot_bits(s['text']):
+            seq += [(0, 1)] + [(b, 1) for b in frame] + [(1, 1.5)]
+        seq += [(1, 0.3 * baud)]
+        tone = np.concatenate([np.full(int(round(d * sym)), (1 if b else -1) * shift / 2) for b, d in seq])
+        i0 = int(s.get('start_s', 0.5) * fs)
+        tone = tone[: max(0, n - i0)]
+        ph = s.get('phase', 0.0) + 2 * np.pi * np.cumsum(s['offset_hz'] + tone) / fs
+        x[i0:i0 + len(tone)] += (amp * np.exp(1j * ph)).astype(np.complex64)
+    return x

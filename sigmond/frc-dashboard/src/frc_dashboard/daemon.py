@@ -197,7 +197,7 @@ class Daemon:
             since = int(query.get('since', 0))
         except ValueError:
             since = 0
-        snap = self.skimmer.snapshot(since)
+        snap = self.skimmer.snapshot(query.get('band', ''), since)
         return (200 if snap.get('running') or snap.get('starting') else 503), snap
 
     def _extra_endpoints(self) -> dict:
@@ -217,7 +217,6 @@ class Daemon:
             f'{base}/close':     lambda q: L.close(q.get('sid')),
             f'{base}/audio':     audio,
             '/x/frc-dashboard/skimmer':      self._skimmer_request,
-            '/x/frc-dashboard/skimmer/band': lambda q: self.skimmer.set_band(q.get('band', '')),
         }
 
     def _probe_loop(self) -> None:
@@ -267,7 +266,7 @@ class Daemon:
 
         self.waterfall.shutdown()       # remove our spectrum channels from radiod
         self.listen.shutdown()          # ...and any listening channels
-        self.skimmer.shutdown()         # ...and the skimmer's IQ channel and engine process
+        self.skimmer.shutdown()         # ...and the skimmers' IQ channels and worker processes
         log.info('stopping gunicorn')
         if self.child and self.child.poll() is None:
             self.child.terminate()

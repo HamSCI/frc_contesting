@@ -47,6 +47,7 @@ This documentation serves to:
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Live FT8/FT4 decoding in the listen bar (branch browser-ft8-ft4-decoding) | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | Issue #76: waterfall band-plan/marker/axis alignment (branch fix-76-waterfall-alignment) | Owen Ruzanski |
 | November 16, 2026 | Claude Opus 5.5 | claude-opus-5-5 | CW skimmer and Skimmer tab (branch cw-skimmer) | Owen Ruzanski |
+| November 17, 2026 | Claude Opus 5.5 | claude-opus-5-5 | RTTY skimmer, per-band workers, skimmer_db spot store, radiod load measurements (branch cw-skimmer) | Owen Ruzanski |
 
 ### Current Model
 
@@ -924,6 +925,40 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 - An SCP file on the station.
 - Real RBN feeding: needs `always_on`, an SNR-scale check, and RBN's own registration and Aggregator setup.
 
+### Session 22: RTTY Skimmer, All-Band Workers and the Skimmer Spot Database (branch `cw-skimmer`)
+**Date**: November 17–18, 2026 (UTC)
+**Model**: Claude Opus 5.5 (claude-opus-5-5)
+**Contributor**: Owen Ruzanski (KD3ALD)
+**Scope**: The request was to run the skimmer all the time on all bands (if the CPU allowed), add an RTTY skimmer, and store CW and RTTY spots in a separate database. Not deployed.
+
+**Activities**:
+- **RTTY engine** (`rttyskim.py`):
+  - Signals: FSK pairs 150–190 Hz apart whose power is anti-correlated, found in the CW engine's filter bank.
+  - Per signal, the IQ is mixed and averaged to a 1.5 kHz baseband. Cumulative sums turned to mark and space give tone energies over any window.
+  - The browser RTTY decoder's framing logic is ported line for line: zero-crossing start edge, bits over their middle 60 %, start and stop checks, ITA2 with unshift on space.
+  - A squelch stops it decoding the noise after an over.
+  - Synthetic: perfect at 0 dB, partial at −5 dB (2.5 kHz). Two stations 500 Hz apart, clean frames 87–100 %.
+- **Per-band workers** (`skimmer.py`):
+  - One IQ channel per band covers its CW range and RTTY segment: 96/128/192 kHz.
+  - One process per band receives the IQ and runs both engines on one shared filter bank.
+  - The supervisor creates the channels, refreshes their lifetimes, restarts dead or stuck workers, and collects state and spots.
+  - `/cws` shows any band, CW and RTTY, with mode and band filters.
+- **Spot database**: `SpotStore` batch-writes every spot to MongoDB `skimmer_db.spots`, with a TTL index (90 days) plus band/mode/ts and call/ts indexes. The `frc` user was granted `readWrite` on `skimmer_db` on W3USR-06, and `setup-mongodb.sh` now grants it too. Verified: 21 spots stored in a 4-minute run.
+- **CPU work**, measured on the station:
+  - OpenBLAS's per-core spinning threads, pulled in by `np.corrcoef`, cost 600–2,400 radiod drops a minute. Now there is one BLAS thread per worker, with no BLAS calls.
+  - Double-precision FFT, about 2× faster than single on that numpy.
+  - A shared filter bank, vectorised Otsu speed estimation, a lighter noise floor, nice 10, and staggered bands.
+- **Result**:
+  - Even 1–2 always-running bands made radiod drop blocks in some minutes (e.g. 0/0/0/266; 39/0/129/0); 3–6 bands did in most minutes.
+  - Six channels received without decoding: 0 drops, so the cause is CPU next to radiod (2 vCPUs at 92–110 %), not the channels.
+  - Hence `always_on = false` and `bands = "40m,20m"` are the defaults; the table is in `sigmond/README.md`.
+  - A worker takes about 25–35 % of a core, a third of it in ka9q-python's per-packet receive path.
+- 42 dashboard tests pass on the station venv (5 new for RTTY and the shared filter bank). The CW/RTTY/FT8 browser decoder tests pass too. `/cws` was checked in headless Chrome on a dev copy.
+
+**Open**:
+- Running always-on needs radiod headroom on W3USR-06: another core for radiod, another host for the skimmers, or a cheaper receive path (S16 packets, a C receiver).
+- RTTY is not yet verified on real signals (none were on the air during testing).
+
 ## Version History
 
 | Version | Date | Changes | Model Used |
@@ -947,6 +982,7 @@ The fixes: `plan_band()` picks a 5-smooth `samprate/rbw` from radiod's real samp
 | 2.6 | November 16, 2026 | Added Session 19: live FT8/FT4 decoding (branch browser-ft8-ft4-decoding) | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.7 | November 16, 2026 | Added Session 20: issue #76 waterfall alignment fix | Claude Opus 5.5 (claude-opus-5-5) |
 | 2.8 | November 16, 2026 | Added Session 21: CW skimmer and Skimmer tab | Claude Opus 5.5 (claude-opus-5-5) |
+| 2.9 | November 18, 2026 | Added Session 22: RTTY skimmer, per-band workers, skimmer_db, radiod load findings | Claude Opus 5.5 (claude-opus-5-5) |
 
 ---
 

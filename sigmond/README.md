@@ -268,63 +268,75 @@ To turn it off: `[listen] enabled = false`, then `smd restart frc-dashboard`.
 To turn the tab off: `[waterfall] enabled = false` in
 `/etc/frc-dashboard/frc-dashboard-config.toml`, then `smd restart frc-dashboard`.
 
-## CW skimmer (`/cws`)
+## CW and RTTY skimmers (`/cws`)
 
-Decodes every CW signal in the bottom 70 kHz of one band at once (the band
-is chosen on the page), and spots callsigns that call CQ, in Reverse Beacon
-Network format. It is reached at `http://<station>:5000/cws`. It is not a
-dashboard tab yet (the tab code is in place, but its button was removed
-from `templates/both.html` for now), and spots are not on the map or table.
+Decode every CW and RTTY signal on the skimmed bands, spot callsigns that
+call CQ in Reverse Beacon Network format, and store the spots in their own
+MongoDB database, `skimmer_db.spots` (CW and RTTY only; not on the map or
+table). The page is `http://<station>:5000/cws`; it is not a dashboard tab.
 
-* **Path.** One radiod IQ channel (preset `iq`, 96 kHz, ±46 kHz) through
-  ka9q-python, received by a `RadiodStream` in the supervisor and passed over
-  a pipe to a separate engine process (`skimmer.py`, `cwskim.py`). In the
-  supervisor's own process the DSP starved the receive thread and the kernel
-  dropped about 8 % of the packets. IQ packets carry 180 complex samples
-  each, which is also the RTP timestamp step.
-* **radiod cost.** An ordinary channel like the recorders' channels, not a
-  spectrum channel. Measured on W3USR-06: 0 `filter_drops` summed over all
-  45 channels before, during and after. The engine takes about 12 % of one
-  core.
-* **Decoder.** After VE3NEA's advice on CW Skimmer's design (keep
-  probabilities, not hard decisions, all the way to the word stage):
-  1. An STFT filter bank: 16 ms Hann window, 31.25 Hz bins, 4 ms hop.
-  2. Per signal, a coherent average over about a third of a dit.
-  3. A key-down vs key-up likelihood ratio per frame (Rician vs Rayleigh) and
-     a two-state Viterbi.
-  4. Dit/dah and gap probabilities from log-normal timing models, with
-     D. L. Mills' priors.
-  5. A beam search over the Morse tree.
-  6. Word priors: common CW words, callsign shapes, and calls this station has
-     heard.
+* **Per band** (`[skimmer] bands`, default `40m,20m`): one radiod IQ channel
+  covering the band's CW range (the bottom 70 kHz) and its RTTY segment:
+  96 kHz on 160 m (CW only), 128 kHz on 80/40 m, 192 kHz on 20/15/10 m.
+  Each band runs in its own worker process (`skimmer.py`). The worker
+  receives the IQ with `RadiodStream` and feeds one shared filter bank to the
+  CW engine (`cwskim.py`) and the RTTY engine (`rttyskim.py`).
+* **CW**: after VE3NEA's advice on CW Skimmer's design, keeping
+  probabilities, not hard decisions, up to the word stage. Details are in the
+  `cwskim.py` docstring.
+* **RTTY** (45.45 Bd, 170 Hz): FSK pairs found in the filter bank, then each
+  pair decoded with the framing of the browser's RTTY decoder
+  (`static/js/decoders.js`) on a 1.5 kHz baseband. The mark (higher) tone's
+  frequency is reported.
+* **Spots**: a call within three words after CQ / TEST / DE / TU (or before
+  TEST). It is *confirmed* if this station heard it on WSPR/FT8/FT4, it is in
+  `scp_file`, or it was copied twice on the frequency. Each document holds
+  `{ts, band, mode, freq_khz, call, snr_db, speed, speed_unit, type,
+  confirmed, reason, spotter, rbn}`; a TTL index expires spots after
+  `retention_days` (90). The `frc` user needs `readWrite` on `skimmer_db`
+  (`scripts/setup-mongodb.sh` grants it).
+* **RBN feed**: with `telnet_port` set, confirmed spots are served in the
+  CW Skimmer / RBN telnet layout. It is off by default, and nothing is
+  uploaded.
 
-  Details are in the `cwskim.py` docstring.
-* **Spots.** A call within three words after CQ / TEST / DE / TU (or just
-  before TEST) is a spot. It is *confirmed* when the call has been heard by
-  this station on WSPR/FT8/FT4 (MongoDB, about 28,000 calls on W3USR-06) or
-  is in `scp_file`, or when it was copied twice on that frequency.
-  Unconfirmed spots are shown greyed out and never go to the feed. A call is
-  spotted again only after 10 minutes, or 1 kHz away.
-* **RBN feed (off).** With `telnet_port` set, confirmed spots are served as a
-  DX-cluster telnet feed in the CW Skimmer / RBN layout:
-  `DX de W3USR-#:   14025.0  K1ABC        CW    23 dB  25 WPM  CQ      1928Z`.
-  This is the interface the RBN Aggregator reads. The dashboard uploads
-  nothing itself. Before feeding RBN:
-  * set `always_on = true`;
-  * check that the SNR scale suits RBN (ours is dB over the noise in a ~94 Hz
-    bin);
-  * leave `telnet_bind` on 127.0.0.1 unless the Aggregator runs elsewhere.
-* **What it does today** (W3USR-06, 16 Nov 2026, evening):
-  * Machine-sent and strong signals copy well, e.g. "VA3AR VA3AR VA3AR",
-    "W5HVV W5HVV W5HVV W5HVV", "CQ ... DE KF9VV", "UR 5NN 5NN".
-  * Hand-sent rag-chew copies partly.
-  * Signals below about −6 dB in 2.5 kHz (about 8 dB per bin) are mostly
-    lost.
-  * Synthetic tests: clean copy at 18–40 WPM down to about −5 dB, and two
-    stations 120 Hz apart both decoded.
-* **Try it without the dashboard:**
-  `cd .../sigmond/frc-dashboard/src && ../venv/bin/python -m frc_dashboard.skimmer live --band 40m --seconds 120`
-  prints spots, then each signal's text.
+### Running all the time: read this first
+
+`always_on = false` is the default: the skimmers run only while `/cws` is
+open. On W3USR-06 (Ryzen 7 5825U VM), always-on skimmers made radiod drop
+blocks. radiod is pinned to 2 vCPUs that already run at 92–110 %. Other
+load on the VM leaves it no headroom, and its drops hit every channel, the
+WSPR/FT8 recorders' `usb` channels most.
+
+Measured 17–18 Nov 2026 with `filter_drops` summed over all 51 channels. The
+baseline was 0 in every minute before and after each test.
+
+| Skimmed bands (CW + RTTY) | radiod drops per minute |
+|---|---|
+| 6 bands, numpy with default OpenBLAS threads | 600–2,400 |
+| 6 bands, one BLAS thread per worker (current code) | 13–64 steady; 1,185 in the start-up minute |
+| 4 bands | 46, 841, 46, 63 |
+| 3 bands | 0, 0, 44, 16 |
+| 2 bands (40/20 m) | first run 0, 0, 0, 0; second run 39, 0, 129, 0 |
+| 1 band (40 m) | 0, 0, 0, 266 |
+| 6 IQ channels received, no decoding | 0 |
+
+So radiod is not hurt by the channels themselves, only by the CPU load next
+to it. Each band's worker takes about 25–35 % of one core. About a third of
+that is ka9q-python's per-packet receive path (about 1,100 packets/s at
+192 kHz); the rest is the filter bank, the Viterbi and the RTTY mixing.
+
+Before setting `always_on`, any of these would help:
+* give radiod more CPU headroom;
+* move the skimmers to another host that receives the multicast;
+* make the receive path cheaper (S16 packets, a C receiver).
+
+Then measure as above.
+
+**Fixes the numbers above depend on**: workers run with one BLAS/OpenMP
+thread (OpenBLAS's spinning thread pool cost hundreds of radiod drops a
+minute), at nice 10, with staggered block timing, and the CW and RTTY
+engines share one filter bank (numpy's FFT is about 2x faster in double
+precision than in single on this CPU).
 
 To turn it off: `[skimmer] enabled = false`, then `smd restart frc-dashboard`.
 

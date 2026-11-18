@@ -7,8 +7,10 @@
 #    trixie's libssl3t64/libcurl4t64).
 #  * bindIp 127.0.0.1, WiredTiger cache capped at 0.5 GB, authorization on.
 #  * Users: mongoadmin (root, /etc/frc-contesting/mongodb-admin.env, 0600)
-#           frc        (readWrite on wspr_db, /etc/frc-contesting/mongodb.env,
-#                       0640 root:frc — read by both FRC services)
+#           frc        (readWrite on wspr_db and skimmer_db,
+#                       /etc/frc-contesting/mongodb.env, 0640 root:frc — read
+#                       by both FRC services; skimmer_db holds the CW/RTTY
+#                       skimmer spots, apart from the WSPR/FT8 spots)
 #  * mongod pinned like sigmond's other background units (off radiod cores).
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "needs root" >&2; exit 1; }
@@ -112,11 +114,13 @@ else
       else { db.createUser({user: u, pwd: p, roles: r}); }
     }
     upsert('mongoadmin', '$ADMIN_PW', ['root']);
-    upsert('frc', '$FRC_PW', [{role: 'readWrite', db: 'wspr_db'}]);"
+    upsert('frc', '$FRC_PW', [{role: 'readWrite', db: 'wspr_db'}, {role: 'readWrite', db: 'skimmer_db'}]);"
 fi
 trap - EXIT
 write_conf ""
 systemctl restart mongod
 wait_mongod
 mongosh --quiet -u frc -p "$FRC_PW" --authenticationDatabase admin --eval 'db.runCommand({ping:1}).ok' >/dev/null
+# Hosts set up before the skimmer: give frc its database too (idempotent).
+mongosh --quiet -u mongoadmin -p "$ADMIN_PW" --authenticationDatabase admin admin   --eval "db.grantRolesToUser('frc', [{role: 'readWrite', db: 'skimmer_db'}])" >/dev/null
 echo "[setup-mongodb] mongod $(mongod --version | head -1 | awk '{print $3}') running with auth on 127.0.0.1:27017"
