@@ -8,4 +8,4 @@ Per-session record of AI-assisted work (convention A1). Earlier sessions are rec
 - **Sections/Files Affected**: static/img/logos/ (w3usr-logo-512.png, w3usr-logo-bw-512.png, hamsci-logo-white.svg, hamsci-logo-black.svg, README.md); ai/ai_usage_log.md (new)
 - **Nature of Contribution**: Asset copying from w3usr/w3usr.org-PRIVATE @ 491d5f9 and HamSCI/hamsci.org-PRIVATE @ 72da094; provenance README drafted, including link targets set by W2NAF (scranton.edu/w3usr, hamsci.org); issue drafting
 - **Human Review Status**: Pending review
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: bcf51ca (branch acknowledgment-logos; handoff branch, no PR)
